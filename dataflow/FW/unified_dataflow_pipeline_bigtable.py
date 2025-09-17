@@ -9,13 +9,13 @@ import argparse
 import logging
 import json
 from datetime import datetime
-from pathlib import Path
+# from pathlib import Path
 import apache_beam as beam
 from apache_beam.options.pipeline_options import PipelineOptions, StandardOptions
 
 # Import common modules
-import sys
-sys.path.append(str(Path(__file__).parent.parent))
+# import sys
+# sys.path.append(str(Path(__file__).parent.parent))
 
 from dataflow_common import (
     # PipelineConfig,

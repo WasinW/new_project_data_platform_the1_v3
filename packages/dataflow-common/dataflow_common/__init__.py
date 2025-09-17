@@ -10,6 +10,9 @@ This package contains reusable components for building data pipelines:
 - orchestrator: Pipeline orchestration
 """
 
+from .__version__ import __version__, __author__, __email__
+
+# Core imports
 from .core import (
     PipelineStep,
     DataConnector,
@@ -26,12 +29,14 @@ from .core import (
     batch_elements
 )
 
+# Config imports
 from .config import (
     CommonPipelineConfig,
     JobConfig,
     DataflowJobConfig
 )
 
+# Connector imports
 from .connectors import (
     BigQueryConnector,
     PubSubConnector,
@@ -40,6 +45,7 @@ from .connectors import (
     ConnectorFactory
 )
 
+# Transformer imports
 from .transformers import (
     MappingLoader,
     ColumnMapper,
@@ -52,6 +58,7 @@ from .transformers import (
     NotificationParser
 )
 
+# Step imports
 from .steps import (
     ReadFromBigQueryStep,
     ReadFromPubSubStep,
@@ -64,6 +71,7 @@ from .steps import (
     BranchingStep
 )
 
+# Orchestrator imports
 from .orchestrator import (
     PipelineOrchestrator,
     ConfigManager
@@ -71,6 +79,13 @@ from .orchestrator import (
 
 __version__ = "1.0.0"
 __all__ = [
+# Define what's available when using "from dataflow_common import *"
+__all__ = [
+    # Version info
+    '__version__',
+    '__author__',
+    '__email__',
+    
     # Core
     'PipelineStep',
     'DataConnector',
@@ -124,3 +139,9 @@ __all__ = [
     'PipelineOrchestrator',
     'ConfigManager'
 ]
+
+# Package metadata
+__package_name__ = 'dataflow-common-the1'
+__description__ = 'Common modules for THE1 Dataflow pipelines'
+__url__ = 'https://github.com/the1/dataflow-common'
+__license__ = 'Apache 2.0'
