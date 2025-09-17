@@ -27,7 +27,7 @@ from .core import (
 )
 
 from .config import (
-    PipelineConfig,
+    CommonPipelineConfig,
     JobConfig,
     DataflowJobConfig
 )
@@ -87,7 +87,7 @@ __all__ = [
     'batch_elements',
     
     # Config
-    'PipelineConfig',
+    'CommonPipelineConfig',
     'JobConfig',
     'DataflowJobConfig',
     

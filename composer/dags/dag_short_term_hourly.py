@@ -1,6 +1,6 @@
 """
-Airflow DAG for MS Member Short Term Hourly Batch Pipeline (Refactored)
-Loads configuration from YAML file
+Airflow DAG for MS Member Short Term Hourly Batch Pipeline (Refactored v2)
+Loads configuration from YAML with defaults support - NO HARD CODED VALUES
 """
 
 from airflow import DAG
@@ -12,48 +12,165 @@ from datetime import datetime, timedelta
 import yaml
 import logging
 import os
+import json
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-# Configuration paths
+# Configuration paths - these are the ONLY hard coded paths
 CONFIG_PATH = os.environ.get('SHORT_TERM_CONFIG', 
                             '/home/airflow/gcs/dags/composer/config/ms_member/batch/short_term_hourly.yaml')
+DEFAULTS_PATH = os.environ.get('DEFAULTS_CONFIG',
+                              '/home/airflow/gcs/dags/composer/config/ms_member/common/defaults.yaml')
 
 
-def load_config(**context):
-    """Load configuration from YAML file"""
+def merge_configs(base_config: dict, override_config: dict) -> dict:
+    """Recursively merge configurations"""
+    import copy
+    result = copy.deepcopy(base_config)
+    
+    for key, value in override_config.items():
+        if key in result and isinstance(result[key], dict) and isinstance(value, dict):
+            result[key] = merge_configs(result[key], value)
+        else:
+            result[key] = value
+    
+    return result
+
+
+def load_and_prepare_config(**context):
+    """Load configuration from YAML file with defaults and prepare for Dataflow"""
+    
+    # Load defaults first
+    defaults = {}
+    if os.path.exists(DEFAULTS_PATH):
+        with open(DEFAULTS_PATH, 'r') as f:
+            defaults_file = yaml.safe_load(f)
+            defaults = defaults_file.get('defaults', {})
+        logger.info(f"Loaded defaults from {DEFAULTS_PATH}")
+    else:
+        logger.warning(f"Defaults file not found at {DEFAULTS_PATH}")
+    
+    # Load main configuration
     with open(CONFIG_PATH, 'r') as f:
         config = yaml.safe_load(f)
     
+    # Check if config references another defaults file
+    if 'defaults_file' in config:
+        defaults_ref_path = Path(CONFIG_PATH).parent / config['defaults_file']
+        if defaults_ref_path.exists():
+            with open(defaults_ref_path, 'r') as f:
+                ref_defaults = yaml.safe_load(f)
+                defaults = merge_configs(defaults, ref_defaults.get('defaults', {}))
+    
+    # Merge defaults with config (config overrides defaults)
+    final_config = merge_configs(defaults, config)
+    
+    # Flatten configuration for Dataflow parameters - NO HARD CODED DEFAULTS
+    dataflow_params = {
+        # GCP settings
+        'project_id': final_config['gcp']['project_id'],
+        'env': final_config['gcp'].get('environment'),
+        
+        # Pipeline settings
+        'term_type': final_config['pipeline']['term_type'],
+        'mode': final_config['pipeline'].get('mode'),
+        
+        # Datasets - from merged config
+        'source_dataset': final_config['datasets'].get('source_dataset'),
+        'staging_dataset': final_config['datasets'].get('staging_dataset'),
+        'refined_dataset': final_config['datasets'].get('refined_dataset'),
+        
+        # Tables - from merged config
+        'source_table': final_config.get('tables', {}).get('source_table'),
+        'stg_source_table': final_config.get('tables', {}).get('stg_source_table'),
+        'stg_origin_table': final_config.get('tables', {}).get('stg_origin_table'),
+        'refined_ongoing_table': final_config.get('tables', {}).get('refined_ongoing_table'),
+        'audit_table': final_config.get('tables', {}).get('audit_table'),
+        'mapping_table': final_config.get('tables', {}).get('mapping_table'),
+        'error_table': final_config.get('tables', {}).get('error_table'),
+        
+        # Batch processing settings
+        'min_batch_size': final_config.get('batch', {}).get('min_batch_size'),
+        'max_batch_size': final_config.get('batch', {}).get('max_batch_size'),
+        'enrichment_batch_size': final_config.get('batch', {}).get('enrichment_batch_size'),
+        'partition_filter': final_config.get('batch', {}).get('partition_filter'),
+        'read_method': final_config.get('batch', {}).get('read_method'),
+        'write_method': final_config.get('batch', {}).get('write_method'),
+        
+        # Data quality settings
+        'max_errors_percent': final_config.get('data_quality', {}).get('max_errors_percent'),
+        'validation_rules': json.dumps(final_config.get('data_quality', {}).get('validation_rules', [])),
+        'split_output': final_config.get('data_quality', {}).get('split_output'),
+        'write_errors': final_config.get('data_quality', {}).get('write_errors'),
+        
+        # BigQuery settings
+        'bq_priority': final_config.get('bigquery', {}).get('priority'),
+        'bq_write_disposition': final_config.get('bigquery', {}).get('write_disposition'),
+        'bq_create_disposition': final_config.get('bigquery', {}).get('create_disposition'),
+        
+        # Monitoring settings
+        'metrics_enabled': final_config.get('monitoring', {}).get('metrics_enabled'),
+        'audit_enabled': final_config.get('monitoring', {}).get('audit_enabled'),
+        'error_tracking_enabled': final_config.get('monitoring', {}).get('error_tracking_enabled'),
+        
+        # Retry settings
+        'max_retries': final_config.get('retry', {}).get('max_retries'),
+        'initial_backoff': final_config.get('retry', {}).get('initial_backoff_seconds'),
+        'max_backoff': final_config.get('retry', {}).get('max_backoff_seconds'),
+        
+        # Service account
+        'specific_sa': final_config.get('dataflow', {}).get('service_account'),
+        
+        # Store complete config as JSON for complex nested structures
+        'raw_config': json.dumps(final_config)
+    }
+    
+    # Remove None values - pipeline will use its own defaults if needed
+    dataflow_params = {k: v for k, v in dataflow_params.items() if v is not None}
+    
     # Store in XCom for other tasks
-    context['ti'].xcom_push(key='config', value=config)
-    logger.info(f"Loaded configuration for {config['pipeline']['name']}")
-    return config
+    context['ti'].xcom_push(key='config', value=final_config)
+    context['ti'].xcom_push(key='dataflow_params', value=dataflow_params)
+    
+    logger.info(f"Loaded configuration for {final_config['pipeline']['name']}")
+    logger.info(f"Prepared {len(dataflow_params)} parameters for Dataflow")
+    
+    return final_config
 
 
-# Define default arguments from config
-with open(CONFIG_PATH, 'r') as f:
-    config = yaml.safe_load(f)
+# Load initial config for DAG setup
+initial_config = {}
+if os.path.exists(CONFIG_PATH):
+    with open(CONFIG_PATH, 'r') as f:
+        initial_config = yaml.safe_load(f)
 
+# Load defaults for DAG setup
+if os.path.exists(DEFAULTS_PATH):
+    with open(DEFAULTS_PATH, 'r') as f:
+        defaults = yaml.safe_load(f).get('defaults', {})
+        initial_config = merge_configs(defaults, initial_config)
+
+# Define default arguments from merged config
 default_args = {
-    'owner': config.get('owner', 'data-engineering'),
-    'depends_on_past': config.get('depends_on_past', False),
+    'owner': initial_config.get('owner'),
+    'depends_on_past': initial_config.get('depends_on_past', False),
     'start_date': datetime(2024, 1, 1),
-    'retries': config.get('retries', 2),
-    'retry_delay': timedelta(minutes=config.get('retry_delay_minutes', 5)),
-    'email_on_failure': config.get('email_on_failure', False),
-    'email_on_retry': config.get('email_on_retry', False),
+    'retries': initial_config.get('retries', 0),
+    'retry_delay': timedelta(minutes=initial_config.get('retry_delay_minutes', 5)),
+    'email_on_failure': initial_config.get('email_on_failure', False),
+    'email_on_retry': initial_config.get('email_on_retry', False),
 }
 
 # Define DAG
 with DAG(
-    config['pipeline']['name'],
+    initial_config.get('pipeline', {}).get('name', 'ms_member_pipeline'),
     default_args=default_args,
-    description=config['pipeline']['description'],
-    schedule_interval=config['pipeline']['schedule'],
+    description=initial_config.get('pipeline', {}).get('description', ''),
+    schedule_interval=initial_config.get('pipeline', {}).get('schedule'),
     catchup=False,
     max_active_runs=1,
-    tags=config['job']['tags'],
+    tags=initial_config.get('job', {}).get('tags', []),
 ) as dag:
 
     # Start marker
@@ -61,48 +178,44 @@ with DAG(
         task_id='start_pipeline'
     )
     
-    # Load configuration
-    load_config_task = PythonOperator(
-        task_id='load_config',
-        python_callable=load_config,
+    # Load and prepare configuration
+    prepare_config_task = PythonOperator(
+        task_id='prepare_config',
+        python_callable=load_and_prepare_config,
         provide_context=True
     )
     
-    # Trigger Dataflow job
+    # Trigger Dataflow job with all parameters from config
     run_dataflow_batch = BeamRunPythonPipelineOperator(
         task_id='run_dataflow_batch',
-        py_file="{{ ti.xcom_pull(task_ids='load_config', key='config')['storage']['dataflow_file'] }}",
+        py_file="{{ ti.xcom_pull(task_ids='prepare_config', key='config')['storage']['dataflow_file'] }}",
         pipeline_options={
-            'project': "{{ ti.xcom_pull(task_ids='load_config', key='config')['gcp']['project_id'] }}",
-            'region': "{{ ti.xcom_pull(task_ids='load_config', key='config')['gcp']['location'] }}",
+            # Standard Dataflow options
+            'project': "{{ ti.xcom_pull(task_ids='prepare_config', key='config')['gcp']['project_id'] }}",
+            'region': "{{ ti.xcom_pull(task_ids='prepare_config', key='config')['gcp']['location'] }}",
             'runner': 'DataflowRunner',
-            'temp_location': "{{ ti.xcom_pull(task_ids='load_config', key='config')['storage']['temp_location'] }}",
-            'staging_location': "{{ ti.xcom_pull(task_ids='load_config', key='config')['storage']['staging_location'] }}",
-            'machine_type': "{{ ti.xcom_pull(task_ids='load_config', key='config')['dataflow']['machine_type'] }}",
-            'max_num_workers': "{{ ti.xcom_pull(task_ids='load_config', key='config')['dataflow']['max_num_workers'] }}",
-            'job_name': "{{ ti.xcom_pull(task_ids='load_config', key='config')['job']['name_template'] }}",
-            'save_main_session': "{{ ti.xcom_pull(task_ids='load_config', key='config')['dataflow']['save_main_session'] }}",
-            # Custom pipeline arguments
-            'project_id': "{{ ti.xcom_pull(task_ids='load_config', key='config')['gcp']['project_id'] }}",
-            'term_type': "{{ ti.xcom_pull(task_ids='load_config', key='config')['pipeline']['term_type'] }}",
-            'env': "{{ ti.xcom_pull(task_ids='load_config', key='config')['gcp']['environment'] }}",
-            'source_dataset': "{{ ti.xcom_pull(task_ids='load_config', key='config')['datasets']['source_dataset'] }}",
-            'staging_dataset': "{{ ti.xcom_pull(task_ids='load_config', key='config')['datasets']['staging_dataset'] }}",
-            'refined_dataset': "{{ ti.xcom_pull(task_ids='load_config', key='config')['datasets']['refined_dataset'] }}",
-            'specific_sa': "{{ ti.xcom_pull(task_ids='load_config', key='config')['dataflow'].get('service_account', '') }}",
+            'temp_location': "{{ ti.xcom_pull(task_ids='prepare_config', key='config')['storage']['temp_location'] }}",
+            'staging_location': "{{ ti.xcom_pull(task_ids='prepare_config', key='config')['storage']['staging_location'] }}",
+            'machine_type': "{{ ti.xcom_pull(task_ids='prepare_config', key='config')['dataflow']['machine_type'] }}",
+            'max_num_workers': "{{ ti.xcom_pull(task_ids='prepare_config', key='config')['dataflow']['max_num_workers'] }}",
+            'job_name': "{{ ti.xcom_pull(task_ids='prepare_config', key='config')['job']['name_template'] }}",
+            'save_main_session': "{{ ti.xcom_pull(task_ids='prepare_config', key='config')['dataflow']['save_main_session'] }}",
+            
+            # Pass ALL parameters from prepared config - no defaults here
+            **{{ ti.xcom_pull(task_ids='prepare_config', key='dataflow_params') }}
         },
-        execution_timeout=timedelta(minutes=config['dataflow']['execution_timeout_minutes']),
-        py_requirements=config['dataflow']['python_requirements'],
+        execution_timeout=timedelta(minutes=initial_config.get('dataflow', {}).get('execution_timeout_minutes', 30)),
+        py_requirements=initial_config.get('dataflow', {}).get('python_requirements', []),
         py_interpreter='python3',
         gcp_conn_id='google_cloud_default',
     )
 
-    # Data quality check
+    # Data quality check using config values
     data_quality_check = BigQueryInsertJobOperator(
         task_id='data_quality_check',
         configuration={
             "query": {
-                "query": f"""
+                "query": """
                 -- Data quality check for hourly batch
                 WITH quality_metrics AS (
                     SELECT 
@@ -110,9 +223,9 @@ with DAG(
                         COUNT(*) as record_count,
                         COUNT(DISTINCT member_number) as unique_members,
                         MAX(ingested_at) as last_ingested
-                    FROM `{{{{ ti.xcom_pull(task_ids='load_config', key='config')['gcp']['project_id'] }}}}.{{{{ ti.xcom_pull(task_ids='load_config', key='config')['datasets']['staging_dataset'] }}}}.stg_ms_personas`
+                    FROM `{{ ti.xcom_pull(task_ids='prepare_config', key='config')['gcp']['project_id'] }}.{{ ti.xcom_pull(task_ids='prepare_config', key='config')['datasets']['staging_dataset'] }}.{{ ti.xcom_pull(task_ids='prepare_config', key='config')['tables']['stg_source_table'] }}`
                     WHERE DATE(ingested_at) = CURRENT_DATE()
-                        AND DATETIME(ingested_at) >= DATETIME_SUB(CURRENT_DATETIME(), INTERVAL {{{{ ti.xcom_pull(task_ids='load_config', key='config')['data_quality']['checks'][2]['max_hours'] }}}} HOUR)
+                        AND DATETIME(ingested_at) >= DATETIME_SUB(CURRENT_DATETIME(), INTERVAL {{ ti.xcom_pull(task_ids='prepare_config', key='config')['data_quality']['checks'][2]['max_hours'] }} HOUR)
                     
                     UNION ALL
                     
@@ -121,24 +234,25 @@ with DAG(
                         COUNT(*) as record_count,
                         COUNT(DISTINCT member_number) as unique_members,
                         MAX(ingested_at) as last_ingested
-                    FROM `{{{{ ti.xcom_pull(task_ids='load_config', key='config')['gcp']['project_id'] }}}}.{{{{ ti.xcom_pull(task_ids='load_config', key='config')['datasets']['staging_dataset'] }}}}.stg_ms_member`
+                    FROM `{{ ti.xcom_pull(task_ids='prepare_config', key='config')['gcp']['project_id'] }}.{{ ti.xcom_pull(task_ids='prepare_config', key='config')['datasets']['staging_dataset'] }}.{{ ti.xcom_pull(task_ids='prepare_config', key='config')['tables']['stg_origin_table'] }}`
                     WHERE DATE(ingested_at) = CURRENT_DATE()
-                        AND DATETIME(ingested_at) >= DATETIME_SUB(CURRENT_DATETIME(), INTERVAL {{{{ ti.xcom_pull(task_ids='load_config', key='config')['data_quality']['checks'][2]['max_hours'] }}}} HOUR)
+                        AND DATETIME(ingested_at) >= DATETIME_SUB(CURRENT_DATETIME(), INTERVAL {{ ti.xcom_pull(task_ids='prepare_config', key='config')['data_quality']['checks'][2]['max_hours'] }} HOUR)
                 )
                 SELECT 
                     *,
                     CASE 
-                        WHEN record_count < {{{{ ti.xcom_pull(task_ids='load_config', key='config')['data_quality']['checks'][0]['warning_threshold'] }}}} THEN 'WARNING: Low record count'
+                        WHEN record_count < {{ ti.xcom_pull(task_ids='prepare_config', key='config')['data_quality']['checks'][0]['warning_threshold'] }} THEN 'WARNING: Low record count'
                         ELSE 'OK'
                     END as status,
                     CURRENT_DATETIME() as check_timestamp
                 FROM quality_metrics
                 """,
-                "useLegacySql": False
+                "useLegacySql": False,
+                "priority": "{{ ti.xcom_pull(task_ids='prepare_config', key='config')['bigquery']['priority'] }}"
             }
         },
         gcp_conn_id='google_cloud_default',
-        location="{{ ti.xcom_pull(task_ids='load_config', key='config')['gcp']['location'] }}",
+        location="{{ ti.xcom_pull(task_ids='prepare_config', key='config')['gcp']['location'] }}",
     )
     
     # End marker
@@ -147,4 +261,4 @@ with DAG(
     )
     
     # Define DAG flow
-    start_pipeline >> load_config_task >> run_dataflow_batch >> data_quality_check >> end_pipeline
+    start_pipeline >> prepare_config_task >> run_dataflow_batch >> data_quality_check >> end_pipeline

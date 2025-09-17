@@ -154,81 +154,239 @@ class StreamingColumnMapper(beam.DoFn):
         yield mapped_record
 
 
-class EnrichAndMapColumns(beam.DoFn):
-    """Enrich and map columns for batch mode with existing data lookup"""
+# class EnrichAndMapColumns(beam.DoFn):
+#     """Enrich and map columns for batch mode with existing data lookup"""
     
-    def __init__(self, config: PipelineConfig, target_table: str, mapping_type: str):
+#     def __init__(self, config: PipelineConfig, target_table: str, mapping_type: str):
+#         self.config = config
+#         self.target_table = target_table
+#         self.mapping_type = mapping_type
+#         self.column_mapping = None
+#         self.batch_size = 500
+        
+#     def setup(self):
+#         """Load mapping once"""
+#         all_mappings = MappingLoader.load_mapping(self.config)
+#         self.column_mapping = all_mappings.get(self.mapping_type, {})
+#         logger.info(f"Loaded {len(self.column_mapping)} mappings for {self.mapping_type}")
+        
+#     def process(self, element_batch):
+#         """Process batch - query and map in one operation"""
+#         # Extract member IDs
+#         member_ids = []
+#         for elem in element_batch:
+#             member_id = elem.get('member_number') or elem.get('member_id')
+#             if member_id:
+#                 member_ids.append(str(member_id))
+        
+#         # Query existing members if available
+#         existing_members = {}
+#         if member_ids:
+#             try:
+#                 client = bigquery.Client(project=self.config.project_id)
+                
+#                 # Query existing records
+#                 query = f"""
+#                 SELECT * 
+#                 FROM `{self.config.get_full_table_id(self.config.staging_dataset, self.config.stg_origin_table)}`
+#                 WHERE member_number IN ({','.join([f"'{id}'" for id in member_ids])})
+#                 """
+                
+#                 query_job = client.query(query)
+#                 for row in query_job:
+#                     existing_members[row['member_number']] = dict(row)
+                    
+#                 logger.info(f"Enriched {len(existing_members)} members from {self.config.stg_origin_table}")
+                
+#             except Exception as e:
+#                 logger.error(f"Error querying existing members: {e}")
+        
+#         # Process each element with mapping
+#         for elem in element_batch:
+#             member_id = elem.get('member_number') or elem.get('member_id')
+#             existing_data = existing_members.get(member_id, {})
+            
+#             mapped_record = {}
+            
+#             # Apply column mapping with fallback to existing data
+#             for source_col, target_col in self.column_mapping.items():
+#                 if target_col in elem and elem[target_col] is not None:
+#                     # Use value from new data
+#                     mapped_record[source_col] = elem[target_col]
+#                 elif target_col in existing_data:
+#                     # Fallback to existing member data
+#                     mapped_record[source_col] = existing_data[target_col]
+#                 else:
+#                     # No value available
+#                     mapped_record[source_col] = None
+            
+#             # Add metadata
+#             mapped_record['_metadata'] = {
+#                 'ingested_at': datetime.utcnow().isoformat(),
+#                 'enriched': member_id in existing_members,
+#                 'target_table': self.target_table
+#             }
+            
+#             yield mapped_record
+class EnrichAndMapColumns(beam.DoFn):
+    """Enrich and map columns for batch mode with existing data lookup
+    Optimized version: Query once, map while iterating results (Better Big O)
+    NO HARD CODED VALUES - All from config
+    """
+    
+    def __init__(self, config: CommonPipelineConfig, target_table: str, mapping_type: str, batch_size: int = None):
         self.config = config
         self.target_table = target_table
         self.mapping_type = mapping_type
+        # Get batch_size from config or parameter, NO DEFAULT
+        self.batch_size = batch_size or config.get('enrichment_batch_size')
+        if not self.batch_size:
+            raise ValueError("batch_size must be provided either as parameter or in config")
         self.column_mapping = None
-        self.batch_size = 500
         
     def setup(self):
         """Load mapping once"""
         all_mappings = MappingLoader.load_mapping(self.config)
         self.column_mapping = all_mappings.get(self.mapping_type, {})
         logger.info(f"Loaded {len(self.column_mapping)} mappings for {self.mapping_type}")
+        logger.info(f"Using batch_size: {self.batch_size}")
         
     def process(self, element_batch):
-        """Process batch - query and map in one operation"""
-        # Extract member IDs
+        """Process batch - query and map in ONE PASS for better performance"""
+        # Create a dictionary to hold elements by member_id for quick lookup
+        elements_by_member = {}
         member_ids = []
+        
         for elem in element_batch:
             member_id = elem.get('member_number') or elem.get('member_id')
             if member_id:
-                member_ids.append(str(member_id))
+                member_id_str = str(member_id)
+                elements_by_member[member_id_str] = elem
+                member_ids.append(member_id_str)
         
-        # Query existing members if available
-        existing_members = {}
+        # Prepare output records
+        output_records = []
+        
+        # If we have member IDs, query and process in ONE LOOP
         if member_ids:
             try:
                 client = bigquery.Client(project=self.config.project_id)
                 
-                # Query existing records
-                query = f"""
-                SELECT * 
-                FROM `{self.config.get_full_table_id(self.config.staging_dataset, self.config.stg_origin_table)}`
-                WHERE member_number IN ({','.join([f"'{id}'" for id in member_ids])})
-                """
+                # Get table names from config - NO DEFAULTS
+                staging_dataset = self.config.get('staging_dataset')
+                stg_origin_table = self.config.get('stg_origin_table')
                 
-                query_job = client.query(query)
-                for row in query_job:
-                    existing_members[row['member_number']] = dict(row)
+                if not staging_dataset or not stg_origin_table:
+                    raise ValueError("staging_dataset and stg_origin_table must be provided in config")
+                
+                # Process in batches if more than batch_size
+                for batch_start in range(0, len(member_ids), self.batch_size):
+                    batch_end = min(batch_start + self.batch_size, len(member_ids))
+                    batch_member_ids = member_ids[batch_start:batch_end]
                     
-                logger.info(f"Enriched {len(existing_members)} members from {self.config.stg_origin_table}")
+                    # Query existing records for this batch
+                    query = f"""
+                    SELECT * 
+                    FROM `{self.config.get_full_table_id(staging_dataset, stg_origin_table)}`
+                    WHERE member_number IN ({','.join([f"'{id}'" for id in batch_member_ids])})
+                    """
+                    
+                    query_job = client.query(query)
+                    processed_members = set()
+                    
+                    # Single loop: Process query results and map columns immediately
+                    for row in query_job:
+                        member_id = row['member_number']
+                        processed_members.add(member_id)
+                        
+                        # Get the corresponding new element
+                        new_elem = elements_by_member.get(member_id, {})
+                        existing_data = dict(row)
+                        
+                        # Create mapped record with column mapping
+                        mapped_record = {}
+                        for source_col, target_col in self.column_mapping.items():
+                            # Priority: new data > existing data > None
+                            if target_col in new_elem and new_elem[target_col] is not None:
+                                mapped_record[source_col] = new_elem[target_col]
+                            elif target_col in existing_data:
+                                mapped_record[source_col] = existing_data[target_col]
+                            else:
+                                mapped_record[source_col] = None
+                        
+                        # Add metadata
+                        mapped_record['_metadata'] = {
+                            'ingested_at': datetime.utcnow().isoformat(),
+                            'enriched': True,
+                            'target_table': self.target_table,
+                            'batch_size': self.batch_size
+                        }
+                        
+                        output_records.append(mapped_record)
+                    
+                    logger.info(f"Enriched {len(processed_members)} members from {stg_origin_table} in batch {batch_start}-{batch_end}")
+                    
+                    # Handle members not found in existing data for this batch
+                    for member_id in batch_member_ids:
+                        if member_id not in processed_members:
+                            elem = elements_by_member[member_id]
+                            # No existing data, just map from new element
+                            mapped_record = {}
+                            for source_col, target_col in self.column_mapping.items():
+                                if target_col in elem and elem[target_col] is not None:
+                                    mapped_record[source_col] = elem[target_col]
+                                else:
+                                    mapped_record[source_col] = None
+                            
+                            mapped_record['_metadata'] = {
+                                'ingested_at': datetime.utcnow().isoformat(),
+                                'enriched': False,
+                                'target_table': self.target_table,
+                                'batch_size': self.batch_size
+                            }
+                            
+                            output_records.append(mapped_record)
                 
             except Exception as e:
                 logger.error(f"Error querying existing members: {e}")
+                # Fall back to processing without enrichment
+                for elem in element_batch:
+                    mapped_record = {}
+                    for source_col, target_col in self.column_mapping.items():
+                        if target_col in elem and elem[target_col] is not None:
+                            mapped_record[source_col] = elem[target_col]
+                        else:
+                            mapped_record[source_col] = None
+                    
+                    mapped_record['_metadata'] = {
+                        'ingested_at': datetime.utcnow().isoformat(),
+                        'enriched': False,
+                        'error': str(e),
+                        'target_table': self.target_table
+                    }
+                    
+                    output_records.append(mapped_record)
+        else:
+            # No member IDs, just map without enrichment
+            for elem in element_batch:
+                mapped_record = {}
+                for source_col, target_col in self.column_mapping.items():
+                    if target_col in elem and elem[target_col] is not None:
+                        mapped_record[source_col] = elem[target_col]
+                    else:
+                        mapped_record[source_col] = None
+                
+                mapped_record['_metadata'] = {
+                    'ingested_at': datetime.utcnow().isoformat(),
+                    'enriched': False,
+                    'target_table': self.target_table
+                }
+                
+                output_records.append(mapped_record)
         
-        # Process each element with mapping
-        for elem in element_batch:
-            member_id = elem.get('member_number') or elem.get('member_id')
-            existing_data = existing_members.get(member_id, {})
-            
-            mapped_record = {}
-            
-            # Apply column mapping with fallback to existing data
-            for source_col, target_col in self.column_mapping.items():
-                if target_col in elem and elem[target_col] is not None:
-                    # Use value from new data
-                    mapped_record[source_col] = elem[target_col]
-                elif target_col in existing_data:
-                    # Fallback to existing member data
-                    mapped_record[source_col] = existing_data[target_col]
-                else:
-                    # No value available
-                    mapped_record[source_col] = None
-            
-            # Add metadata
-            mapped_record['_metadata'] = {
-                'ingested_at': datetime.utcnow().isoformat(),
-                'enriched': member_id in existing_members,
-                'target_table': self.target_table
-            }
-            
-            yield mapped_record
-
+        # Yield all records
+        for record in output_records:
+            yield record
 
 class MappingCacheLoader(beam.DoFn):
     """Load mapping from BigQuery periodically for side input"""

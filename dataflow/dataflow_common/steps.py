@@ -143,8 +143,9 @@ class BigtableEnrichmentStep(PipelineStep):
         )
 
 
+# Also update the ColumnMappingStep to pass batch_size
 class ColumnMappingStep(PipelineStep):
-    """Step to apply column mapping transformation"""
+    """Step to apply column mapping transformation - NO HARD CODED VALUES"""
     
     def execute(self, pipeline: beam.Pipeline,
                 input_pcoll: Optional[beam.PCollection] = None) -> Optional[beam.PCollection]:
@@ -152,21 +153,28 @@ class ColumnMappingStep(PipelineStep):
         if not self.is_enabled() or not input_pcoll:
             return input_pcoll
         
-        config = PipelineConfig.from_dict(self.config)
+        # Get all values from config - NO DEFAULTS
+        min_batch_size = self.config.get('min_batch_size')
+        max_batch_size = self.config.get('max_batch_size')
+        enrichment_batch_size = self.config.get('enrichment_batch_size')
         
         if self.config.get('batch_mode'):
+            if not min_batch_size or not max_batch_size or not enrichment_batch_size:
+                raise ValueError("min_batch_size, max_batch_size, and enrichment_batch_size required for batch mode")
+            
             # Batch mode with enrichment
             return (
                 input_pcoll
                 | f"Batch_{self.step_name}" >> beam.BatchElements(
-                    min_batch_size=self.config.get('min_batch_size', 100),
-                    max_batch_size=self.config.get('max_batch_size', 500)
+                    min_batch_size=min_batch_size,
+                    max_batch_size=max_batch_size
                 )
                 | f"EnrichAndMap_{self.step_name}" >> beam.FlatMap(
                     EnrichAndMapColumns(
-                        config,
-                        self.config['target_table'],
-                        self.config['mapping_type']
+                        config=CommonPipelineConfig.from_dict(self.config),
+                        target_table=self.config['target_table'],
+                        mapping_type=self.config['mapping_type'],
+                        batch_size=enrichment_batch_size
                     ).process
                 )
             )
@@ -192,13 +200,12 @@ class ColumnMappingStep(PipelineStep):
                 input_pcoll
                 | f"Map_{self.step_name}" >> beam.ParDo(
                     ColumnMapper(
-                        config,
-                        self.config['target_table'],
-                        self.config['mapping_type']
+                        config=CommonPipelineConfig.from_dict(self.config),
+                        target_table=self.config['target_table'],
+                        mapping_type=self.config['mapping_type']
                     )
                 )
             )
-
 
 class DataQualityStep(PipelineStep):
     """Step for data quality validation"""

@@ -1,4 +1,9 @@
 # Configuration for MS Member Short Term Hourly Batch Pipeline
+# Inherits defaults from common/defaults.yaml
+
+# Import defaults
+defaults_file: ../common/defaults.yaml
+
 pipeline:
   name: ms_member_short_term_hourly
   description: MS Member Pipeline - Short Term Hourly Batch
@@ -21,11 +26,25 @@ storage:
   temp_location: gs://t1-insight-audit-bucket/audit_log/dataflow/temp
   staging_location: gs://t1-insight-audit-bucket/audit_log/dataflow/staging
 
-# Dataset Configuration
+# Dataset Configuration (overrides defaults if needed)
 datasets:
   source_dataset: insight
   staging_dataset: insight_dev
   refined_dataset: insight_dev
+
+# Table Configuration (uses defaults, override only if different)
+tables:
+  # Inherits all from defaults
+  # Can override specific tables here if needed
+
+# Batch Processing Configuration  
+batch:
+  min_batch_size: 100
+  max_batch_size: 500
+  enrichment_batch_size: 500
+  partition_filter: "DATE(_PARTITIONTIME) = CURRENT_DATE()"
+  read_method: DIRECT_READ
+  write_method: FILE_LOADS
 
 # Dataflow Configuration
 dataflow:
@@ -35,27 +54,58 @@ dataflow:
   save_main_session: true
   service_account: sa-demo-the1@ntt-test-data-bq-looker.iam.gserviceaccount.com
   python_requirements:
-    - apache-beam[gcp]==2.60.0
-    - google-cloud-secret-manager==2.16.3
+  - apache-beam[gcp]==2.60.0
+  - google-cloud-secret-manager==2.16.3
 
 # Data Quality Configuration
 data_quality:
+  max_errors_percent: 0.05
   checks:
-    - type: record_count
-      warning_threshold: 1000
-    - type: unique_members
-      check_field: member_number
-    - type: freshness
-      max_hours: 2
+  - type: record_count
+    warning_threshold: 1000
+  - type: unique_members
+    check_field: member_number
+  - type: freshness
+    max_hours: 2
+  validation_rules:
+  - type: required
+    field: member_number
+  - type: not_null
+    field: member_number
+  - type: regex
+    field: email
+    pattern: '^[\w\.-]+@[\w\.-]+\.\w+$'
+  split_output: false
+  write_errors: true
+  error_table: dq_errors
+
+# BigQuery Configuration
+bigquery:
+  priority: INTERACTIVE
+  use_legacy_sql: false
+  write_disposition: WRITE_APPEND
+  create_disposition: CREATE_IF_NEEDED
+
+# Monitoring Configuration
+monitoring:
+  metrics_enabled: true
+  audit_enabled: true
+  error_tracking_enabled: true
+
+# Retry Configuration
+retry:
+  max_retries: 3
+  initial_backoff_seconds: 1
+  max_backoff_seconds: 60
 
 # Job Configuration
 job:
   name_template: "ms-member-short-staging-{{ ds_nodash }}-{{ ts_nodash }}"
-  tags: 
-    - ms_member
-    - short_term
-    - batch
-    - hourly
+  tags:
+  - ms_member
+  - short_term
+  - batch
+  - hourly
 
 # Owner and Notification
 owner: data-engineering

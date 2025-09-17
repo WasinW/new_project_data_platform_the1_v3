@@ -1,0 +1,92 @@
+# Default configuration values for MS Member pipelines
+# This file contains all default values to avoid hard-coding in the pipeline code
+
+# Default datasets and tables
+defaults:
+  datasets:
+    source_dataset: insight
+    staging_dataset: insight_dev
+    refined_dataset: insight_dev
+
+  tables:
+    source_table: personas_sync
+    stg_source_table: stg_ms_personas
+    stg_origin_table: stg_ms_member
+    refined_ongoing_table: ms_personas
+    audit_table: audit_job_log
+    mapping_table: mapping_reconcile
+    error_table: dq_errors
+
+  # Batch processing settings
+  batch:
+    min_batch_size: 100
+    max_batch_size: 500
+    enrichment_batch_size: 500
+    partition_filter: "DATE(_PARTITIONTIME) = CURRENT_DATE()"
+    read_method: DIRECT_READ
+    write_method: FILE_LOADS
+
+  # Streaming processing settings
+  streaming:
+    window_duration_seconds: 3600
+    early_trigger_seconds: 60
+    late_trigger_seconds: 300
+    allowed_lateness_seconds: 7200
+    accumulation_mode: DISCARDING
+    mapping_refresh_interval_seconds: 600
+    enrichment_timeout_seconds: 10
+    write_method: STORAGE_WRITE_API
+
+  # Data quality settings
+  data_quality:
+    max_errors_percent: 0.1
+    validation_rules:
+    - type: required
+      field: member_number
+    - type: not_null
+      field: member_number
+    split_output: false
+    write_errors: true
+
+  # BigQuery settings
+  bigquery:
+    priority: INTERACTIVE
+    use_legacy_sql: false
+    write_disposition: WRITE_APPEND
+    create_disposition: CREATE_IF_NEEDED
+    schema_update_options:
+    - ALLOW_FIELD_ADDITION
+    - ALLOW_FIELD_RELAXATION
+
+  # Bigtable settings
+  bigtable:
+    timeout_seconds: 10
+    row_key_field: member_number
+    columns_to_fetch:
+    - member_number
+    - first_name
+    - last_name
+    - email
+    - status
+    - updated_at
+
+  # Monitoring and logging
+  monitoring:
+    metrics_enabled: true
+    audit_enabled: true
+    error_tracking_enabled: true
+    health_check_interval_seconds: 300
+
+  # Retry and timeout settings
+  retry:
+    max_retries: 3
+    initial_backoff_seconds: 1
+    max_backoff_seconds: 60
+    backoff_multiplier: 2
+
+  # Pipeline execution settings
+  execution:
+    save_main_session: true
+    setup_file_required: false
+    requirements_cache_enabled: true
+    worker_cache_mb: 100
