@@ -9,7 +9,7 @@ from datetime import datetime
 import apache_beam as beam
 from google.cloud import bigquery
 from .core import Transformer
-from .config import PipelineConfig
+from .config import CommonPipelineConfig  # Changed from PipelineConfig
 
 logger = logging.getLogger(__name__)
 
@@ -18,12 +18,19 @@ class MappingLoader:
     """Load and manage column mappings from BigQuery"""
     
     @staticmethod
-    def load_mapping(config: PipelineConfig, 
+    def load_mapping(config: CommonPipelineConfig,  # Changed from PipelineConfig
                     client: Optional[bigquery.Client] = None) -> Dict[str, Dict[str, str]]:
         """Load column mapping from BigQuery mapping_reconcile table"""
         try:
             if not client:
                 client = bigquery.Client(project=config.project_id)
+            
+            # Get values from config - NO DEFAULTS
+            staging_dataset = config.get('staging_dataset')
+            mapping_table = config.get('mapping_table')
+            
+            if not staging_dataset or not mapping_table:
+                raise ValueError("staging_dataset and mapping_table are required in config")
             
             query = f"""
             SELECT 
@@ -32,11 +39,11 @@ class MappingLoader:
                 RECONCILE_RETRIEVED,
                 RECONCILE_CONFIRMED,
                 UPDATED_DATE
-            FROM `{config.get_full_table_id(config.staging_dataset, config.mapping_table)}`
+            FROM `{config.get_full_table_id(staging_dataset, mapping_table)}`
             WHERE TRUE
                 AND COALESCE(UPDATED_DATE, "1999-12-31") = (
                     SELECT MAX(COALESCE(UPDATED_DATE, "1999-12-31"))
-                    FROM `{config.get_full_table_id(config.staging_dataset, config.mapping_table)}`
+                    FROM `{config.get_full_table_id(staging_dataset, mapping_table)}`
                 )
             """
             
@@ -84,7 +91,7 @@ class MappingLoader:
 class ColumnMapper(beam.DoFn):
     """Maps columns based on configuration"""
     
-    def __init__(self, config: PipelineConfig, target_table: str, mapping_type: str):
+    def __init__(self, config: CommonPipelineConfig, target_table: str, mapping_type: str):  # Changed
         """
         Args:
             config: Pipeline configuration
@@ -116,7 +123,7 @@ class ColumnMapper(beam.DoFn):
         mapped_record['_metadata'] = {
             'ingested_at': datetime.utcnow().isoformat(),
             'processed_at': datetime.utcnow().isoformat(),
-            'source_table': self.config.source_table,
+            'source_table': self.config.get('source_table'),
             'target_table': self.target_table,
             'pipeline_version': '1.0.0'
         }
@@ -391,7 +398,7 @@ class EnrichAndMapColumns(beam.DoFn):
 class MappingCacheLoader(beam.DoFn):
     """Load mapping from BigQuery periodically for side input"""
     
-    def __init__(self, config: PipelineConfig):
+    def __init__(self, config: CommonPipelineConfig):  # Changed from PipelineConfig
         self.config = config
         
     def process(self, impulse):

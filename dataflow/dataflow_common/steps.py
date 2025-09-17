@@ -15,7 +15,8 @@ from .transformers import (
     MappingCacheLoader, DataQualityTransformer, NotificationParser,
     WindowedAggregator
 )
-from .config import PipelineConfig
+# from .config import PipelineConfig
+from .config import CommonPipelineConfig  # Changed from PipelineConfig
 
 logger = logging.getLogger(__name__)
 
@@ -384,7 +385,7 @@ class CreateMappingSideInput(PipelineStep):
         if not self.is_enabled():
             return None
         
-        config = PipelineConfig.from_dict(self.config)
+        config = CommonPipelineConfig.from_dict(self.config)  # Changed from PipelineConfig
         
         # Generate periodic impulses for refreshing mapping
         mapping_refresh = (
