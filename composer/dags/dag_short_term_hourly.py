@@ -188,7 +188,8 @@ with DAG(
     # Trigger Dataflow job with all parameters from config
     run_dataflow_batch = BeamRunPythonPipelineOperator(
         task_id='run_dataflow_batch',
-        py_file="{{ ti.xcom_pull(task_ids='prepare_config', key='config')['storage']['dataflow_file'] }}",
+        py_file="gs://t1-dataflow-framework-bucket/framework/unified_dataflow_pipeline_bigtable.py",
+        # py_file="{{ ti.xcom_pull(task_ids='prepare_config', key='config')['storage']['dataflow_file'] }}",
         pipeline_options={
             # Standard Dataflow options
             'project': "{{ ti.xcom_pull(task_ids='prepare_config', key='config')['gcp']['project_id'] }}",
@@ -200,7 +201,13 @@ with DAG(
             'max_num_workers': "{{ ti.xcom_pull(task_ids='prepare_config', key='config')['dataflow']['max_num_workers'] }}",
             'job_name': "{{ ti.xcom_pull(task_ids='prepare_config', key='config')['job']['name_template'] }}",
             'save_main_session': "{{ ti.xcom_pull(task_ids='prepare_config', key='config')['dataflow']['save_main_session'] }}",
-            
+            'setup_file': 'gs://t1-dataflow-framework-bucket/common/setup.py',  # Points to Dataflow setup.py
+            'extra_packages': [
+                'gs://t1-dataflow-framework-bucket/common/packages/dataflow_common_the1-1.0.0-py3-none-any.whl'
+            ],
+            # OR use requirements file
+            # 'requirements_file': 'gs://t1-dataflow-framework-bucket/common/requirements.txt',
+
             # Pass ALL parameters from prepared config - no defaults here
             **{{ ti.xcom_pull(task_ids='prepare_config', key='dataflow_params') }}
         },
