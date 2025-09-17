@@ -72,9 +72,9 @@ data_quality:
     field: member_number
   - type: not_null
     field: member_number
-  - type: regex
-    field: email
-    pattern: '^[\w\.-]+@[\w\.-]+\.\w+$'
+  # - type: regex
+  #   field: email
+  #   pattern: '^[\w\.-]+@[\w\.-]+\.\w+$'
   split_output: false
   write_errors: true
   error_table: dq_errors

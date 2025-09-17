@@ -64,13 +64,13 @@ defaults:
     row_key_field: member_number
     columns_to_fetch:
     - member_number
-    - first_name
-    - last_name
-    - email
-    - status
-    - updated_at
+    # - first_name
+    # - last_name
+    # - email
+    # - status
+    # - updated_at
 
-  # Monitoring and logging
+    # Monitoring and logging
   monitoring:
     metrics_enabled: true
     audit_enabled: true

@@ -82,13 +82,15 @@ def build_batch_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConfig):
         'batch_mode': True,
         'target_table': config.get('stg_source_table'),
         'mapping_type': 'source_to_ongoing',
-        'min_batch_size': config.get('min_batch_size'),
-        'max_batch_size': config.get('max_batch_size'),
-        'enrichment_batch_size': config.get('enrichment_batch_size'),
-        'project': config.project_id,
-        'staging_dataset': config.get('staging_dataset'),
-        'stg_origin_table': config.get('stg_origin_table'),
-        'mapping_table': config.get('mapping_table')
+        **config.to_dict()  # ส่ง config ทั้งหมดไป
+
+        # 'min_batch_size': config.get('min_batch_size'),
+        # 'max_batch_size': config.get('max_batch_size'),
+        # 'enrichment_batch_size': config.get('enrichment_batch_size'),
+        # 'project': config.project_id,
+        # 'staging_dataset': config.get('staging_dataset'),
+        # 'stg_origin_table': config.get('stg_origin_table'),
+        # 'mapping_table': config.get('mapping_table')
     })
     
     personas_data = personas_mapping_step.execute(pipeline, validated_data)
@@ -100,13 +102,14 @@ def build_batch_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConfig):
         'batch_mode': True,
         'target_table': config.get('stg_origin_table'),
         'mapping_type': 'source_to_origin',
-        'min_batch_size': config.get('min_batch_size'),
-        'max_batch_size': config.get('max_batch_size'),
-        'enrichment_batch_size': config.get('enrichment_batch_size'),
-        'project': config.project_id,
-        'staging_dataset': config.get('staging_dataset'),
-        'stg_origin_table': config.get('stg_origin_table'),
-        'mapping_table': config.get('mapping_table')
+        **config.to_dict()  # ส่ง config ทั้งหมดไป
+        # 'min_batch_size': config.get('min_batch_size'),
+        # 'max_batch_size': config.get('max_batch_size'),
+        # 'enrichment_batch_size': config.get('enrichment_batch_size'),
+        # 'project': config.project_id,
+        # 'staging_dataset': config.get('staging_dataset'),
+        # 'stg_origin_table': config.get('stg_origin_table'),
+        # 'mapping_table': config.get('mapping_table')
     })
     
     member_data = member_mapping_step.execute(pipeline, validated_data)
