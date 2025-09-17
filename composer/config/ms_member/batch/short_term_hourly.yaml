@@ -1,0 +1,65 @@
+# Configuration for MS Member Short Term Hourly Batch Pipeline
+pipeline:
+  name: ms_member_short_term_hourly
+  description: MS Member Pipeline - Short Term Hourly Batch
+  schedule: "@hourly"
+  term_type: short
+  mode: batch
+
+# GCP Configuration
+gcp:
+  project_id: the1-insight-dev
+  location: asia-southeast1
+  environment: dev
+
+# Storage Configuration
+storage:
+  airflow_bucket: gs://t1-airflow-composer-bucket
+  dataflow_bucket: gs://t1-dataflow-framework-bucket
+  audit_bucket: gs://t1-insight-audit-bucket
+  dataflow_file: gs://t1-dataflow-framework-bucket/framework/unified_dataflow_pipeline_bigtable.py
+  temp_location: gs://t1-insight-audit-bucket/audit_log/dataflow/temp
+  staging_location: gs://t1-insight-audit-bucket/audit_log/dataflow/staging
+
+# Dataset Configuration
+datasets:
+  source_dataset: insight
+  staging_dataset: insight_dev
+  refined_dataset: insight_dev
+
+# Dataflow Configuration
+dataflow:
+  machine_type: n1-standard-2
+  max_num_workers: 5
+  execution_timeout_minutes: 30
+  save_main_session: true
+  service_account: sa-demo-the1@ntt-test-data-bq-looker.iam.gserviceaccount.com
+  python_requirements:
+    - apache-beam[gcp]==2.60.0
+    - google-cloud-secret-manager==2.16.3
+
+# Data Quality Configuration
+data_quality:
+  checks:
+    - type: record_count
+      warning_threshold: 1000
+    - type: unique_members
+      check_field: member_number
+    - type: freshness
+      max_hours: 2
+
+# Job Configuration
+job:
+  name_template: "ms-member-short-staging-{{ ds_nodash }}-{{ ts_nodash }}"
+  tags: 
+    - ms_member
+    - short_term
+    - batch
+    - hourly
+
+# Owner and Notification
+owner: data-engineering
+email_on_failure: false
+email_on_retry: false
+retries: 2
+retry_delay_minutes: 5

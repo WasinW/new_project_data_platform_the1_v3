@@ -1,0 +1,70 @@
+# Configuration for Reconciliation Pipeline
+pipeline:
+  name: reconciliation_pipeline_airflow_only
+  description: Reconciliation pipeline using Airflow only (no Dataflow)
+  schedule: "@daily"
+  mode: batch
+
+# GCP Configuration
+gcp:
+  project_id: the1-insight-dev
+  location: asia-southeast1
+
+# Dataset Configuration
+datasets:
+  staging_dataset: insight_dev
+  
+# Transfer Configuration
+transfer:
+  mapping_transfer_config_id: mapping-reconcile-transfer-id
+  member_transfer_config_id: 68c79b9b-0000-288f-97c3-3c286d4f37f2
+
+# Transfer Monitoring Configuration
+monitoring:
+  poke_interval_seconds: 60
+  mapping_timeout_seconds: 3600
+  member_timeout_seconds: 7200
+  mode: reschedule
+
+# Tables Configuration
+tables:
+  mapping_table: mapping_reconcile
+  ms_member_table: ms_member
+  ms_personas_table: ms_personas
+  validation_log_table: reconciliation_validation_log
+
+# Query Configuration
+queries:
+  mapping_fields: 
+    - data_schema
+    - tech_schema
+    - reconcile_sts
+    - reconciled_confirm
+  max_mapping_results: 1000
+
+# BigQuery Job Configuration
+bigquery:
+  priority: INTERACTIVE
+  use_legacy_sql: false
+  write_disposition: WRITE_APPEND
+
+# Job Configuration
+job:
+  tags:
+    - reconciliation
+    - bigquery
+    - no-dataflow
+  max_active_runs: 1
+  catchup: false
+
+# Lineage Configuration
+lineage:
+  enabled: true
+  track_s3_sources: true
+
+# Owner and Notification
+owner: data-engineering
+depends_on_past: false
+retries: 3
+retry_delay_minutes: 5
+retry_exponential_backoff: true

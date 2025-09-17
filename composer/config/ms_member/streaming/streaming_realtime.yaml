@@ -1,0 +1,71 @@
+# Configuration for MS Member Streaming Pipeline
+pipeline:
+  name_template: ms_member_{term_type}_term_streaming
+  description: MS Member Pipeline - Streaming
+  schedule: null  # Triggered manually or by external events
+  term_type: mid  # Can be 'mid' or 'long'
+  mode: streaming
+
+# GCP Configuration
+gcp:
+  project_id: ntt-test-data-bq-looker
+  location: asia-southeast1
+  environment: staging  # or 'prod'
+
+# Storage Configuration  
+storage:
+  main_bucket: gs://demo-central-the1
+  dataflow_file: gs://demo-central-the1/dataflow/fw/unified_dataflow_pipeline.py
+  temp_location: gs://demo-central-the1/dataflow-temp
+  staging_location: gs://demo-central-the1/dataflow-staging
+  setup_file: gs://demo-central-the1/dataflow/fw/setup.py
+
+# Dataset Configuration
+datasets:
+  source_dataset: tech_hub
+  staging_dataset: t1_stg
+  refined_dataset: t1_refined
+
+# Streaming Configuration
+streaming:
+  pubsub:
+    topic_template: personas-updates-{env}
+    subscription_template: personas-updates-sub-{env}
+  window_duration_hours: 1
+  enable_streaming_engine: true
+
+# Dataflow Configuration
+dataflow:
+  machine_type: n1-standard-4
+  max_num_workers: 10
+  job_name_template: "ms-member-{term_type}-{env}-{{ ds_nodash }}-{{ ts_nodash }}"
+  save_main_session: true
+  python_requirements:
+    - apache-beam[gcp]==2.53.0
+    - google-cloud-secret-manager==2.16.3
+
+# Health Check Configuration
+health_check:
+  data_freshness:
+    alert_minutes: 120
+    warning_minutes: 60
+  check_interval_minutes: 60
+  max_retries: 5
+
+# Job Configuration
+job:
+  tags:
+    - ms_member
+    - streaming
+    - realtime
+  max_active_runs: 1
+  catchup: false
+
+# Owner and Notification
+owner: data-engineering
+email_on_failure: true
+email_on_retry: true
+email_recipients:
+  - data-team@the1.co.th
+retries: 1
+retry_delay_minutes: 5

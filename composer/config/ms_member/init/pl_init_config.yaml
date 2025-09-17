@@ -1,0 +1,52 @@
+# Configuration for Initiation Pipeline
+pipeline:
+  name: initiate_pipeline_airflow_only
+  description: Initiate pipeline using Airflow only (no Dataflow)
+  schedule: "@daily"
+  mode: batch
+
+# GCP Configuration
+gcp:
+  project_id: the1-insight-dev
+  location: asia-southeast1
+
+# Dataset Configuration
+datasets:
+  staging_dataset: insight_dev
+  
+# Transfer Configuration
+transfer:
+  member_transfer_config_id: 68c8f202-0000-2e70-80f7-14223bc67f36
+
+# Transfer Monitoring Configuration
+monitoring:
+  poke_interval_seconds: 60
+  timeout_seconds: 7200
+  mode: reschedule
+  expected_status: SUCCEEDED
+
+# Tables Configuration
+tables:
+  staging_table: stg_ms_member
+
+# Lineage Configuration
+lineage:
+  enabled: true
+  track_s3_sources: true
+  source_type: s3
+
+# Job Configuration
+job:
+  tags:
+    - initiate
+    - bigquery
+    - no-dataflow
+  max_active_runs: 1
+  catchup: false
+
+# Owner and Notification
+owner: data-engineering
+depends_on_past: false
+retries: 3
+retry_delay_minutes: 5
+retry_exponential_backoff: true
