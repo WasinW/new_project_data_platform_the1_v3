@@ -100,7 +100,8 @@ def build_batch_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConfig):
             'step_name': 'ReadSource',
             'project': config.project_id,
             'dataset': config.get('source_dataset'),
-            'table': f"{config.project_id}.{config.get('source_dataset')}.{config.get('source_table')}",
+            'src_table': f"{config.project_id}.{config.get('source_dataset')}.{config.get('source_table')}",
+            'tgt_table': f"{config.project_id}.{config.get('staging_dataset')}.{config.get('stg_source_table')}",
             'partition_filter': config.get('partition_filter'),
             'method': config.get('read_method', 'DIRECT_READ')
         })

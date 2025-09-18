@@ -37,11 +37,13 @@ class ReadFromBigQueryStep(PipelineStep):
         )
         
         query = self.config.get('query')
-        if not query and self.config.get('table'):
+        if not query and self.config.get('src_table'):
             # Build query from table and partition
-            table = self.config['table']
-            partition = self.config.get('partition_filter', 'DATE(_PARTITIONTIME) = CURRENT_DATE()')
-            query = f"SELECT * FROM `{table}` WHERE {partition}"
+            src_table = self.config['src_table']
+            tgt_table = self.config['tgt_table']
+            condition = self.config.get('partition_filter', f'timestamp > (SELECT MAX(timestamp) FROM `{tgt_table}`')
+            # query = f"SELECT * FROM `{src_table}` WHERE {condition}"
+            query = f"SELECT * FROM `{src_table}` WHERE {condition} )"
         
         return (
             pipeline

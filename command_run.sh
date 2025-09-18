@@ -40,9 +40,24 @@ python dataflow/FW/unified_dataflow_pipeline_bigtable.py \
   --setup_file=dataflow/setup.py \
   --job_name=ms-member-short-batch-20241218-1234 \
   --service_account_email=t1-ins-dev-sa-data@the1-insight-dev.iam.gserviceaccount.com \
-  --impersonate_service_account=t1-ins-dev-sa-data@the1-insight-dev.iam.gserviceaccount.com
+  --network=projects/the1-insight-dev/global/networks/dataflow \
+  --subnetwork=regions/asia-southeast1/subnetworks/dataflow-private \
+  --no_use_public_ips
+
+
+gcloud iam service-accounts add-iam-policy-binding \
+    t1-ins-dev-sa-data@the1-insight-dev.iam.gserviceaccount.com \
+    --member="user:wawasin@the1.co.th" \
+    --role="roles/iam.serviceAccountTokenCreator"
+
 
 DATAFLOW_SA="t1-ins-dev-sa-data@the1-insight-dev.iam.gserviceaccount.com"
+gcloud projects get-iam-policy the1-insight-dev
+   --flatten="bindings[].members"
+   --filter="bindings.members:serviceAccount:t1-ins-dev-sa-data@the1-insight-dev.iam.gserviceaccount.com"
+   --format="table(bindings.role)"
+
+
 gsutil iam ch serviceAccount:${DATAFLOW_SA}:objectViewer gs://t1-insight-audit-bucket
 
 DATAFLOW_SA="t1-ins-dev-sa-data@the1-insight-dev.iam.gserviceaccount.com"
