@@ -555,6 +555,7 @@ def main():
         # Set service account
         if args.service_account_email:
             gcp_options.service_account_email = args.service_account_email
+            gcp_options.impersonate_service_account = args.service_account_email
         elif args.specific_sa:  # Backward compatibility
             gcp_options.service_account_email = args.specific_sa
         

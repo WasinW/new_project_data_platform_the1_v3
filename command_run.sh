@@ -38,5 +38,23 @@ python dataflow/FW/unified_dataflow_pipeline_bigtable.py \
   --max_num_workers=5 \
   --save_main_session \
   --setup_file=dataflow/setup.py \
-  --job_name=ms-member-short-batch-20241218-1234
+  --job_name=ms-member-short-batch-20241218-1234 \
   --service_account_email=t1-ins-dev-sa-data@the1-insight-dev.iam.gserviceaccount.com \
+  --impersonate_service_account=t1-ins-dev-sa-data@the1-insight-dev.iam.gserviceaccount.com
+
+DATAFLOW_SA="t1-ins-dev-sa-data@the1-insight-dev.iam.gserviceaccount.com"
+gsutil iam ch serviceAccount:${DATAFLOW_SA}:objectViewer gs://t1-insight-audit-bucket
+
+DATAFLOW_SA="t1-ins-dev-sa-data@the1-insight-dev.iam.gserviceaccount.com"
+gcloud projects add-iam-policy-binding the1-insight-dev \
+  --member="serviceAccount:${DATAFLOW_SA}" \
+  --role="roles/dataflow.worker"
+# 4. ให้สิทธิ์ Compute (จำเป็นสำหรับ Dataflow workers)
+gcloud projects add-iam-policy-binding the1-insight-dev \
+  --member="serviceAccount:${DATAFLOW_SA}" \
+  --role="roles/compute.viewer"
+
+# 5. ให้สิทธิ์ Service Account User (สำคัญมาก!)
+gcloud projects add-iam-policy-binding the1-insight-dev \
+  --member="serviceAccount:${DATAFLOW_SA}" \
+  --role="roles/iam.serviceAccountUser"
