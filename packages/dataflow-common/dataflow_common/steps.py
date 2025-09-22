@@ -39,11 +39,23 @@ class ReadFromBigQueryStep(PipelineStep):
         query = self.config.get('query')
         if not query and self.config.get('src_table'):
             # Build query from table and partition
+            src_project = self.config['src_project']  
             src_table = self.config['src_table']
             tgt_table = self.config['tgt_table']
             condition = self.config.get('partition_filter', f'timestamp > (SELECT MAX(timestamp) FROM `{tgt_table}`')
             # query = f"SELECT * FROM `{src_table}` WHERE {condition}"
-            query = f"SELECT * FROM `{src_table}` WHERE {condition} )"
+            query = f"""
+                SELECT * 
+                EXCEPT(RN_PK)
+                FROM (
+                    SELECT *
+                    -- json field is sensitivity
+                    , ROW_NUMBER() OVER(PARTITION BY JSON_VALUE(profiles.memberId) ORDER BY TIMESTAMP DESC ) RN_PK
+                    FROM `{src_table}` 
+                    WHERE {condition}
+                ) AS LAST_UPD
+                WHERE RN_PK = 1 
+                """
         
         return (
             pipeline
@@ -219,10 +231,7 @@ class DataQualityStep(PipelineStep):
         if not self.is_enabled() or not input_pcoll:
             return input_pcoll
         
-        rules = self.config.get('rules', [
-            {'type': 'required', 'field': 'member_number'},
-            {'type': 'not_null', 'field': 'member_number'}
-        ])
+        rules = self.config.get('rules', [])
         
         validated = (
             input_pcoll

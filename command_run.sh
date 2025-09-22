@@ -1,5 +1,6 @@
 python dataflow/FW/unified_dataflow_pipeline_bigtable.py \
   --project_id=the1-insight-dev \
+  --src_project_id=the1-insight-dev \
   --term_type=short \
   --mode=batch \
   --env=dev \
@@ -40,8 +41,8 @@ python dataflow/FW/unified_dataflow_pipeline_bigtable.py \
   --setup_file=dataflow/setup.py \
   --job_name=ms-member-short-batch-20241218-1234 \
   --service_account_email=t1-ins-dev-sa-data@the1-insight-dev.iam.gserviceaccount.com \
-  --network=projects/the1-insight-dev/global/networks/dataflow \
-  --subnetwork=regions/asia-southeast1/subnetworks/dataflow-private \
+  --network=projects/the1-network-stg/global/networks/the1-vpc-net-share-stg \
+  --subnetwork=regions/asia-southeast1/subnetworks/the1-subnet-dataflow-stg	 \
   --no_use_public_ips
 
 
@@ -73,3 +74,13 @@ gcloud projects add-iam-policy-binding the1-insight-dev \
 gcloud projects add-iam-policy-binding the1-insight-dev \
   --member="serviceAccount:${DATAFLOW_SA}" \
   --role="roles/iam.serviceAccountUser"
+
+
+
+# -- SELECT profiles.dateOfBirth FROM `the1-insight-stg.insight.personas` LIMIT 10
+# with personas as (
+# SELECT profiles FROM `the1-insight-stg.insight.personas` 
+# )
+
+# select profiles.dateOfBirth from personas
+# LIMIT 10

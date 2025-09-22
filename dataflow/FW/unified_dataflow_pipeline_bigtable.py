@@ -99,9 +99,11 @@ def build_batch_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConfig):
             'enabled': True,
             'step_name': 'ReadSource',
             'project': config.project_id,
+            'src_project': config.source_project,
             'dataset': config.get('source_dataset'),
-            'src_table': f"{config.project_id}.{config.get('source_dataset')}.{config.get('source_table')}",
+            'src_table': f"{config.src_project}.{config.get('source_dataset')}.{config.get('source_table')}",
             'tgt_table': f"{config.project_id}.{config.get('staging_dataset')}.{config.get('stg_source_table')}",
+            # 'query': f"SELECT * FROM {config.source_project}.{config.get('source_dataset')}.{config.get('source_table')} WHERE timestamp > (SELECT MAX(timestamp) FROM {config.source_project}.{config.get('source_dataset')}.{config.get('source_table')})",
             'partition_filter': config.get('partition_filter'),
             'method': config.get('read_method', 'DIRECT_READ')
         })
@@ -115,12 +117,13 @@ def build_batch_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConfig):
                 validation_rules = json.loads(validation_rules)
             except json.JSONDecodeError:
                 logger.warning(f"Failed to parse validation_rules JSON: {validation_rules}")
-                validation_rules = [{'type': 'required', 'field': 'member_number'}]
+                # validation_rules = [{'type': 'required', 'field': 'member_number'}]
+                validation_rules = []
         
         dq_step = DataQualityStep({
             'enabled': True,
             'step_name': 'DataQuality',
-            'rules': validation_rules or [{'type': 'required', 'field': 'member_number'}],
+            'rules': validation_rules,
             'split_output': config.get('split_output', False),
             'max_errors_percent': config.get('max_errors_percent', 0.1),
             'error_table': config.get('error_table'),
@@ -418,6 +421,7 @@ def main():
     
     # Table parameters - NO DEFAULTS
     parser.add_argument('--source_table', required=True, help='Source table')
+    parser.add_argument('--source_project', required=True, help='Source project id')
     parser.add_argument('--stg_source_table', required=True, help='Staging source table (personas)')
     parser.add_argument('--stg_origin_table', required=True, help='Staging origin table (member)')
     parser.add_argument('--refined_ongoing_table', required=True, help='Refined ongoing table')

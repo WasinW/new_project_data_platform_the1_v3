@@ -74,7 +74,7 @@ class MappingLoader:
             for m in mapping.values():
                 if 'member_number' not in m:
                     m['member_id'] = 'member_number'
-                    m['member_number'] = 'member_number'
+                    # m['member_number'] = 'member_number'
             
             logger.info(f"Loaded mapping - Ongoing: {len(mapping['source_to_ongoing'])}, Origin: {len(mapping['source_to_origin'])}")
             return mapping
@@ -261,14 +261,19 @@ class EnrichAndMapColumns(beam.DoFn):
     def process(self, element_batch):
         """Process batch - query and map in ONE PASS for better performance"""
         # Create a dictionary to hold elements by member_id for quick lookup
-        elements_by_member = {}
-        member_ids = []
+        elements_by_member = {} # content
+        # elements_by_member = {'member_id':{'accountId':'',...},...}
+        member_ids = [] # list ids
+        # member_ids = ['xxxx',...]
         
-        for elem in element_batch:
-            member_id = elem.get('member_number') or elem.get('member_id')
+        for element in element_batch:
+            elem = json.loads(element.get('profiles'))
+            member_id = elem.get('profiles.memberId')
+            
             if member_id:
                 member_id_str = str(member_id)
-                elements_by_member[member_id_str] = elem
+                elements_by_member[member_id_str] = elem.get('profiles')
+                # elements_by_member[member_id_str] = json.loads(elem.get('profiles'))
                 member_ids.append(member_id_str)
         
         # Prepare output records
@@ -281,10 +286,9 @@ class EnrichAndMapColumns(beam.DoFn):
                 
                 # Get table names from config - NO DEFAULTS
                 staging_dataset = self.config.get('staging_dataset')
-                stg_origin_table = self.config.get('stg_origin_table')
-                
-                if not staging_dataset or not stg_origin_table:
-                    raise ValueError("staging_dataset and stg_origin_table must be provided in config")
+                staging_target_table = self.target_table
+                if not staging_dataset or not staging_target_table:
+                    raise ValueError("staging_dataset and staging_target_table must be provided in config")
                 
                 # Process in batches if more than batch_size
                 for batch_start in range(0, len(member_ids), self.batch_size):
@@ -294,7 +298,7 @@ class EnrichAndMapColumns(beam.DoFn):
                     # Query existing records for this batch
                     query = f"""
                     SELECT * 
-                    FROM `{self.config.get_full_table_id(staging_dataset, stg_origin_table)}`
+                    FROM `{self.config.get_full_table_id(staging_dataset, staging_target_table)}`
                     WHERE member_number IN ({','.join([f"'{id}'" for id in batch_member_ids])})
                     """
                     
@@ -302,24 +306,33 @@ class EnrichAndMapColumns(beam.DoFn):
                     processed_members = set()
                     
                     # Single loop: Process query results and map columns immediately
+                    # CASE UPDATE MEMBER
                     for row in query_job:
                         member_id = row['member_number']
                         processed_members.add(member_id)
                         
                         # Get the corresponding new element
                         new_elem = elements_by_member.get(member_id, {})
+                        # new_elem = {'accountId':'',...} from ongoing table 
                         existing_data = dict(row)
                         
                         # Create mapped record with column mapping
                         mapped_record = {}
                         for source_col, target_col in self.column_mapping.items():
+                            # member_id = profile.member_number
                             # Priority: new data > existing data > None
+                            target_col = target_col.split['.'][1] # profiles.accountId >> accountId
                             if target_col in new_elem and new_elem[target_col] is not None:
+                                # column existing in new element
+                                # target_col : column like personas from mapping >> profiles.member_id >> member_id
+                                # new_elem : column like personas from personas >> member_id (member_number from ms_member)
                                 mapped_record[source_col] = new_elem[target_col]
-                            elif target_col in existing_data:
-                                mapped_record[source_col] = existing_data[target_col]
+                            # elif target_col in existing_data:
+                            #     # column not existing but exist in mapping . follow by staging_target_table 
+                            #     mapped_record[source_col] = existing_data[target_col]
                             else:
-                                mapped_record[source_col] = None
+                                # mapped_record[source_col] = None
+                                mapped_record[source_col] = existing_data[target_col]
                         
                         # Add metadata
                         mapped_record['_metadata'] = {
@@ -331,15 +344,17 @@ class EnrichAndMapColumns(beam.DoFn):
                         
                         output_records.append(mapped_record)
                     
-                    logger.info(f"Enriched {len(processed_members)} members from {stg_origin_table} in batch {batch_start}-{batch_end}")
+                    logger.info(f"Enriched {len(processed_members)} members from {staging_target_table} in batch {batch_start}-{batch_end}")
                     
                     # Handle members not found in existing data for this batch
+                    # CASE NEW MEMBER
                     for member_id in batch_member_ids:
                         if member_id not in processed_members:
                             elem = elements_by_member[member_id]
                             # No existing data, just map from new element
                             mapped_record = {}
                             for source_col, target_col in self.column_mapping.items():
+                                target_col = target_col.split['.'][1] # profiles.accountId >> accountId
                                 if target_col in elem and elem[target_col] is not None:
                                     mapped_record[source_col] = elem[target_col]
                                 else:
