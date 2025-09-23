@@ -100,7 +100,7 @@ def build_batch_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConfig):
         #  4. merge stg_ms_member (merge 3k records and map columns 250 fields like stg_ms_member)
 
     try:
-        # Step 1: Read from BigQuery with config values
+        # Step 1.1: Read from BigQuery with source values
         read_step = ReadFromBigQueryStep({
             'enabled': True,
             'step_name': 'ReadSource',
@@ -115,6 +115,7 @@ def build_batch_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConfig):
             'method': config.get('read_method', 'DIRECT_READ')
         })
 
+        # Step 1.2: Read from BigQuery with config values
         read_mapping_step = ReadFromBigQueryStep({
             'enabled': True,
             'step_name': 'ReadMapping',
@@ -161,41 +162,18 @@ def build_batch_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConfig):
         validated_data = dq_step.execute(pipeline, source_data)
         
         # mapping field
-        # gen query merge 2 table
-
-        # # Step 3a: Map and enrich for stg_ms_personas
-        # personas_mapping_step = ColumnMappingStep({
-        #     'enabled': True,
-        #     'step_name': 'MapToPersonas',
-        #     'batch_mode': True,
-        #     'target_table': config.get('stg_source_table'),
-        #     'mapping_type': 'source_to_ongoing',
-        #     **config.to_dict()
-        # })
-        
-        # personas_data = personas_mapping_step.execute(pipeline, validated_data)
-        
-        # # Step 3b: Map and enrich for stg_ms_member
-        # member_mapping_step = ColumnMappingStep({
-        #     'enabled': True,
-        #     'step_name': 'MapToMember',
-        #     'batch_mode': True,
-        #     'target_table': config.get('stg_origin_table'),
-        #     'mapping_type': 'source_to_origin',
-        #     **config.to_dict()
-        # })
-
+        # Step 3: Mapping Field
         mapping_step = ColumnMappingStep({
             'enabled': True,
             'step_name': 'MapingStep',
             'streaming_mode': True,
             'target_table': config.get('stg_origin_table'),
-            'mapping_type': 'source_to_origin',
+            # 'mapping_type': 'source_to_origin',
             'mapping_side_input': mapping_data
         })
         mapping_personas_data = mapping_step.execute(pipeline, validated_data)
         
-        # Step 4a: Write to stg_ms_personas with WRITE_TRUNCATE for short term
+        # Step 4: Write to Mapping stg_personas with WRITE_TRUNCATE for short term
         write_mapping_personas_step = WriteToBigQueryStep({
             'enabled': True,
             'step_name': 'WriteMappingPersonas',
@@ -211,22 +189,73 @@ def build_batch_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConfig):
             'remove_metadata': True
         })
         write_mapping_personas_step.execute(pipeline, mapping_personas_data)
-        
-        # Step 4b: Write to stg_ms_member with WRITE_TRUNCATE for short term
+
+        # Step 5: Generate Merge Query from mapping data
+        def generate_merge_query(mapping_records: List[Dict[str, Any]], column_condition: str) -> str:
+            if not mapping_records:
+                raise ValueError("No mapping records found to generate merge query.")
+
+            # Assuming mapping_records contain fields: RECONCILE_COLUMN_NAME, PERSONAS_MAPPING_COLUMN_NAME
+            list_columns = []
+            set_clauses = []
+            new_records = []
+            for record in mapping_records:
+                source_field = record.get('RECONCILE_COLUMN_NAME')
+                target_field = record.get('PERSONAS_MAPPING_COLUMN_NAME')
+                if source_field and target_field:
+                    list_columns.append(source_field)
+                    set_clauses.append(f"{target_field} = {'src' if record.get(column_condition) else 'tgt'}.{source_field}")
+                    new_records.append(f"{'src' if record.get(column_condition) else 'tgt'}.{source_field}")
+
+            if not set_clauses:
+                raise ValueError("No valid field mappings found in mapping records.")
+            
+            set_clause_str = ",\n    ".join(set_clauses)
+            
+            merge_query = f"""
+            MERGE INTO `{config.project_id}.{config.get('staging_dataset')}.{config.get('stg_origin_table')}` AS tgt
+            USING `{config.project_id}.{config.get('staging_dataset')}.{config.get('stg_ongoing_source_table')}` AS src
+            ON tgt.member_number = src.member_number
+            WHEN MATCHED THEN
+              UPDATE SET
+                {set_clause_str},
+                tgt.updated_at = CURRENT_TIMESTAMP()
+            WHEN NOT MATCHED THEN
+              INSERT ({', '.join(list_columns)})
+              VALUES ({', '.join(new_records)})
+            """
+            #         INSERT (id, name, status) VALUES (S.id, S.name, S.status)
+
+            return merge_query
+
+        query_merge_ms_personas = generate_merge_query(
+            mapping_records=list(mapping_data | "CollectMapping" >> beam.combiners.ToList()),
+            column_condition='RECONCILE_RETRIEVED'
+        )
+        query_merge_ms_member = generate_merge_query(
+            mapping_records=list(mapping_data | "CollectMapping" >> beam.combiners.ToList()),
+            column_condition='RECONCILE_CONFIRMED'
+        )
+
         write_member_step = WriteToBigQueryStep({
             'enabled': True,
             'step_name': 'WriteMember',
             'project': config.project_id,
             'dataset': config.get('staging_dataset'),
             'table': config.get('stg_origin_table'),
-            'mode': config.get('bq_write_disposition', 'WRITE_TRUNCATE'), # WRITE_APPEND , WRITE_TRUNCATE
-            'method': config.get('write_method', 'FILE_LOADS'),
-            'create_disposition': config.get('bq_create_disposition', 'CREATE_IF_NEEDED'),
-            'priority': config.get('bq_priority', 'INTERACTIVE'),
-            'remove_metadata': True
+            'query_bq': query_merge_ms_member,
         })
-        
-        write_member_step.execute(pipeline, member_data)
+        write_personas_step = WriteToBigQueryStep({
+            'enabled': True,
+            'step_name': 'WritePersonas',
+            'project': config.project_id,
+            'dataset': config.get('staging_dataset'),
+            'table': config.get('stg_origin_table'),
+            'query_bq': query_merge_ms_personas,
+        })
+
+        write_member_step.execute(pipeline, write_mapping_personas_step)
+        write_personas_step.execute(pipeline, write_mapping_personas_step)
         
         # Step 5: Audit Logging
         if config.get('audit_enabled', True):
@@ -333,7 +362,7 @@ def build_streaming_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConf
                 'step_name': 'MapToMember',
                 'streaming_mode': True,
                 'target_table': config.get('stg_origin_table'),
-                'mapping_type': 'source_to_origin',
+                # 'mapping_type': 'source_to_origin',
                 'mapping_side_input': mapping_side_input
             })
             

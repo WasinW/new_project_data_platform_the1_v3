@@ -173,7 +173,8 @@ class ColumnMappingStep(PipelineStep):
         max_batch_size = self.config.get('max_batch_size')
         enrichment_batch_size = self.config.get('enrichment_batch_size')
         
-        if self.config.get('batch_mode'):
+        # if self.config.get('batch_mode'):
+        if self.config['mode'] == 'batch':
             mapping_side_input = self.config.get('mapping_side_input')
             if not mapping_side_input:
                 raise ValueError("mapping_side_input required for batch mode")
@@ -196,12 +197,12 @@ class ColumnMappingStep(PipelineStep):
                 | f"BatchMap_{self.step_name}" >> beam.ParDo(
                     BatchColumnMapper(
                         self.config['target_table'],
-                        self.config['mapping_type']
                     ),
                     mapping_dict=mapping_side_input
                 )
             )
-        elif self.config.get('streaming_mode'):
+        # elif self.config.get('streaming_mode'):
+        elif self.config['mode'] == 'streaming':
             # Streaming mode with side input
             mapping_side_input = self.config.get('mapping_side_input')
             # ต้องไปอ่าน Mapping ตรงนี้ mapping_side_input
@@ -213,7 +214,6 @@ class ColumnMappingStep(PipelineStep):
                 | f"StreamMap_{self.step_name}" >> beam.ParDo(
                     StreamingColumnMapper(
                         self.config['target_table'],
-                        self.config['mapping_type']
                     ),
                     mapping_dict=mapping_side_input
                 )
@@ -323,7 +323,13 @@ class WriteToBigQueryStep(PipelineStep):
         # TESTCASE SCENARIO 3 : MID/LONG TERM NO CDC : mode WRITE_APPEND , method = STORAGE_WRITE_API , use_cdc = False
         #                       FOR THIS CASE NOT USE IN MEMBER/PERSONAS TABLE BECAUSE NEED CDC
         # Check if using CDC
-        if self.config.get('use_cdc'):
+        if self.config.get('query_bq') :
+            (
+                input_pcoll
+                | f"Read_{self.step_name}" >> connector.query(query=self.config.get('query_bq'))
+            )
+
+        elif self.config.get('use_cdc'):
             input_pcoll | f"WriteCDC_{self.step_name}" >> connector.write_cdc(
                 table=self.config['table'],
                 primary_key=self.config.get('primary_key', ['member_id']),
