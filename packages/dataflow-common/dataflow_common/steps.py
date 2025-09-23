@@ -323,24 +323,24 @@ class WriteToBigQueryStep(PipelineStep):
         # TESTCASE SCENARIO 3 : MID/LONG TERM NO CDC : mode WRITE_APPEND , method = STORAGE_WRITE_API , use_cdc = False
         #                       FOR THIS CASE NOT USE IN MEMBER/PERSONAS TABLE BECAUSE NEED CDC
         # Check if using CDC
-        if self.config.get('query_bq') :
-            # (
-            #     input_pcoll
-            #     | f"Read_{self.step_name}" >> connector.query(query=self.config.get('query_bq'))
+        # if self.config.get('query_bq') :
+        #     # (
+        #     #     input_pcoll
+        #     #     | f"Read_{self.step_name}" >> connector.query(query=self.config.get('query_bq'))
                 
-            # )
-            # from apache_beam.io.gcp.bigquery import BigQueryInsertJobOperator
+        #     # )
+        #     # from apache_beam.io.gcp.bigquery import BigQueryInsertJobOperator
 
-            _ = (
-                pipeline
-                | beam.Create([1])
-                | "ExecuteMergeQuery" >> beam.Map(
-                    lambda _: connector.client.query(self.config['query_bq']).result()
-                )
-            )
+        #     _ = (
+        #         pipeline
+        #         | beam.Create([1])
+        #         | "ExecuteMergeQuery" >> beam.Map(
+        #             lambda _: connector.client.query(self.config['query_bq']).result()
+        #         )
+        #     )
 
 
-        elif self.config.get('use_cdc'):
+        if self.config.get('use_cdc'):
             input_pcoll | f"WriteCDC_{self.step_name}" >> connector.write_cdc(
                 table=self.config['table'],
                 primary_key=self.config.get('primary_key', ['member_id']),

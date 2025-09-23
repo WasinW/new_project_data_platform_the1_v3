@@ -59,7 +59,10 @@ from .transformers import (
     NotificationParser,
     CDCFormatter,          # Add these
     CDCUpsertFormatter,    # Add these
-    CDCDeleteFormatter     # Add these
+    CDCDeleteFormatter,    # Add these
+    MergeQueryGenerator,   # Add
+    MergeQueryExecutor     # Add
+
 )
 
 # Step imports
@@ -130,7 +133,8 @@ __all__ = [
     'CDCFormatter',
     'CDCUpsertFormatter', 
     'CDCDeleteFormatter',
-
+    'MergeQueryGenerator',
+    'MergeQueryExecutor',
     # Steps
     'ReadFromBigQueryStep',
     'ReadFromPubSubStep',

@@ -109,7 +109,7 @@ def build_batch_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConfig):
             'project': config.project_id,
             'src_project': config.get('source_project'),
             'dataset': config.get('source_dataset'),
-            'src_table': f"{config.src_project}.{config.get('source_dataset')}.{config.get('source_table')}",
+            'src_table': f"{config.get('source_project')}.{config.get('source_dataset')}.{config.get('source_table')}",
             'tgt_table': f"{config.project_id}.{config.get('staging_dataset')}.{config.get('stg_source_table')}",
             # 'tgt_table': f"{config.project_id}.{config.get('staging_dataset')}.{config.get('stg_ongoing_source_table')}",
             # 'query': f"SELECT * FROM {config.source_project}.{config.get('source_dataset')}.{config.get('source_table')} WHERE timestamp > (SELECT MAX(timestamp) FROM {config.source_project}.{config.get('source_dataset')}.{config.get('source_table')})",

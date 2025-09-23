@@ -57,7 +57,16 @@ class MappingLoader:
             }
             
             query_job = client.query(query)
-            
+            mapping_list = []
+            for row in query_job.result():
+                mapping_list.append({
+                    'RECONCILE_COLUMN_NAME': row['RECONCILE_COLUMN_NAME'],
+                    'PERSONAS_MAPPING_COLUMN_NAME': row['PERSONAS_MAPPING_COLUMN_NAME'],
+                    'RECONCILE_RETRIEVED': row['RECONCILE_RETRIEVED'],
+                    'RECONCILE_CONFIRMED': row['RECONCILE_CONFIRMED'],
+                    'UPDATED_DATE': row['UPDATED_DATE']
+                })
+
             # for row in query_job:
             #     tech_col = row['PERSONAS_MAPPING_COLUMN_NAME'] if row['PERSONAS_MAPPING_COLUMN_NAME'] else row['RECONCILE_COLUMN_NAME']
             #     data_col = row['RECONCILE_COLUMN_NAME']
@@ -81,13 +90,13 @@ class MappingLoader:
             #         m['member_id'] = 'member_number'
             #         # m['member_number'] = 'member_number'
             
-            logger.info(f"Loaded mapping - Ongoing: {len(mapping['source_to_ongoing'])}, Origin: {len(mapping['source_to_origin'])}")
-            return query_job.result()
+            logger.info(f"Loaded {len(mapping_list)} mapping records")
+            return mapping_list
             
         except Exception as e:
             logger.error(f"Error loading mapping: {str(e)}")
             # Return default mapping if error
-            return {}
+            return []
 
 
 class ColumnMapper(beam.DoFn):
@@ -163,22 +172,41 @@ class BatchColumnMapper(beam.DoFn):
         
         mapped_record = {}
         
-        for rec_col_nm, psn_map_col_nm, reconcile_sts, confirmed_sts, updated_date in column_mapping.items():
-            psn_map_col_nm = psn_map_col_nm.split('.')[1] if '.' in psn_map_col_nm else psn_map_col_nm
+        # for rec_col_nm, psn_map_col_nm, reconcile_sts, confirmed_sts, updated_date in column_mapping.items():
+        #     psn_map_col_nm = psn_map_col_nm.split('.')[1] if '.' in psn_map_col_nm else psn_map_col_nm
 
-            if psn_map_col_nm in element and reconcile_sts :
+        #     if psn_map_col_nm in element and reconcile_sts :
+        #         mapped_record[rec_col_nm] = element[psn_map_col_nm]
+        #     else:
+        #         mapped_record[rec_col_nm] = None
+        for mapping in mapping_list:
+            rec_col_nm = mapping.get('RECONCILE_COLUMN_NAME')
+            psn_map_col_nm = mapping.get('PERSONAS_MAPPING_COLUMN_NAME', rec_col_nm)
+            reconcile_sts = mapping.get('RECONCILE_RETRIEVED')
+            
+            # Clean field name
+            if '.' in psn_map_col_nm:
+                psn_map_col_nm = psn_map_col_nm.split('.')[-1]
+            
+            # Map field
+            if reconcile_sts and psn_map_col_nm in element:
                 mapped_record[rec_col_nm] = element[psn_map_col_nm]
             else:
                 mapped_record[rec_col_nm] = None
         
         # Add metadata
+        # mapped_record['_metadata'] = {
+        #     'ingested_at': datetime.utcnow().isoformat(),
+        #     'processed_at': datetime.utcnow().isoformat(),
+        #     'target_table': self.target_table,
+        #     'stream_timestamp': element.get('_timestamp', datetime.utcnow().isoformat())
+        # }
         mapped_record['_metadata'] = {
-            'ingested_at': datetime.utcnow().isoformat(),
-            'processed_at': datetime.utcnow().isoformat(),
-            'target_table': self.target_table,
-            'stream_timestamp': element.get('_timestamp', datetime.utcnow().isoformat())
-        }
-        
+                'ingested_at': datetime.utcnow().isoformat(),
+                'processed_at': datetime.utcnow().isoformat(),
+                'target_table': self.target_table
+            }
+
         yield mapped_record
 
 class StreamingColumnMapper(beam.DoFn):
@@ -616,7 +644,21 @@ class MergeQueryExecutor(beam.DoFn):
             project=self.project_id,
             dataset=self.dataset
         )
+
+    def execute_with_retry(self, query: str, max_retries: int = 3):
+        """Execute query with exponential backoff retry"""
+        import time
         
+        for attempt in range(max_retries):
+            try:
+                return self._connector.execute_query(query)
+            except Exception as e:
+                if attempt == max_retries - 1:
+                    raise
+                wait_time = 2 ** attempt  # Exponential backoff
+                logger.warning(f"Query failed (attempt {attempt + 1}), retrying in {wait_time}s: {e}")
+                time.sleep(wait_time)
+                
     def process(self, queries_dict):
         """Execute the merge queries
         
