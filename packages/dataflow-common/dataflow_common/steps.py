@@ -11,7 +11,7 @@ from apache_beam.transforms.periodicsequence import PeriodicImpulse
 from .core import PipelineStep
 from .connectors import BigQueryConnector, PubSubConnector, BigtableConnector
 from .transformers import (
-    ColumnMapper, StreamingColumnMapper, EnrichAndMapColumns,
+    ColumnMapper, StreamingColumnMapper, EnrichAndMapColumns,BatchColumnMapper,
     MappingCacheLoader, DataQualityTransformer, NotificationParser,
     WindowedAggregator
 )
@@ -174,9 +174,10 @@ class ColumnMappingStep(PipelineStep):
         enrichment_batch_size = self.config.get('enrichment_batch_size')
         
         if self.config.get('batch_mode'):
-            if not min_batch_size or not max_batch_size or not enrichment_batch_size:
-                raise ValueError("min_batch_size, max_batch_size, and enrichment_batch_size required for batch mode")
-            
+            mapping_side_input = self.config.get('mapping_side_input')
+            if not mapping_side_input:
+                raise ValueError("mapping_side_input required for batch mode")
+
             # Batch mode with enrichment
             return (
                 input_pcoll
@@ -184,13 +185,20 @@ class ColumnMappingStep(PipelineStep):
                     min_batch_size=min_batch_size,
                     max_batch_size=max_batch_size
                 )
-                | f"EnrichAndMap_{self.step_name}" >> beam.FlatMap(
-                    EnrichAndMapColumns(
-                        config=CommonPipelineConfig.from_dict(self.config),
-                        target_table=self.config['target_table'],
-                        mapping_type=self.config['mapping_type'],
-                        batch_size=enrichment_batch_size
-                    ).process
+                # | f"EnrichAndMap_{self.step_name}" >> beam.FlatMap(
+                #     EnrichAndMapColumns(
+                #         config=CommonPipelineConfig.from_dict(self.config),
+                #         target_table=self.config['target_table'],
+                #         mapping_type=self.config['mapping_type'],
+                #         batch_size=enrichment_batch_size
+                #     ).process
+                # )
+                | f"BatchMap_{self.step_name}" >> beam.ParDo(
+                    BatchColumnMapper(
+                        self.config['target_table'],
+                        self.config['mapping_type']
+                    ),
+                    mapping_dict=mapping_side_input
                 )
             )
         elif self.config.get('streaming_mode'):

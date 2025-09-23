@@ -54,7 +54,7 @@ def validate_required_params(config: CommonPipelineConfig, mode: str) -> List[st
     required_common = [
         'project_id', 'env', 'term_type', 'mode',
         'source_dataset', 'staging_dataset', 'refined_dataset',
-        'source_table', 'stg_source_table', 'stg_origin_table',
+        'source_table', 'stg_ongoing_source_table', 'stg_source_table', 'stg_origin_table',
         'refined_ongoing_table', 'audit_table', 'mapping_table'
     ]
     
@@ -93,7 +93,12 @@ def validate_required_params(config: CommonPipelineConfig, mode: str) -> List[st
 def build_batch_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConfig):
     """Build batch pipeline for short term"""
     logger.info(f"Building batch pipeline for term: {config.get('term_type')}")
-    
+        #  1. get mapping from mapping table >> dict
+        #  2.1. ingest personas into stg_personas (3k records and map columns 250 fields like stg_ms_personas) >> sent data and dict to mapping step
+        #  2.2. gen query merge (get mapping and gen query) >> sent dict to query
+        #  3. merge stg_ms_personas (merge 3k records and map columns 250 fields like stg_ms_personas)
+        #  4. merge stg_ms_member (merge 3k records and map columns 250 fields like stg_ms_member)
+
     try:
         # Step 1: Read from BigQuery with config values
         read_step = ReadFromBigQueryStep({
@@ -104,13 +109,33 @@ def build_batch_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConfig):
             'dataset': config.get('source_dataset'),
             'src_table': f"{config.src_project}.{config.get('source_dataset')}.{config.get('source_table')}",
             'tgt_table': f"{config.project_id}.{config.get('staging_dataset')}.{config.get('stg_source_table')}",
+            # 'tgt_table': f"{config.project_id}.{config.get('staging_dataset')}.{config.get('stg_ongoing_source_table')}",
             # 'query': f"SELECT * FROM {config.source_project}.{config.get('source_dataset')}.{config.get('source_table')} WHERE timestamp > (SELECT MAX(timestamp) FROM {config.source_project}.{config.get('source_dataset')}.{config.get('source_table')})",
             'partition_filter': config.get('partition_filter'),
             'method': config.get('read_method', 'DIRECT_READ')
         })
-        
+
+        read_mapping_step = ReadFromBigQueryStep({
+            'enabled': True,
+            'step_name': 'ReadMapping',
+            'project': config.project_id,
+            'src_project': config.project_id,
+            'dataset': config.get('staging_dataset'),
+            'query': f"""
+            SELECT *
+            FROM `{config.project_id}.{config.get('staging_dataset')}.{config.get('mapping_table')}`
+            WHERE TRUE
+                AND COALESCE(UPDATED_DATE, "1999-12-31") = (
+                    SELECT MAX(COALESCE(UPDATED_DATE, "1999-12-31"))
+                    FROM `{config.project_id}.{config.get('staging_dataset')}.{config.get('mapping_table')}`
+                )
+            """,
+            'method': config.get('read_method', 'DIRECT_READ')
+        })
+
         source_data = read_step.execute(pipeline)
-        
+        mapping_data = read_mapping_step.execute(pipeline)
+
         # Step 2: Data Quality Validation with config rules
         validation_rules = config.get('validation_rules')
         if isinstance(validation_rules, str):
@@ -135,47 +160,58 @@ def build_batch_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConfig):
         
         validated_data = dq_step.execute(pipeline, source_data)
         
-        # Step 3a: Map and enrich for stg_ms_personas
-        personas_mapping_step = ColumnMappingStep({
-            'enabled': True,
-            'step_name': 'MapToPersonas',
-            'batch_mode': True,
-            'target_table': config.get('stg_source_table'),
-            'mapping_type': 'source_to_ongoing',
-            **config.to_dict()
-        })
+        # mapping field
+        # gen query merge 2 table
+
+        # # Step 3a: Map and enrich for stg_ms_personas
+        # personas_mapping_step = ColumnMappingStep({
+        #     'enabled': True,
+        #     'step_name': 'MapToPersonas',
+        #     'batch_mode': True,
+        #     'target_table': config.get('stg_source_table'),
+        #     'mapping_type': 'source_to_ongoing',
+        #     **config.to_dict()
+        # })
         
-        personas_data = personas_mapping_step.execute(pipeline, validated_data)
+        # personas_data = personas_mapping_step.execute(pipeline, validated_data)
         
-        # Step 3b: Map and enrich for stg_ms_member
-        member_mapping_step = ColumnMappingStep({
+        # # Step 3b: Map and enrich for stg_ms_member
+        # member_mapping_step = ColumnMappingStep({
+        #     'enabled': True,
+        #     'step_name': 'MapToMember',
+        #     'batch_mode': True,
+        #     'target_table': config.get('stg_origin_table'),
+        #     'mapping_type': 'source_to_origin',
+        #     **config.to_dict()
+        # })
+
+        mapping_step = ColumnMappingStep({
             'enabled': True,
-            'step_name': 'MapToMember',
-            'batch_mode': True,
+            'step_name': 'MapingStep',
+            'streaming_mode': True,
             'target_table': config.get('stg_origin_table'),
             'mapping_type': 'source_to_origin',
-            **config.to_dict()
+            'mapping_side_input': mapping_data
         })
-        
-        member_data = member_mapping_step.execute(pipeline, validated_data)
+        mapping_personas_data = mapping_step.execute(pipeline, validated_data)
         
         # Step 4a: Write to stg_ms_personas with WRITE_TRUNCATE for short term
         write_personas_step = WriteToBigQueryStep({
             'enabled': True,
-            'step_name': 'WritePersonas',
+            'step_name': 'WriteMappingPersonas',
             'project': config.project_id,
             'dataset': config.get('staging_dataset'),
-            'table': config.get('stg_source_table'),
-            # 'mode': config.get('bq_write_disposition', 'WRITE_TRUNCATE'), # WRITE_APPEND , WRITE_TRUNCATE
+            'table': config.get('stg_ongoing_source_table'),
             # 'method': config.get('write_method', 'FILE_LOADS'),
             'method': config.get('write_method', 'FILE_LOADS'),  # FILE_LOADS for batch
-            # 'mode': 'WRITE_TRUNCATE',  # Changed to WRITE_TRUNCATE for short term
+            # 'mode': config.get('bq_write_disposition', 'WRITE_TRUNCATE'), # WRITE_APPEND , WRITE_TRUNCATE
+            'mode': 'WRITE_TRUNCATE', 
             'create_disposition': config.get('bq_create_disposition', 'CREATE_IF_NEEDED'),
             'priority': config.get('bq_priority', 'INTERACTIVE'),
             'remove_metadata': True
         })
         
-        write_personas_step.execute(pipeline, personas_data)
+        write_personas_step.execute(pipeline, mapping_personas_data)
         
         # Step 4b: Write to stg_ms_member with WRITE_TRUNCATE for short term
         write_member_step = WriteToBigQueryStep({
@@ -263,7 +299,7 @@ def build_streaming_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConf
                 except json.JSONDecodeError:
                     columns_to_fetch = None
             
-            # mapping field for personas to origin  
+            # query get data from bigtable
             enrich_step = BigtableEnrichmentStep({
                 'enabled': True,
                 'step_name': 'BigtableEnrich',
@@ -292,6 +328,7 @@ def build_streaming_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConf
         # Step 4: Process based on term type
         if config.get('term_type') == 'mid':
             # Map to stg_ms_member
+            # mapping field for personas to origin  
             member_mapping_step = ColumnMappingStep({
                 'enabled': True,
                 'step_name': 'MapToMember',
@@ -446,8 +483,9 @@ def main():
     # Table parameters - NO DEFAULTS
     parser.add_argument('--source_table', required=True, help='Source table')
     parser.add_argument('--source_project', required=True, help='Source project id')
-    parser.add_argument('--stg_source_table', required=True, help='Staging source table (personas)')
-    parser.add_argument('--stg_origin_table', required=True, help='Staging origin table (member)')
+    parser.add_argument('--stg_ongoing_source_table', required=True, help='Staging ongoing source table (personas) records from source_table')
+    parser.add_argument('--stg_source_table', required=True, help='Staging source table (personas) all records')
+    parser.add_argument('--stg_origin_table', required=True, help='Staging origin table (member) all records')
     parser.add_argument('--refined_ongoing_table', required=True, help='Refined ongoing table')
     parser.add_argument('--audit_table', required=True, help='Audit table')
     parser.add_argument('--mapping_table', required=True, help='Mapping table')
