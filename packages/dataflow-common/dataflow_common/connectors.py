@@ -171,6 +171,75 @@ class BigQueryConnector(DataConnector):
         query_job = self.client.query(query)
         return [dict(row) for row in query_job.result()]
 
+    def execute_query(self, query: str, timeout: int = 300) -> Dict[str, Any]:
+        """Execute a BigQuery SQL query and wait for completion
+        
+        Args:
+            query: SQL query to execute
+            timeout: Maximum time to wait in seconds
+            
+        Returns:
+            Dictionary with execution results
+        """
+        try:
+            logger.info(f"Executing BigQuery query: {query[:100]}...")
+            
+            # Configure query job
+            job_config = bigquery.QueryJobConfig(
+                use_legacy_sql=False,
+                priority=bigquery.QueryPriority.INTERACTIVE,
+            )
+            
+            # Execute query
+            query_job = self.client.query(query, job_config=job_config)
+            
+            # Wait for completion
+            result = query_job.result(timeout=timeout)
+            
+            # Get job statistics
+            stats = {
+                'job_id': query_job.job_id,
+                'state': query_job.state,
+                'created': query_job.created.isoformat() if query_job.created else None,
+                'started': query_job.started.isoformat() if query_job.started else None,
+                'ended': query_job.ended.isoformat() if query_job.ended else None,
+                'total_bytes_processed': query_job.total_bytes_processed,
+                'total_bytes_billed': query_job.total_bytes_billed,
+                'slot_millis': query_job.slot_millis,
+                'status': 'success'
+            }
+            
+            logger.info(f"Query completed successfully. Job ID: {query_job.job_id}")
+            return stats
+            
+        except Exception as e:
+            logger.error(f"Query execution failed: {e}")
+            return {
+                'status': 'failed',
+                'error': str(e),
+                'query_preview': query[:500]
+            }
+    
+    def execute_merge_query(self, merge_query: str, table_name: str = None) -> Dict[str, Any]:
+        """Execute a MERGE query specifically
+        
+        Args:
+            merge_query: MERGE SQL query
+            table_name: Optional table name for logging
+            
+        Returns:
+            Dictionary with merge results
+        """
+        logger.info(f"Executing MERGE query for table: {table_name or 'unknown'}")
+        
+        result = self.execute_query(merge_query)
+        
+        if result.get('status') == 'success':
+            logger.info(f"MERGE completed for {table_name}. Bytes processed: {result.get('total_bytes_processed')}")
+        else:
+            logger.error(f"MERGE failed for {table_name}: {result.get('error')}")
+            
+        return result
 
 class PubSubConnector(DataConnector):
     """Pub/Sub connector for streaming pipelines"""

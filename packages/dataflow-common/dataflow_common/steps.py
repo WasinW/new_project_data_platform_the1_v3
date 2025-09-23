@@ -324,10 +324,21 @@ class WriteToBigQueryStep(PipelineStep):
         #                       FOR THIS CASE NOT USE IN MEMBER/PERSONAS TABLE BECAUSE NEED CDC
         # Check if using CDC
         if self.config.get('query_bq') :
-            (
-                input_pcoll
-                | f"Read_{self.step_name}" >> connector.query(query=self.config.get('query_bq'))
+            # (
+            #     input_pcoll
+            #     | f"Read_{self.step_name}" >> connector.query(query=self.config.get('query_bq'))
+                
+            # )
+            # from apache_beam.io.gcp.bigquery import BigQueryInsertJobOperator
+
+            _ = (
+                pipeline
+                | beam.Create([1])
+                | "ExecuteMergeQuery" >> beam.Map(
+                    lambda _: connector.client.query(self.config['query_bq']).result()
+                )
             )
+
 
         elif self.config.get('use_cdc'):
             input_pcoll | f"WriteCDC_{self.step_name}" >> connector.write_cdc(
@@ -486,3 +497,44 @@ class BranchingStep(PipelineStep):
         # Return main branch or input if no main branch specified
         main_branch = self.config.get('main_branch', 'main')
         return branches.get(main_branch, input_pcoll)
+
+class DataValidator(beam.DoFn):
+    """Validate incoming data and split into valid/invalid streams"""
+    
+    def __init__(self, validation_rules: List[Dict[str, Any]] = None):
+        self.validation_rules = validation_rules or []
+        self.valid_counter = beam.metrics.Metrics.counter('data_validator', 'valid')
+        self.invalid_counter = beam.metrics.Metrics.counter('data_validator', 'invalid')
+        
+    def process(self, element):
+        """Validate element and route to appropriate output"""
+        errors = []
+        
+        # Check for required fields
+        for rule in self.validation_rules:
+            if rule['type'] == 'required':
+                field = rule['field']
+                if not element.get(field):
+                    errors.append(f"Missing required field: {field}")
+                    
+            elif rule['type'] == 'not_null':
+                field = rule['field']
+                if element.get(field) is None:
+                    errors.append(f"Null value in field: {field}")
+                    
+            elif rule['type'] == 'regex':
+                field = rule['field']
+                pattern = rule['pattern']
+                import re
+                if element.get(field) and not re.match(pattern, str(element[field])):
+                    errors.append(f"Invalid format in field {field}")
+        
+        if errors:
+            self.invalid_counter.inc()
+            element['_validation_errors'] = errors
+            element['_validation_timestamp'] = datetime.utcnow().isoformat()
+            yield beam.pvalue.TaggedOutput('invalid', element)
+        else:
+            self.valid_counter.inc()
+            element['_validation_status'] = 'valid'
+            yield beam.pvalue.TaggedOutput('valid', element)

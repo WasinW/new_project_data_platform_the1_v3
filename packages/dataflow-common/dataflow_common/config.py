@@ -389,10 +389,33 @@ class CommonPipelineConfig:
         """Basic validation - can be extended by specific pipelines"""
         issues = []
         
+        # Basic validation
         if not self.project_id:
             issues.append("project_id is required")
         
         if self.mode not in ['batch', 'streaming']:
             issues.append(f"Invalid mode: {self.mode}")
+            
+        # Dataset name validation (แบบ safe - ถ้าไม่มีก็ข้าม)
+        import re
+        dataset_pattern = r'^[a-zA-Z][a-zA-Z0-9_]*$'
+        
+        for dataset_field in ['source_dataset', 'staging_dataset', 'refined_dataset']:
+            value = self.get(dataset_field)
+            if value and not re.match(dataset_pattern, value):
+                logger.warning(f"Dataset name may be invalid: {value}")
+                # ไม่ใส่ใน issues เพื่อไม่ให้ pipeline พัง
+        
+        # Table name validation (warning only)
+        table_pattern = r'^[a-zA-Z][a-zA-Z0-9_]*$'
+        
+        for table_field in ['source_table', 'stg_source_table', 'stg_origin_table']:
+            value = self.get(table_field)
+            if value and not re.match(table_pattern, value):
+                logger.warning(f"Table name may be invalid: {value}")
+        
+        # Critical validations only
+        if self.mode == 'streaming' and not self.get('pubsub_topic'):
+            issues.append("pubsub_topic is required for streaming mode")
         
         return issues

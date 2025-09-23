@@ -31,7 +31,9 @@ try:
         AuditLoggingStep,
         CreateMappingSideInput,
         WindowedAuditLogger,
-        CDCUpsertFormatter
+        CDCUpsertFormatter,
+        MergeQueryGenerator, 
+        MergeQueryExecutor
     )
 except ImportError as e:
     logger.error(f"Failed to import dataflow_common modules: {e}")
@@ -105,7 +107,7 @@ def build_batch_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConfig):
             'enabled': True,
             'step_name': 'ReadSource',
             'project': config.project_id,
-            'src_project': config.source_project,
+            'src_project': config.get('source_project'),
             'dataset': config.get('source_dataset'),
             'src_table': f"{config.src_project}.{config.get('source_dataset')}.{config.get('source_table')}",
             'tgt_table': f"{config.project_id}.{config.get('staging_dataset')}.{config.get('stg_source_table')}",
@@ -136,6 +138,9 @@ def build_batch_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConfig):
 
         source_data = read_step.execute(pipeline)
         mapping_data = read_mapping_step.execute(pipeline)
+        # Convert mapping to side input
+        mapping_list = beam.pvalue.AsList(mapping_data)
+        
 
         # Step 2: Data Quality Validation with config rules
         validation_rules = config.get('validation_rules')
@@ -165,11 +170,11 @@ def build_batch_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConfig):
         # Step 3: Mapping Field
         mapping_step = ColumnMappingStep({
             'enabled': True,
-            'step_name': 'MapingStep',
-            'streaming_mode': True,
+            'step_name': 'MappingStep',
+            'mode': 'batch',
             'target_table': config.get('stg_origin_table'),
             # 'mapping_type': 'source_to_origin',
-            'mapping_side_input': mapping_data
+            'mapping_side_input': mapping_list
         })
         mapping_personas_data = mapping_step.execute(pipeline, validated_data)
         
@@ -190,75 +195,97 @@ def build_batch_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConfig):
         })
         write_mapping_personas_step.execute(pipeline, mapping_personas_data)
 
-        # Step 5: Generate Merge Query from mapping data
-        def generate_merge_query(mapping_records: List[Dict[str, Any]], column_condition: str) -> str:
-            if not mapping_records:
-                raise ValueError("No mapping records found to generate merge query.")
+        # Step 5: Generate and execute MERGE queries
+        from dataflow_common.transformers import MergeQueryGenerator, MergeQueryExecutor
 
-            # Assuming mapping_records contain fields: RECONCILE_COLUMN_NAME, PERSONAS_MAPPING_COLUMN_NAME
-            list_columns = []
-            set_clauses = []
-            new_records = []
-            for record in mapping_records:
-                source_field = record.get('RECONCILE_COLUMN_NAME')
-                target_field = record.get('PERSONAS_MAPPING_COLUMN_NAME')
-                if source_field and target_field:
-                    list_columns.append(source_field)
-                    set_clauses.append(f"{target_field} = {'src' if record.get(column_condition) else 'tgt'}.{source_field}")
-                    new_records.append(f"{'src' if record.get(column_condition) else 'tgt'}.{source_field}")
+        merge_queries = (
+                    pipeline
+                    | 'CreateTrigger' >> beam.Create([1])  # Single trigger element
+                    | 'GenerateMergeQueries' >> beam.ParDo(
+                        MergeQueryGenerator(),
+                        mapping_list,
+                        config.to_dict()
+                    )
+                )
+                
+        # query_merge_ms_personas = generate_merge_query(
+        #     mapping_records=list(mapping_data | "CollectMapping" >> beam.combiners.ToList()),
+        #     column_condition='RECONCILE_RETRIEVED'
+        # )
+        # query_merge_ms_member = generate_merge_query(
+        #     mapping_records=list(mapping_data | "CollectMapping" >> beam.combiners.ToList()),
+        #     column_condition='RECONCILE_CONFIRMED'
+        # )
 
-            if not set_clauses:
-                raise ValueError("No valid field mappings found in mapping records.")
-            
-            set_clause_str = ",\n    ".join(set_clauses)
-            
-            merge_query = f"""
-            MERGE INTO `{config.project_id}.{config.get('staging_dataset')}.{config.get('stg_origin_table')}` AS tgt
-            USING `{config.project_id}.{config.get('staging_dataset')}.{config.get('stg_ongoing_source_table')}` AS src
-            ON tgt.member_number = src.member_number
-            WHEN MATCHED THEN
-              UPDATE SET
-                {set_clause_str},
-                tgt.updated_at = CURRENT_TIMESTAMP()
-            WHEN NOT MATCHED THEN
-              INSERT ({', '.join(list_columns)})
-              VALUES ({', '.join(new_records)})
-            """
-            #         INSERT (id, name, status) VALUES (S.id, S.name, S.status)
+        # write_member_step = WriteToBigQueryStep({
+        #     'enabled': True,
+        #     'step_name': 'WriteMember',
+        #     'project': config.project_id,
+        #     'dataset': config.get('staging_dataset'),
+        #     'table': config.get('stg_origin_table'),
+        #     'query_bq': query_merge_ms_member,
+        # })
+        # write_personas_step = WriteToBigQueryStep({
+        #     'enabled': True,
+        #     'step_name': 'WritePersonas',
+        #     'project': config.project_id,
+        #     'dataset': config.get('staging_dataset'),
+        #     'table': config.get('stg_origin_table'),
+        #     'query_bq': query_merge_ms_personas,
+        # })
 
-            return merge_query
-
-        query_merge_ms_personas = generate_merge_query(
-            mapping_records=list(mapping_data | "CollectMapping" >> beam.combiners.ToList()),
-            column_condition='RECONCILE_RETRIEVED'
+        # write_member_step.execute(pipeline, write_mapping_personas_step)
+        # write_personas_step.execute(pipeline, write_mapping_personas_step)
+        # Execute merge queries via connector
+        merge_results = (
+            merge_queries
+            | 'ExecuteMergeQueries' >> beam.ParDo(
+                MergeQueryExecutor(
+                    project_id=config.project_id,
+                    dataset=config.get('staging_dataset')
+                )
+            )
         )
-        query_merge_ms_member = generate_merge_query(
-            mapping_records=list(mapping_data | "CollectMapping" >> beam.combiners.ToList()),
-            column_condition='RECONCILE_CONFIRMED'
-        )
-
-        write_member_step = WriteToBigQueryStep({
-            'enabled': True,
-            'step_name': 'WriteMember',
-            'project': config.project_id,
-            'dataset': config.get('staging_dataset'),
-            'table': config.get('stg_origin_table'),
-            'query_bq': query_merge_ms_member,
-        })
-        write_personas_step = WriteToBigQueryStep({
-            'enabled': True,
-            'step_name': 'WritePersonas',
-            'project': config.project_id,
-            'dataset': config.get('staging_dataset'),
-            'table': config.get('stg_origin_table'),
-            'query_bq': query_merge_ms_personas,
-        })
-
-        write_member_step.execute(pipeline, write_mapping_personas_step)
-        write_personas_step.execute(pipeline, write_mapping_personas_step)
         
-        # Step 5: Audit Logging
+        # Optional: Log merge results
+        _ = (
+            merge_results
+            | 'LogMergeResults' >> beam.Map(
+                lambda x: logger.info(f"Merge execution results: {x}")
+            )
+        )
+        
+        # Step 6: Audit Logging
         if config.get('audit_enabled', True):
+            # # สามารถใช้ merge_results ในการ audit ด้วย
+            # audit_data = (
+            #     merge_results
+            #     | 'PrepareAuditData' >> beam.Map(
+            #         lambda x: {
+            #             'job_time': x['timestamp'],
+            #             'pipeline': 'ms_member_unified',
+            #             'step': 'merge_execution',
+            #             'personas_status': x['personas_result']['status'] if x.get('personas_result') else 'skipped',
+            #             'member_status': x['member_result']['status'] if x.get('member_result') else 'skipped',
+            #             'overall_status': x['overall_status'],
+            #             'mode': 'batch'
+            #         }
+            #     )
+            # )
+            
+            # # Write audit log
+            # audit_connector = BigQueryConnector(
+            #     project=config.project_id,
+            #     dataset=config.get('staging_dataset')
+            # )
+            
+            # audit_data | 'WriteAuditLog' >> audit_connector.write(
+            #     table=config.get('audit_table'),
+            #     mode='WRITE_APPEND',
+            #     method='FILE_LOADS',
+            #     schema='SCHEMA_AUTODETECT'
+            # )
+
             audit_step = AuditLoggingStep({
                 'enabled': True,
                 'step_name': 'AuditLog',

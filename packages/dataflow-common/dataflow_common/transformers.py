@@ -10,6 +10,10 @@ import apache_beam as beam
 from google.cloud import bigquery
 from .core import Transformer
 from .config import CommonPipelineConfig  # Changed from PipelineConfig
+import re
+from typing import Dict, Any, List, Tuple
+import time
+from functools import lru_cache
 
 logger = logging.getLogger(__name__)
 
@@ -99,13 +103,32 @@ class ColumnMapper(beam.DoFn):
         self.config = config
         self.target_table = target_table
         self.mapping_type = mapping_type
-        self.column_mapping = None
+        self._column_mapping = None
+        self._cache_timestamp = None
+        self.cache_ttl = 600  # 10 minutes
+
         
-    def setup(self):
-        """Load mapping once when DoFn starts"""
-        all_mappings = MappingLoader.load_mapping(self.config)
-        self.column_mapping = all_mappings.get(self.mapping_type, {})
-        
+    # def setup(self):
+    #     """Load mapping once when DoFn starts"""
+    #     all_mappings = MappingLoader.load_mapping(self.config)
+    #     self.column_mapping = all_mappings.get(self.mapping_type, {})
+
+    @property
+    def column_mapping(self) -> Dict[str, str]:
+        """Get column mapping with caching"""
+        now = time.time()
+        if (self._column_mapping is None or 
+            self._cache_timestamp is None or
+            now - self._cache_timestamp > self.cache_ttl):
+            
+            # Reload mapping
+            logger.info(f"Loading mapping for {self.mapping_type}")
+            all_mappings = MappingLoader.load_mapping(self.config)
+            self._column_mapping = all_mappings.get(self.mapping_type, {})
+            self._cache_timestamp = now
+            logger.info(f"Loaded {len(self._column_mapping)} mappings")
+        return self._column_mapping
+
     def process(self, element):
         """Map source columns to target format"""
         mapped_record = {}
@@ -422,3 +445,235 @@ class CDCDeleteFormatter(CDCFormatter):
     """Convenience class for DELETE mutations"""
     def __init__(self):
         super().__init__(mutation_type='DELETE')
+
+
+
+class MergeQueryGenerator(beam.DoFn):
+    """Generate MERGE queries for BigQuery reconciliation"""
+    
+    @staticmethod
+    def validate_field_name(field: str) -> str:
+        """Validate and return safe field name for SQL
+        
+        Args:
+            field: Field name to validate
+            
+        Returns:
+            Validated field name
+            
+        Raises:
+            ValueError: If field name is invalid
+        """
+        if not field:
+            raise ValueError("Field name cannot be empty")
+            
+        # Remove any potential schema prefix
+        if '.' in field:
+            field = field.split('.')[-1]
+            
+        # Check for valid SQL identifier
+        if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', field):
+            raise ValueError(f"Invalid field name: {field}")
+            
+        return field
+    
+    def generate_merge_query(
+        self,
+        mapping_records: List[Dict[str, Any]], 
+        column_condition: str,
+        config: Dict[str, Any]
+    ) -> str:
+        """Generate MERGE SQL query for BigQuery
+        
+        Args:
+            mapping_records: List of mapping configurations
+            column_condition: Field name to check for merge condition (RECONCILE_RETRIEVED or RECONCILE_CONFIRMED)
+            config: Pipeline configuration with project_id, datasets, tables
+            
+        Returns:
+            SQL MERGE query string
+            
+        Raises:
+            ValueError: If no valid mappings found
+        """
+        if not mapping_records:
+            raise ValueError("No mapping records found to generate merge query")
+        
+        list_columns = []
+        set_clauses = []
+        insert_columns = []
+        insert_values = []
+        
+        for record in mapping_records:
+            try:
+                # Get and validate field names
+                source_field = self.validate_field_name(record.get('RECONCILE_COLUMN_NAME', ''))
+                target_field = self.validate_field_name(
+                    record.get('PERSONAS_MAPPING_COLUMN_NAME') or source_field
+                )
+                
+                # Check if this column should be included based on condition
+                should_reconcile = record.get(column_condition) 
+                
+                if should_reconcile:
+                    # Use source data for reconciliation
+                    set_clauses.append(f"tgt.`{source_field}` = src.`{target_field}`")
+                    insert_columns.append(f"`{source_field}`")
+                    insert_values.append(f"src.`{target_field}`")
+                else:
+                    # Keep target data
+                    set_clauses.append(f"tgt.`{source_field}` = tgt.`{source_field}`")
+                    insert_columns.append(f"`{source_field}`")
+                    insert_values.append(f"COALESCE(src.`{target_field}`, tgt.`{source_field}`)")
+                    
+                list_columns.append(source_field)
+                
+            except ValueError as e:
+                logger.warning(f"Skipping invalid field mapping: {e}")
+                continue
+        
+        if not set_clauses:
+            raise ValueError("No valid field mappings found in mapping records")
+        
+        # Determine target table based on condition
+        if column_condition == 'RECONCILE_RETRIEVED':
+            target_table = config.get('stg_source_table')  # stg_ms_personas
+        else:  # RECONCILE_CONFIRMED
+            target_table = config.get('stg_origin_table')  # stg_ms_member
+        
+        source_table = config.get('stg_ongoing_source_table')  # stg_personas (temp table)
+        
+        # Build MERGE query
+        merge_query = f"""
+        MERGE `{config['project_id']}.{config['staging_dataset']}.{target_table}` AS tgt
+        USING `{config['project_id']}.{config['staging_dataset']}.{source_table}` AS src
+        ON tgt.member_number = src.member_number
+        WHEN MATCHED THEN
+            UPDATE SET
+                {',\n                '.join(set_clauses)},
+                tgt.updated_at = CURRENT_TIMESTAMP()
+        WHEN NOT MATCHED THEN
+            INSERT ({', '.join(insert_columns)})
+            VALUES ({', '.join(insert_values)})
+        """
+        
+        logger.info(f"Generated MERGE query for {target_table} with {len(set_clauses)} fields")
+        return merge_query
+    
+    def process(self, element, mapping_records, config):
+        """Process element and generate merge queries
+        
+        Yields:
+            Dict with both merge queries
+        """
+        try:
+            # Generate query for stg_ms_personas
+            personas_query = self.generate_merge_query(
+                mapping_records, 
+                'RECONCILE_RETRIEVED',
+                config
+            )
+            
+            # Generate query for stg_ms_member  
+            member_query = self.generate_merge_query(
+                mapping_records,
+                'RECONCILE_CONFIRMED', 
+                config
+            )
+            
+            yield {
+                'personas_query': personas_query,
+                'member_query': member_query,
+                'timestamp': datetime.utcnow().isoformat()
+            }
+            
+        except Exception as e:
+            logger.error(f"Error generating merge queries: {e}")
+            yield {
+                'error': str(e),
+                'timestamp': datetime.utcnow().isoformat()
+            }
+
+# dataflow_common/transformers.py (เพิ่มส่วนนี้)
+
+class MergeQueryExecutor(beam.DoFn):
+    """Execute generated MERGE queries via BigQuery connector"""
+    
+    def __init__(self, project_id: str, dataset: str):
+        """
+        Args:
+            project_id: GCP project ID
+            dataset: BigQuery dataset
+        """
+        self.project_id = project_id
+        self.dataset = dataset
+        self._connector = None
+        
+    def setup(self):
+        """Initialize BigQuery connector"""
+        from .connectors import BigQueryConnector
+        self._connector = BigQueryConnector(
+            project=self.project_id,
+            dataset=self.dataset
+        )
+        
+    def process(self, queries_dict):
+        """Execute the merge queries
+        
+        Args:
+            queries_dict: Dictionary containing personas_query and member_query
+            
+        Yields:
+            Execution results
+        """
+        results = {
+            'timestamp': datetime.utcnow().isoformat(),
+            'personas_result': None,
+            'member_result': None
+        }
+        
+        try:
+            # Execute personas merge
+            if 'personas_query' in queries_dict and queries_dict['personas_query']:
+                logger.info("Executing personas merge query via connector")
+                personas_result = self._connector.execute_merge_query(
+                    queries_dict['personas_query'],
+                    table_name='stg_ms_personas'
+                )
+                results['personas_result'] = personas_result
+                
+                if personas_result.get('status') != 'success':
+                    logger.error(f"Personas merge failed: {personas_result.get('error')}")
+            
+            # Execute member merge  
+            if 'member_query' in queries_dict and queries_dict['member_query']:
+                logger.info("Executing member merge query via connector")
+                member_result = self._connector.execute_merge_query(
+                    queries_dict['member_query'],
+                    table_name='stg_ms_member'
+                )
+                results['member_result'] = member_result
+                
+                if member_result.get('status') != 'success':
+                    logger.error(f"Member merge failed: {member_result.get('error')}")
+            
+            # Determine overall status
+            personas_success = results['personas_result'] and results['personas_result'].get('status') == 'success'
+            member_success = results['member_result'] and results['member_result'].get('status') == 'success'
+            
+            if personas_success and member_success:
+                results['overall_status'] = 'success'
+                logger.info("All merge queries completed successfully")
+            elif personas_success or member_success:
+                results['overall_status'] = 'partial_success'
+                logger.warning("Some merge queries failed")
+            else:
+                results['overall_status'] = 'failed'
+                logger.error("All merge queries failed")
+                
+        except Exception as e:
+            logger.error(f"Error executing merge queries: {e}")
+            results['overall_status'] = 'error'
+            results['error'] = str(e)
+            
+        yield results
