@@ -23,7 +23,7 @@ python dataflow/FW/unified_dataflow_pipeline_bigtable.py \
   --max_errors_percent=0.05 \
   --validation_rules='[{"type":"required","field":"member_number"}]' \
   --bq_priority=INTERACTIVE \
-  --bq_write_disposition=WRITE_APPEND \
+  --bq_write_disposition=WRITE_TRUNCATE \
   --bq_create_disposition=CREATE_IF_NEEDED \
   --metrics_enabled \
   --audit_enabled \

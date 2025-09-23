@@ -145,6 +145,7 @@ class StreamingColumnMapper(beam.DoFn):
         mapped_record = {}
         
         for source_col, target_col in column_mapping.items():
+            target_col = target_col.split('.')[1] if '.' in target_col else target_col
             if target_col in element:
                 mapped_record[source_col] = element[target_col]
             else:
@@ -600,3 +601,51 @@ class NotificationParser(beam.DoFn):
             
         except Exception as e:
             logger.error(f"Error parsing notification: {e}")
+
+
+class CDCFormatter(beam.DoFn):
+    """Format records for BigQuery CDC writes"""
+    
+    def __init__(self, mutation_type: str = 'UPSERT'):
+        """
+        Args:
+            mutation_type: Type of mutation (UPSERT or DELETE)
+        """
+        self.mutation_type = mutation_type
+        self.counter = beam.metrics.Metrics.counter('cdc', f'{mutation_type.lower()}_count')
+        
+    def process(self, element):
+        """Format element for CDC write"""
+        import time
+        
+        # Extract the actual record data
+        record_data = element.copy()
+        
+        # Remove internal metadata fields
+        record_data = {k: v for k, v in record_data.items() if not k.startswith('_')}
+        
+        # Create CDC formatted row
+        cdc_row = {
+            'record': record_data,
+            'row_mutation_info': {
+                'mutation_type': self.mutation_type,
+                'change_sequence_number': str(int(time.time() * 1000000))  # Microsecond timestamp
+            }
+        }
+        
+        self.counter.inc()
+        logger.debug(f"Formatted CDC {self.mutation_type} for record")
+        
+        yield beam.Row(**cdc_row)
+
+
+class CDCUpsertFormatter(CDCFormatter):
+    """Convenience class for UPSERT mutations"""
+    def __init__(self):
+        super().__init__(mutation_type='UPSERT')
+
+
+class CDCDeleteFormatter(CDCFormatter):
+    """Convenience class for DELETE mutations"""
+    def __init__(self):
+        super().__init__(mutation_type='DELETE')

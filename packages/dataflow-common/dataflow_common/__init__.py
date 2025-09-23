@@ -55,7 +55,10 @@ from .transformers import (
     DataQualityTransformer,
     RecordHasher,
     WindowedAggregator,
-    NotificationParser
+    NotificationParser,
+    CDCFormatter,          # Add these
+    CDCUpsertFormatter,    # Add these
+    CDCDeleteFormatter     # Add these
 )
 
 # Step imports
@@ -122,7 +125,10 @@ __all__ = [
     'RecordHasher',
     'WindowedAggregator',
     'NotificationParser',
-    
+    'CDCFormatter',
+    'CDCUpsertFormatter', 
+    'CDCDeleteFormatter',
+
     # Steps
     'ReadFromBigQueryStep',
     'ReadFromPubSubStep',

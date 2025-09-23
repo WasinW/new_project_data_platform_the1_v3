@@ -1,7 +1,7 @@
 # dataflow_common/connectors.py
 """Enhanced data connectors for various sources"""
 
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Union
 import logging
 import apache_beam as beam
 from apache_beam.io import ReadFromPubSub, WriteToBigQuery
@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 class BigQueryConnector(DataConnector):
-    """Enhanced BigQuery connector with credentials support"""
+    """Enhanced BigQuery connector with CDC and WRITE_TRUNCATE support"""
     
     def __init__(self, project: str, dataset: str = None, 
                  credentials_path: Optional[str] = None):
@@ -64,8 +64,11 @@ class BigQueryConnector(DataConnector):
         return ReadFromBigQuery(**read_options)
     
     def write(self, table: str, mode: str = "WRITE_APPEND", 
-              method: str = "STORAGE_WRITE_API", schema: str = 'SCHEMA_AUTODETECT',
-              streaming_mode: Optional[str] = None, **kwargs):
+              method: str = "STORAGE_WRITE_API", schema: Union[str, dict] = 'SCHEMA_AUTODETECT',
+              streaming_mode: Optional[str] = None, 
+              use_cdc: bool = False,  # เพิ่ม parameter
+              primary_key: Optional[List[str]] = None,  # เพิ่ม parameter
+              **kwargs):
         """Write to BigQuery with various methods and modes"""
         full_table = f"{self.project}.{self.dataset}.{table}" if self.dataset else table
         
@@ -81,16 +84,87 @@ class BigQueryConnector(DataConnector):
         if write_method:
             write_options['method'] = write_method
         
-        # Add streaming specific options
-        if streaming_mode == 'at_least_once' and method == 'STORAGE_WRITE_API':
+        # Handle CDC writes for upserts
+        if use_cdc:  # ตอนนี้ use_cdc เป็น parameter แล้ว
+            if method != 'STORAGE_WRITE_API':
+                raise ValueError("CDC writes require STORAGE_WRITE_API method")
+            
+            if not primary_key:  # ตอนนี้ primary_key เป็น parameter แล้ว
+                raise ValueError("CDC writes require primary_key to be specified")
+            
+            # Enable CDC writes
+            write_options['use_cdc_writes'] = True
+            write_options['primary_key'] = primary_key
+            
+            # For CDC, we need at_least_once semantics
+            if streaming_mode != 'exactly_once':
+                write_options['use_at_least_once'] = True
+            
+            logger.info(f"Configured CDC writes for table {full_table} with primary key: {primary_key}")
+            
+        # Handle streaming specific options (non-CDC)
+        elif streaming_mode == 'at_least_once' and method == 'STORAGE_WRITE_API':
             write_options['use_at_least_once'] = True
+
+        # Handle WRITE_TRUNCATE for batch mode
+        if mode == 'WRITE_TRUNCATE':
+            # WRITE_TRUNCATE is handled by BigQueryDisposition
+            if method == 'FILE_LOADS':
+                logger.info(f"Using WRITE_TRUNCATE with FILE_LOADS for table {full_table}")
+            else:
+                logger.info(f"Using WRITE_TRUNCATE with {method} for table {full_table}")
+
+            # write_options['use_cdc_writes'] = True
+            # write_options['primary_key'] = ['member_id']
         
         if self.credentials_path:
             write_options['service_account_json'] = self.credentials_path
         
+        # Apply any additional options
         write_options.update(kwargs)
         
         return WriteToBigQuery(**write_options)
+    
+    def write_cdc(self, table: str, primary_key: List[str],
+                  schema: Union[str, dict] = 'SCHEMA_AUTODETECT',
+                  **kwargs):
+        """Convenience method for CDC writes (upserts)
+        
+        Args:
+            table: Target table name
+            primary_key: List of primary key columns
+            schema: Table schema
+            **kwargs: Additional options
+        """
+        return self.write(
+            table=table,
+            mode='WRITE_APPEND',  # CDC always uses WRITE_APPEND
+            method='STORAGE_WRITE_API',
+            use_cdc=True,
+            primary_key=primary_key,
+            schema=schema,
+            **kwargs
+        )
+    
+    def write_truncate(self, table: str, 
+                      schema: Union[str, dict] = 'SCHEMA_AUTODETECT',
+                      method: str = 'FILE_LOADS',
+                      **kwargs):
+        """Convenience method for WRITE_TRUNCATE
+        
+        Args:
+            table: Target table name
+            schema: Table schema
+            method: Write method (default FILE_LOADS for batch)
+            **kwargs: Additional options
+        """
+        return self.write(
+            table=table,
+            mode='WRITE_TRUNCATE',
+            method=method,
+            schema=schema,
+            **kwargs
+        )
     
     def query(self, query: str) -> List[Dict[str, Any]]:
         """Execute query and return results"""

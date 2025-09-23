@@ -30,7 +30,8 @@ try:
         WriteToBigQueryStep,
         AuditLoggingStep,
         CreateMappingSideInput,
-        WindowedAuditLogger
+        WindowedAuditLogger,
+        CDCUpsertFormatter
     )
 except ImportError as e:
     logger.error(f"Failed to import dataflow_common modules: {e}")
@@ -158,15 +159,17 @@ def build_batch_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConfig):
         
         member_data = member_mapping_step.execute(pipeline, validated_data)
         
-        # Step 4a: Write to stg_ms_personas
+        # Step 4a: Write to stg_ms_personas with WRITE_TRUNCATE for short term
         write_personas_step = WriteToBigQueryStep({
             'enabled': True,
             'step_name': 'WritePersonas',
             'project': config.project_id,
             'dataset': config.get('staging_dataset'),
             'table': config.get('stg_source_table'),
-            'mode': config.get('bq_write_disposition', 'WRITE_APPEND'),
-            'method': config.get('write_method', 'FILE_LOADS'),
+            # 'mode': config.get('bq_write_disposition', 'WRITE_TRUNCATE'), # WRITE_APPEND , WRITE_TRUNCATE
+            # 'method': config.get('write_method', 'FILE_LOADS'),
+            'method': config.get('write_method', 'FILE_LOADS'),  # FILE_LOADS for batch
+            # 'mode': 'WRITE_TRUNCATE',  # Changed to WRITE_TRUNCATE for short term
             'create_disposition': config.get('bq_create_disposition', 'CREATE_IF_NEEDED'),
             'priority': config.get('bq_priority', 'INTERACTIVE'),
             'remove_metadata': True
@@ -174,14 +177,14 @@ def build_batch_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConfig):
         
         write_personas_step.execute(pipeline, personas_data)
         
-        # Step 4b: Write to stg_ms_member
+        # Step 4b: Write to stg_ms_member with WRITE_TRUNCATE for short term
         write_member_step = WriteToBigQueryStep({
             'enabled': True,
             'step_name': 'WriteMember',
             'project': config.project_id,
             'dataset': config.get('staging_dataset'),
             'table': config.get('stg_origin_table'),
-            'mode': config.get('bq_write_disposition', 'WRITE_APPEND'),
+            'mode': config.get('bq_write_disposition', 'WRITE_TRUNCATE'), # WRITE_APPEND , WRITE_TRUNCATE
             'method': config.get('write_method', 'FILE_LOADS'),
             'create_disposition': config.get('bq_create_disposition', 'CREATE_IF_NEEDED'),
             'priority': config.get('bq_priority', 'INTERACTIVE'),
@@ -260,6 +263,7 @@ def build_streaming_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConf
                 except json.JSONDecodeError:
                     columns_to_fetch = None
             
+            # mapping field for personas to origin  
             enrich_step = BigtableEnrichmentStep({
                 'enabled': True,
                 'step_name': 'BigtableEnrich',
@@ -299,38 +303,53 @@ def build_streaming_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConf
             
             member_data = member_mapping_step.execute(pipeline, validated_data)
             
-            # Write to stg_ms_member
+            
+            # Format for CDC upsert
+            # from dataflow_common.transformers import CDCUpsertFormatter
+            
+            cdc_formatted_data = (
+                member_data
+                | 'FormatForCDC' >> beam.ParDo(CDCUpsertFormatter())
+            )
+            
+            # Write to stg_ms_member with CDC for upserts
             write_member_step = WriteToBigQueryStep({
                 'enabled': True,
-                'step_name': 'WriteMember',
+                'step_name': 'WriteMemberCDC',
                 'project': config.project_id,
                 'dataset': config.get('staging_dataset'),
                 'table': config.get('stg_origin_table'),
-                'mode': 'WRITE_APPEND',
+                'mode': 'WRITE_APPEND',  # CDC requires WRITE_APPEND
                 'method': config.get('write_method', 'STORAGE_WRITE_API'),
+                'use_cdc': True,
+                'primary_key': ['member_number'],  # Specify primary key
                 'streaming_mode': config.get('streaming_mode', 'at_least_once'),
                 'remove_metadata': True
             })
             
-            write_member_step.execute(pipeline, member_data)
+            write_member_step.execute(pipeline, cdc_formatted_data)
             
-            # Also write to refined
+            # Also write to refined with CDC
             refined_data = (
                 validated_data
                 | 'AddRefinedMetadata' >> beam.Map(
                     lambda x: {**x, 'ingested_at': datetime.utcnow().isoformat()}
                 )
+                | 'FormatRefinedForCDC' >> beam.ParDo(CDCUpsertFormatter())
                 | 'AuditRefinedWrite' >> beam.ParDo(WindowedAuditLogger('refined_write'))
             )
             
             write_refined_step = WriteToBigQueryStep({
                 'enabled': True,
-                'step_name': 'WriteRefined',
+                # 'step_name': 'WriteRefined',
+                'step_name': 'WriteRefinedCDC',
                 'project': config.project_id,
                 'dataset': config.get('refined_dataset'),
                 'table': config.get('refined_ongoing_table'),
                 'mode': 'WRITE_APPEND',
                 'method': config.get('write_method', 'STORAGE_WRITE_API'),
+                'use_cdc': True,
+                'primary_key': ['member_number'],
                 'streaming_mode': config.get('streaming_mode', 'at_least_once'),
                 'remove_metadata': True
             })
@@ -339,22 +358,27 @@ def build_streaming_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConf
             
         elif config.get('term_type') == 'long':
             # Write only to refined
+            # from dataflow_common.transformers import CDCUpsertFormatter
+
             refined_data = (
                 validated_data
                 | 'AddRefinedMetadataLong' >> beam.Map(
                     lambda x: {**x, 'ingested_at': datetime.utcnow().isoformat()}
                 )
+                | 'FormatLongForCDC' >> beam.ParDo(CDCUpsertFormatter())
                 | 'AuditRefinedWriteLong' >> beam.ParDo(WindowedAuditLogger('refined_write_long'))
             )
             
             write_refined_step = WriteToBigQueryStep({
                 'enabled': True,
-                'step_name': 'WriteRefinedLong',
+                'step_name': 'WriteRefinedLongCDC',
                 'project': config.project_id,
                 'dataset': config.get('refined_dataset'),
                 'table': config.get('refined_ongoing_table'),
                 'mode': 'WRITE_APPEND',
                 'method': config.get('write_method', 'STORAGE_WRITE_API'),
+                'use_cdc': True,
+                'primary_key': ['member_number'],
                 'streaming_mode': config.get('streaming_mode', 'at_least_once'),
                 'remove_metadata': True
             })

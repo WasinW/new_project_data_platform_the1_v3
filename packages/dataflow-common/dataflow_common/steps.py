@@ -132,7 +132,7 @@ class BigtableEnrichmentStep(PipelineStep):
         )
         
         handler = connector.create_enrichment_handler(
-            row_key_field=self.config.get('row_key_field', 'member_number'),
+            row_key_field=self.config.get('row_key_field', 'member_id'),
             columns_to_fetch=self.config.get('columns_to_fetch')
         )
         
@@ -196,6 +196,7 @@ class ColumnMappingStep(PipelineStep):
         elif self.config.get('streaming_mode'):
             # Streaming mode with side input
             mapping_side_input = self.config.get('mapping_side_input')
+            # ต้องไปอ่าน Mapping ตรงนี้ mapping_side_input
             if not mapping_side_input:
                 raise ValueError("mapping_side_input required for streaming mode")
             
@@ -288,9 +289,17 @@ class WriteToBigQueryStep(PipelineStep):
             dataset=self.config.get('dataset'),
             credentials_path=self.config.get('credentials_path')
         )
-        
-        # Clean metadata fields if configured
-        if self.config.get('remove_metadata', True):
+
+        # input_pcoll | f"Write_{self.step_name}" >> connector.write(
+        #     table=self.config['table'],
+        #     mode=self.config.get('mode', 'WRITE_APPEND'),
+        #     method=self.config.get('method', 'STORAGE_WRITE_API'),
+        #     schema=self.config.get('schema', 'SCHEMA_AUTODETECT'),
+        #     streaming_mode=self.config.get('streaming_mode')
+        # )
+
+        # Clean metadata fields if configured (but not for CDC)
+        if self.config.get('remove_metadata', True) and not self.config.get('use_cdc'):
             input_pcoll = (
                 input_pcoll
                 | f"RemoveMetadata_{self.step_name}" >> beam.Map(
@@ -298,15 +307,31 @@ class WriteToBigQueryStep(PipelineStep):
                               if not k.startswith('_')}
                 )
             )
-        
-        input_pcoll | f"Write_{self.step_name}" >> connector.write(
-            table=self.config['table'],
-            mode=self.config.get('mode', 'WRITE_APPEND'),
-            method=self.config.get('method', 'STORAGE_WRITE_API'),
-            schema=self.config.get('schema', 'SCHEMA_AUTODETECT'),
-            streaming_mode=self.config.get('streaming_mode')
-        )
-        
+        # TESTCASE SCENARIO 1 : SHORT TERM WRITE_TRUNCATE  : mode WRITE_TRUNCATE , method = STORAGE_WRITE_API 
+        #                       WRITE_TRUNCATE TO STG_PERSONAS  > MERGE TO STG_MS_PERSONAS
+        #                                                       > MERGE TO STG_MS_MEMBER
+        # TESTCASE SCENARIO 2 : MID/LONG TERM CDC : USING CDC : mode WRITE_APPEND , method = STORAGE_WRITE_API , use_cdc = True
+        #                       UPSERT WITH WRITE_APPEND USE_CDC TO STG_MS_MEMBER AND MS_PERSONAS
+        # TESTCASE SCENARIO 3 : MID/LONG TERM NO CDC : mode WRITE_APPEND , method = STORAGE_WRITE_API , use_cdc = False
+        #                       FOR THIS CASE NOT USE IN MEMBER/PERSONAS TABLE BECAUSE NEED CDC
+        # Check if using CDC
+        if self.config.get('use_cdc'):
+            input_pcoll | f"WriteCDC_{self.step_name}" >> connector.write_cdc(
+                table=self.config['table'],
+                primary_key=self.config.get('primary_key', ['member_id']),
+                schema=self.config.get('schema', 'SCHEMA_AUTODETECT')
+            )
+        else:
+            input_pcoll | f"Write_{self.step_name}" >> connector.write(
+                table=self.config['table'],
+                mode=self.config.get('mode', 'WRITE_APPEND'),
+                method=self.config.get('method', 'STORAGE_WRITE_API'),
+                schema=self.config.get('schema', 'SCHEMA_AUTODETECT'),
+                streaming_mode=self.config.get('streaming_mode'),
+                use_cdc=False,
+                primary_key=None  # ไม่ใช้ primary_key สำหรับ normal write
+            )
+
         return input_pcoll
 
 
