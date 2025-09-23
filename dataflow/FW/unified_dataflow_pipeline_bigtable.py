@@ -196,7 +196,7 @@ def build_batch_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConfig):
         mapping_personas_data = mapping_step.execute(pipeline, validated_data)
         
         # Step 4a: Write to stg_ms_personas with WRITE_TRUNCATE for short term
-        write_personas_step = WriteToBigQueryStep({
+        write_mapping_personas_step = WriteToBigQueryStep({
             'enabled': True,
             'step_name': 'WriteMappingPersonas',
             'project': config.project_id,
@@ -210,8 +210,7 @@ def build_batch_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConfig):
             'priority': config.get('bq_priority', 'INTERACTIVE'),
             'remove_metadata': True
         })
-        
-        write_personas_step.execute(pipeline, mapping_personas_data)
+        write_mapping_personas_step.execute(pipeline, mapping_personas_data)
         
         # Step 4b: Write to stg_ms_member with WRITE_TRUNCATE for short term
         write_member_step = WriteToBigQueryStep({
