@@ -20,11 +20,9 @@ logger = logging.getLogger(__name__)
 
 # Add parent directory to path for imports
 # sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-# print(f"project_root: {project_root}")
-dataflow_common_path = os.path.join(project_root, 'packages', 'dataflow-common')
-# print(f"dataflow_common_path: {dataflow_common_path}")
-sys.path.insert(0, dataflow_common_path)
+# project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# dataflow_common_path = os.path.join(project_root, 'packages', 'dataflow-common')
+# sys.path.insert(0, dataflow_common_path)
 
 
 try:
