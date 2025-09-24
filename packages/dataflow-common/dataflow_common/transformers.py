@@ -168,7 +168,7 @@ class BatchColumnMapper(beam.DoFn):
         
     def process(self, element, mapping_dict):
         """Map columns using cached mapping from side input"""
-        column_mapping = mapping_dict
+        column_mapping = mapping_dict  # This is the list of mappings
         
         mapped_record = {}
         
@@ -179,7 +179,7 @@ class BatchColumnMapper(beam.DoFn):
         #         mapped_record[rec_col_nm] = element[psn_map_col_nm]
         #     else:
         #         mapped_record[rec_col_nm] = None
-        for mapping in mapping_list:
+        for mapping in column_mapping:
             rec_col_nm = mapping.get('RECONCILE_COLUMN_NAME')
             psn_map_col_nm = mapping.get('PERSONAS_MAPPING_COLUMN_NAME', rec_col_nm)
             reconcile_sts = mapping.get('RECONCILE_RETRIEVED')

@@ -77,7 +77,7 @@ def validate_required_params(config: CommonPipelineConfig, mode: str) -> List[st
     if mode == 'batch':
         batch_fields = [
             'min_batch_size', 'max_batch_size', 'enrichment_batch_size',
-            'partition_filter', 'read_method', 'write_method'
+            'read_method', 'write_method'
         ]
         for field in batch_fields:
             if config.get(field) is None:
@@ -121,8 +121,19 @@ def build_batch_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConfig):
             'src_table': f"{config.get('source_project')}.{config.get('source_dataset')}.{config.get('source_table')}",
             'tgt_table': f"{config.project_id}.{config.get('staging_dataset')}.{config.get('stg_source_table')}",
             # 'tgt_table': f"{config.project_id}.{config.get('staging_dataset')}.{config.get('stg_ongoing_source_table')}",
-            # 'query': f"SELECT * FROM {config.source_project}.{config.get('source_dataset')}.{config.get('source_table')} WHERE timestamp > (SELECT MAX(timestamp) FROM {config.source_project}.{config.get('source_dataset')}.{config.get('source_table')})",
-            'partition_filter': config.get('partition_filter'),
+            'query': f"""
+                SELECT * 
+                EXCEPT(RN_PK)
+                FROM (
+                    SELECT *
+                    -- json field is sensitivity
+                    , ROW_NUMBER() OVER(PARTITION BY JSON_VALUE(profiles.memberId) ORDER BY TIMESTAMP DESC ) RN_PK
+                    FROM `{config.source_project}.{config.get('source_dataset')}.{config.get('source_table')}` 
+                    WHERE timestamp > (SELECT MAX(updated_date) FROM `{config.project_id}.{config.get('staging_dataset')}.{config.get('stg_source_table')}`
+                ) AS LAST_UPD
+                WHERE RN_PK = 1 
+            """,
+            # 'partition_filter': config.get('partition_filter'),
             'method': config.get('read_method', 'DIRECT_READ')
         })
 
