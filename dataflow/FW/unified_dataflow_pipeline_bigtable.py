@@ -114,7 +114,7 @@ def build_batch_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConfig):
         logger.info(f"DEBUG: source_project = {config.get('source_project')}")
         logger.info(f"DEBUG: source_dataset = {config.get('source_dataset')}")
         logger.info(f"DEBUG: source_table = {config.get('source_table')}")
-        logger.info(f"DEBUG: project_id = {config.project_id}")
+        logger.info(f"DEBUG: project_id = {config.get('project_id')}")
         logger.info(f"DEBUG: staging_dataset = {config.get('staging_dataset')}")
         logger.info(f"DEBUG: stg_source_table = {config.get('stg_source_table')}")
         
@@ -169,7 +169,7 @@ def build_batch_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConfig):
             'dataset': source_dataset,
             'src_table': source_table_full,
             'tgt_table': target_table_full,
-            # 'tgt_table': f"{config.project_id}.{config.get('staging_dataset')}.{config.get('stg_ongoing_source_table')}",
+            # 'tgt_table': f"{config.get('project_id')}.{config.get('staging_dataset')}.{config.get('stg_ongoing_source_table')}",
             'query': query,
             # 'query': f"""
             #     SELECT * 
@@ -179,7 +179,7 @@ def build_batch_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConfig):
             #         -- json field is sensitivity
             #         , ROW_NUMBER() OVER(PARTITION BY JSON_VALUE(profiles.memberId) ORDER BY TIMESTAMP DESC ) RN_PK
             #         FROM `{config.get('source_project')}.{config.get('source_dataset')}.{config.get('source_table')}` 
-            #         WHERE timestamp > (SELECT MAX(updated_date) FROM `{config.project_id}.{config.get('staging_dataset')}.{config.get('stg_source_table')}`
+            #         WHERE timestamp > (SELECT MAX(updated_date) FROM `{config.get('project_id')}.{config.get('staging_dataset')}.{config.get('stg_source_table')}`
             #     ) AS LAST_UPD
             #     WHERE RN_PK = 1 
             # """,
@@ -216,11 +216,11 @@ def build_batch_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConfig):
             'query': mapping_query,
             # 'query': f"""
             # SELECT *
-            # FROM `{config.project_id}.{config.get('staging_dataset')}.{config.get('mapping_table')}`
+            # FROM `{config.get('project_id')}.{config.get('staging_dataset')}.{config.get('mapping_table')}`
             # WHERE TRUE
             #     AND COALESCE(UPDATED_DATE, "1999-12-31") = (
             #         SELECT MAX(COALESCE(UPDATED_DATE, "1999-12-31"))
-            #         FROM `{config.project_id}.{config.get('staging_dataset')}.{config.get('mapping_table')}`
+            #         FROM `{config.get('project_id')}.{config.get('staging_dataset')}.{config.get('mapping_table')}`
             #     )
             # """,
             'method': read_method
@@ -260,7 +260,7 @@ def build_batch_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConfig):
                 'max_errors_percent': config.get('max_errors_percent', 0.1),
                 'error_table': config.get('error_table'),
                 'write_errors': config.get('write_errors', True),
-                'project': config.project_id,
+                'project': config.get('project_id'),
                 'dataset': config.get('staging_dataset')
             })
             logger.info("DEBUG: DataQualityStep created successfully")
@@ -315,9 +315,9 @@ def build_batch_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConfig):
         write_mapping_personas_step = WriteToBigQueryStep({
             'enabled': True,
             'step_name': 'WriteMappingPersonas',
-            'project': config.project_id,
+            'project': config.get('project_id'),
             'dataset': config.get('staging_dataset'),
-            'table': config.get('stg_ongoing_source_table'),
+            'table': f"{config.get('project_id')}.{config.get('staging_dataset')}.{config.get('stg_ongoing_source_table')}",
             # 'method': config.get('write_method', 'FILE_LOADS'),
             'method': config.get('write_method', 'FILE_LOADS'),  # FILE_LOADS for batch
             # 'mode': config.get('bq_write_disposition', 'WRITE_TRUNCATE'), # WRITE_APPEND , WRITE_TRUNCATE
@@ -353,7 +353,7 @@ def build_batch_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConfig):
         # write_member_step = WriteToBigQueryStep({
         #     'enabled': True,
         #     'step_name': 'WriteMember',
-        #     'project': config.project_id,
+        #     'project': config.get('project_id'),
         #     'dataset': config.get('staging_dataset'),
         #     'table': config.get('stg_origin_table'),
         #     'query_bq': query_merge_ms_member,
@@ -361,7 +361,7 @@ def build_batch_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConfig):
         # write_personas_step = WriteToBigQueryStep({
         #     'enabled': True,
         #     'step_name': 'WritePersonas',
-        #     'project': config.project_id,
+        #     'project': config.get('project_id'),
         #     'dataset': config.get('staging_dataset'),
         #     'table': config.get('stg_origin_table'),
         #     'query_bq': query_merge_ms_personas,
@@ -374,7 +374,7 @@ def build_batch_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConfig):
             merge_queries
             | 'ExecuteMergeQueries' >> beam.ParDo(
                 MergeQueryExecutor(
-                    project_id=config.project_id,
+                    project_id=config.get('project_id'),
                     dataset=config.get('staging_dataset')
                 )
             )
@@ -408,7 +408,7 @@ def build_batch_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConfig):
             
             # # Write audit log
             # audit_connector = BigQueryConnector(
-            #     project=config.project_id,
+            #     project=config.get('project_id'),
             #     dataset=config.get('staging_dataset')
             # )
             
@@ -425,7 +425,7 @@ def build_batch_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConfig):
                 'aggregate_windows': False,
                 'pipeline_name': 'ms_member_unified',
                 'mode': 'batch',
-                'project': config.project_id,
+                'project': config.get('project_id'),
                 'dataset': config.get('staging_dataset'),
                 'audit_table': config.get('audit_table'),
                 'metrics_enabled': config.get('metrics_enabled', True),
@@ -451,7 +451,7 @@ def build_streaming_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConf
                 'enabled': True,
                 'step_name': 'MappingCache',
                 'refresh_interval_seconds': config.get('mapping_refresh_interval_seconds', 600),
-                'project': config.project_id,
+                'project': config.get('project_id'),
                 'staging_dataset': config.get('staging_dataset'),
                 'mapping_table': config.get('mapping_table')
             })
@@ -465,7 +465,7 @@ def build_streaming_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConf
         read_step = ReadFromPubSubStep({
             'enabled': True,
             'step_name': 'ReadPubSub',
-            'project': config.project_id,
+            'project': config.get('project_id'),
             'topic': topic_name,
             'parse_notifications': True,
             'window_duration_seconds': config.get('window_duration_seconds'),
@@ -491,7 +491,7 @@ def build_streaming_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConf
             enrich_step = BigtableEnrichmentStep({
                 'enabled': True,
                 'step_name': 'BigtableEnrich',
-                'project': config.project_id,
+                'project': config.get('project_id'),
                 'instance_id': config.get('bigtable_instance_id'),
                 'table_id': config.get('bigtable_table_id'),
                 'app_profile_id': config.get('bigtable_app_profile_id'),
@@ -541,7 +541,7 @@ def build_streaming_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConf
             write_member_step = WriteToBigQueryStep({
                 'enabled': True,
                 'step_name': 'WriteMemberCDC',
-                'project': config.project_id,
+                'project': config.get('project_id'),
                 'dataset': config.get('staging_dataset'),
                 'table': config.get('stg_origin_table'),
                 'mode': 'WRITE_APPEND',  # CDC requires WRITE_APPEND
@@ -568,7 +568,7 @@ def build_streaming_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConf
                 'enabled': True,
                 # 'step_name': 'WriteRefined',
                 'step_name': 'WriteRefinedCDC',
-                'project': config.project_id,
+                'project': config.get('project_id'),
                 'dataset': config.get('refined_dataset'),
                 'table': config.get('refined_ongoing_table'),
                 'mode': 'WRITE_APPEND',
@@ -597,7 +597,7 @@ def build_streaming_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConf
             write_refined_step = WriteToBigQueryStep({
                 'enabled': True,
                 'step_name': 'WriteRefinedLongCDC',
-                'project': config.project_id,
+                'project': config.get('project_id'),
                 'dataset': config.get('refined_dataset'),
                 'table': config.get('refined_ongoing_table'),
                 'mode': 'WRITE_APPEND',
@@ -619,7 +619,7 @@ def build_streaming_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConf
                 'window_duration_seconds': config.get('audit_window_duration', 3600),
                 'pipeline_name': 'ms_member_unified',
                 'mode': 'streaming',
-                'project': config.project_id,
+                'project': config.get('project_id'),
                 'dataset': config.get('staging_dataset'),
                 'audit_table': config.get('audit_table')
             })
@@ -796,7 +796,7 @@ def main():
         pipeline_options.view_as(StandardOptions).streaming = (config.get('mode') == 'streaming')
         
         gcp_options = pipeline_options.view_as(GoogleCloudOptions)
-        gcp_options.project = config.project_id
+        gcp_options.project = config.get('project_id')
         gcp_options.region = args.region
         gcp_options.temp_location = args.temp_location
         gcp_options.staging_location = args.staging_location

@@ -84,7 +84,11 @@ gcloud projects add-iam-policy-binding the1-insight-dev \
 
 # select profiles.dateOfBirth from personas
 # LIMIT 10
-
+# ออกจาก virtual environment ก่อน
+deactivate
+rm -rf .venv
+pip install --upgrade pip setuptools wheel
+python -m build
 
 python dataflow/FW/unified_dataflow_pipeline_bigtable.py \
   --project_id=the1-insight-dev \
