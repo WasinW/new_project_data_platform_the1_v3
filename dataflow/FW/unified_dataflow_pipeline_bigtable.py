@@ -317,7 +317,8 @@ def build_batch_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConfig):
             'step_name': 'WriteMappingPersonas',
             'project': config.get('project_id'),
             'dataset': config.get('staging_dataset'),
-            'table': f"{config.get('project_id')}.{config.get('staging_dataset')}.{config.get('stg_ongoing_source_table')}",
+            # 'table': f"{config.get('project_id')}.{config.get('staging_dataset')}.{config.get('stg_ongoing_source_table')}",
+            'table': f"{config.get('stg_ongoing_source_table')}",
             # 'method': config.get('write_method', 'FILE_LOADS'),
             'method': config.get('write_method', 'FILE_LOADS'),  # FILE_LOADS for batch
             # 'mode': config.get('bq_write_disposition', 'WRITE_TRUNCATE'), # WRITE_APPEND , WRITE_TRUNCATE
