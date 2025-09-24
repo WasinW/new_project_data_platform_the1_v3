@@ -111,92 +111,207 @@ def build_batch_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConfig):
         #  4. merge stg_ms_member (merge 3k records and map columns 250 fields like stg_ms_member)
 
     try:
+        # เพิ่ม debug logs
+        logger.info("=== DEBUG: Starting batch pipeline build ===")
+        logger.info(f"DEBUG: source_project = {config.get('source_project')}")
+        logger.info(f"DEBUG: source_dataset = {config.get('source_dataset')}")
+        logger.info(f"DEBUG: source_table = {config.get('source_table')}")
+        logger.info(f"DEBUG: project_id = {config.project_id}")
+        logger.info(f"DEBUG: staging_dataset = {config.get('staging_dataset')}")
+        logger.info(f"DEBUG: stg_source_table = {config.get('stg_source_table')}")
+        
         # Step 1.1: Read from BigQuery with source values
+        logger.info("DEBUG: Creating ReadFromBigQueryStep for source data...")
+
+        logger.info("=== DEBUG: Starting batch pipeline build ===")
+        logger.info(f"DEBUG: source_project = {config.get('source_project')}")
+        logger.info(f"DEBUG: source_dataset = {config.get('source_dataset')}")
+        logger.info(f"DEBUG: source_table = {config.get('source_table')}")
+        logger.info(f"DEBUG: project_id = {config.get('project_id')}")
+        logger.info(f"DEBUG: staging_dataset = {config.get('staging_dataset')}")
+        logger.info(f"DEBUG: stg_source_table = {config.get('stg_source_table')}")
+        
+        # Step 1.1: Read from BigQuery with source values
+        logger.info("DEBUG: Creating ReadFromBigQueryStep for source data...")
+        
+        # แยก query ออกมาเพื่อ debug
+        source_project = config.get('source_project')
+        source_dataset = config.get('source_dataset')
+        source_table = config.get('source_table')
+        project_id = config.get('project_id')
+        staging_dataset = config.get('staging_dataset')
+        stg_source_table = config.get('stg_source_table')
+        mapping_table = config.get('mapping_table')
+        read_method = config.get('read_method', 'DIRECT_READ')
+
+
+        source_table_full = f"{source_project}.{source_dataset}.{source_table}"
+        target_table_full = f"{project_id}.{staging_dataset}.{stg_source_table}"
+
+        logger.info(f"DEBUG: source_table_full = {source_table_full}")
+        logger.info(f"DEBUG: target_table_full = {target_table_full}")
+        query = f"""
+            SELECT * 
+            EXCEPT(RN_PK)
+            FROM (
+                SELECT *
+                -- json field is sensitivity
+                , ROW_NUMBER() OVER(PARTITION BY JSON_VALUE(profiles.memberId) ORDER BY TIMESTAMP DESC) RN_PK
+                FROM `{source_table_full}` 
+                WHERE timestamp > (SELECT COALESCE(MAX(updated_date), TIMESTAMP('2000-01-01')) FROM `{target_table_full}`)
+            ) AS LAST_UPD
+            WHERE RN_PK = 1 
+        """
+        logger.info(f"DEBUG: Generated query = {query[:500]}...")  # Show first 500 chars
         read_step = ReadFromBigQueryStep({
             'enabled': True,
             'step_name': 'ReadSource',
-            'project': config.project_id,
-            'src_project': config.get('source_project'),
-            'dataset': config.get('source_dataset'),
-            'src_table': f"{config.get('source_project')}.{config.get('source_dataset')}.{config.get('source_table')}",
-            'tgt_table': f"{config.project_id}.{config.get('staging_dataset')}.{config.get('stg_source_table')}",
+            'project': project_id,
+            'src_project': source_project,
+            'dataset': source_dataset,
+            'src_table': source_table_full,
+            'tgt_table': target_table_full,
             # 'tgt_table': f"{config.project_id}.{config.get('staging_dataset')}.{config.get('stg_ongoing_source_table')}",
-            'query': f"""
-                SELECT * 
-                EXCEPT(RN_PK)
-                FROM (
-                    SELECT *
-                    -- json field is sensitivity
-                    , ROW_NUMBER() OVER(PARTITION BY JSON_VALUE(profiles.memberId) ORDER BY TIMESTAMP DESC ) RN_PK
-                    FROM `{config.source_project}.{config.get('source_dataset')}.{config.get('source_table')}` 
-                    WHERE timestamp > (SELECT MAX(updated_date) FROM `{config.project_id}.{config.get('staging_dataset')}.{config.get('stg_source_table')}`
-                ) AS LAST_UPD
-                WHERE RN_PK = 1 
-            """,
+            'query': query,
+            # 'query': f"""
+            #     SELECT * 
+            #     EXCEPT(RN_PK)
+            #     FROM (
+            #         SELECT *
+            #         -- json field is sensitivity
+            #         , ROW_NUMBER() OVER(PARTITION BY JSON_VALUE(profiles.memberId) ORDER BY TIMESTAMP DESC ) RN_PK
+            #         FROM `{config.get('source_project')}.{config.get('source_dataset')}.{config.get('source_table')}` 
+            #         WHERE timestamp > (SELECT MAX(updated_date) FROM `{config.project_id}.{config.get('staging_dataset')}.{config.get('stg_source_table')}`
+            #     ) AS LAST_UPD
+            #     WHERE RN_PK = 1 
+            # """,
             # 'partition_filter': config.get('partition_filter'),
-            'method': config.get('read_method', 'DIRECT_READ')
+            'method': read_method
         })
+        logger.info("DEBUG: ReadFromBigQueryStep created successfully")
+        
+        # Step 1.2: Read mapping
+        logger.info("DEBUG: Creating ReadFromBigQueryStep for mapping data...")
+        
+        mapping_query = f"""
+            SELECT *
+            FROM `{project_id}.{staging_dataset}.{mapping_table}`
+            WHERE TRUE
+                AND COALESCE(UPDATED_DATE, "1999-12-31") = (
+                    SELECT MAX(COALESCE(UPDATED_DATE, "1999-12-31"))
+                    FROM `{project_id}.{staging_dataset}.{mapping_table}`
+                )
+        """
+        
+        logger.info(f"DEBUG: Mapping query = {mapping_query[:500]}...")
+        
 
         # Step 1.2: Read from BigQuery with config values
         read_mapping_step = ReadFromBigQueryStep({
             'enabled': True,
             'step_name': 'ReadMapping',
-            'project': config.project_id,
-            'src_project': config.project_id,
-            'dataset': config.get('staging_dataset'),
-            'query': f"""
-            SELECT *
-            FROM `{config.project_id}.{config.get('staging_dataset')}.{config.get('mapping_table')}`
-            WHERE TRUE
-                AND COALESCE(UPDATED_DATE, "1999-12-31") = (
-                    SELECT MAX(COALESCE(UPDATED_DATE, "1999-12-31"))
-                    FROM `{config.project_id}.{config.get('staging_dataset')}.{config.get('mapping_table')}`
-                )
-            """,
-            'method': config.get('read_method', 'DIRECT_READ')
+            'project': project_id,
+            'src_project': project_id,
+            'dataset': staging_dataset,
+            # 'src_table': source_table_full,
+            # 'tgt_table': target_table_full,
+            'query': mapping_query,
+            # 'query': f"""
+            # SELECT *
+            # FROM `{config.project_id}.{config.get('staging_dataset')}.{config.get('mapping_table')}`
+            # WHERE TRUE
+            #     AND COALESCE(UPDATED_DATE, "1999-12-31") = (
+            #         SELECT MAX(COALESCE(UPDATED_DATE, "1999-12-31"))
+            #         FROM `{config.project_id}.{config.get('staging_dataset')}.{config.get('mapping_table')}`
+            #     )
+            # """,
+            'method': read_method
         })
-
+        logger.info("DEBUG: About to execute source_data read...")
         source_data = read_step.execute(pipeline)
-        mapping_data = read_mapping_step.execute(pipeline)
-        # Convert mapping to side input
-        mapping_list = beam.pvalue.AsList(mapping_data)
+        logger.info("DEBUG: source_data read executed")
         
+        logger.info("DEBUG: About to execute mapping_data read...")
+        mapping_data = read_mapping_step.execute(pipeline)
+        logger.info("DEBUG: mapping_data read executed")
+        
+        # Convert mapping to side input
+        logger.info("DEBUG: Converting mapping to side input...")
+        mapping_list = beam.pvalue.AsList(mapping_data)
+        logger.info("DEBUG: Mapping side input created")
 
         # Step 2: Data Quality Validation with config rules
+        logger.info("DEBUG: Starting Data Quality Validation...")
         validation_rules = config.get('validation_rules')
+        logger.info(f"DEBUG: validation_rules = {validation_rules}")
+        
         if isinstance(validation_rules, str):
             try:
                 validation_rules = json.loads(validation_rules)
-            except json.JSONDecodeError:
-                logger.warning(f"Failed to parse validation_rules JSON: {validation_rules}")
-                # validation_rules = [{'type': 'required', 'field': 'member_number'}]
+                logger.info(f"DEBUG: Parsed validation_rules = {validation_rules}")
+            except json.JSONDecodeError as e:
+                logger.warning(f"Failed to parse validation_rules JSON: {validation_rules}, error: {e}")
                 validation_rules = []
         
-        dq_step = DataQualityStep({
-            'enabled': True,
-            'step_name': 'DataQuality',
-            'rules': validation_rules,
-            'split_output': config.get('split_output', False),
-            'max_errors_percent': config.get('max_errors_percent', 0.1),
-            'error_table': config.get('error_table'),
-            'write_errors': config.get('write_errors', True),
-            'project': config.project_id,
-            'dataset': config.get('staging_dataset')
-        })
-        
-        validated_data = dq_step.execute(pipeline, source_data)
+        try:
+            dq_step = DataQualityStep({
+                'enabled': True,
+                'step_name': 'DataQuality',
+                'rules': validation_rules,
+                'split_output': config.get('split_output', False),
+                'max_errors_percent': config.get('max_errors_percent', 0.1),
+                'error_table': config.get('error_table'),
+                'write_errors': config.get('write_errors', True),
+                'project': config.project_id,
+                'dataset': config.get('staging_dataset')
+            })
+            logger.info("DEBUG: DataQualityStep created successfully")
+        except Exception as e:
+            logger.error(f"Error creating DataQualityStep: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            raise
+
+        try:
+            validated_data = dq_step.execute(pipeline, source_data)
+            logger.info("DEBUG: DataQualityStep executed successfully")
+        except Exception as e:
+            logger.error(f"Error executing DataQualityStep: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            raise
         
         # mapping field
         # Step 3: Mapping Field
-        mapping_step = ColumnMappingStep({
-            'enabled': True,
-            'step_name': 'MappingStep',
-            'mode': 'batch',
-            'target_table': config.get('stg_origin_table'),
-            # 'mapping_type': 'source_to_origin',
-            'mapping_side_input': mapping_list
-        })
-        mapping_personas_data = mapping_step.execute(pipeline, validated_data)
+        logger.info("DEBUG: Starting ColumnMappingStep...")
+        try:
+            mapping_step = ColumnMappingStep({
+                'enabled': True,
+                'step_name': 'MappingStep',
+                'mode': 'batch',
+                'target_table': config.get('stg_origin_table'),
+                # 'mapping_type': 'source_to_origin',
+                'mapping_side_input': mapping_list,
+                # เพิ่ม parameters ที่อาจจำเป็น
+                'min_batch_size': config.get('min_batch_size'),
+                'max_batch_size': config.get('max_batch_size'),
+                'enrichment_batch_size': config.get('enrichment_batch_size')
+            })
+            logger.info("DEBUG: ColumnMappingStep created successfully")
+        except Exception as e:
+            logger.error(f"Error creating ColumnMappingStep: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            raise
+
+        try:
+            mapping_personas_data = mapping_step.execute(pipeline, validated_data)
+            logger.info("DEBUG: ColumnMappingStep executed successfully")
+        except Exception as e:
+            logger.error(f"Error executing ColumnMappingStep: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            raise
         
         # Step 4: Write to Mapping stg_personas with WRITE_TRUNCATE for short term
         write_mapping_personas_step = WriteToBigQueryStep({

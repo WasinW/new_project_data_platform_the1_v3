@@ -27,9 +27,13 @@ class ReadFromBigQueryStep(PipelineStep):
     def execute(self, pipeline: beam.Pipeline, 
                 input_pcoll: Optional[beam.PCollection] = None) -> Optional[beam.PCollection]:
         
+        logger.info(f"DEBUG ReadFromBigQueryStep: step_name={self.step_name}")
+        logger.info(f"DEBUG ReadFromBigQueryStep: enabled={self.is_enabled()}")
+
         if not self.is_enabled():
             return None
         
+        logger.info(f"DEBUG ReadFromBigQueryStep: config keys = {self.config.keys()}")
         connector = BigQueryConnector(
             project=self.config.get('project'),
             dataset=self.config.get('dataset'),
@@ -37,7 +41,9 @@ class ReadFromBigQueryStep(PipelineStep):
         )
         
         query = self.config.get('query')
+        logger.info(f"DEBUG ReadFromBigQueryStep: query = {query[:200] if query else 'None'}...")
         if not query and self.config.get('src_table'):
+            logger.info("DEBUG: Building query from src_table...")
             # Build query from table and partition
             src_project = self.config['src_project']  
             src_table = self.config['src_table']
@@ -56,6 +62,7 @@ class ReadFromBigQueryStep(PipelineStep):
                 ) AS LAST_UPD
                 WHERE RN_PK = 1 
                 """
+        logger.info("DEBUG: About to create pipeline read transform...")
         
         return (
             pipeline
