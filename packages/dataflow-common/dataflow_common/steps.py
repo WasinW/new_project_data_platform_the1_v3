@@ -11,7 +11,7 @@ from apache_beam.transforms.periodicsequence import PeriodicImpulse
 from .core import PipelineStep
 from .connectors import BigQueryConnector, PubSubConnector, BigtableConnector
 from .transformers import (
-    ColumnMapper, StreamingColumnMapper, EnrichAndMapColumns,BatchColumnMapper,
+    ColumnMapper, StreamingColumnMapper,BatchColumnMapper,
     MappingCacheLoader, DataQualityTransformer, NotificationParser,
     WindowedAggregator
 )

@@ -14,9 +14,18 @@ from datetime import datetime
 import apache_beam as beam
 from apache_beam.options.pipeline_options import PipelineOptions, StandardOptions
 from typing import Optional, Dict, Any, List
+# Setup logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Add parent directory to path for imports
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# print(f"project_root: {project_root}")
+dataflow_common_path = os.path.join(project_root, 'packages', 'dataflow-common')
+# print(f"dataflow_common_path: {dataflow_common_path}")
+sys.path.insert(0, dataflow_common_path)
+
 
 try:
     from dataflow_common import (
@@ -196,7 +205,7 @@ def build_batch_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConfig):
         write_mapping_personas_step.execute(pipeline, mapping_personas_data)
 
         # Step 5: Generate and execute MERGE queries
-        from dataflow_common.transformers import MergeQueryGenerator, MergeQueryExecutor
+        # from dataflow_common.transformers import MergeQueryGenerator, MergeQueryExecutor
 
         merge_queries = (
                     pipeline
