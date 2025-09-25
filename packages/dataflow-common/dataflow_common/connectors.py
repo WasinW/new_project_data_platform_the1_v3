@@ -118,7 +118,7 @@ class BigQueryConnector(DataConnector):
                         'gs://t1-insight-audit-bucket/audit_log/dataflow/temp'
                     )
                 write_options['triggering_frequency']=1
-                write_options['file_loads_buffer_size']=1
+                # write_options['file_loads_buffer_size']=1
             else:
                 logger.info(f"Using WRITE_TRUNCATE with {method} for table {full_table}")
 
