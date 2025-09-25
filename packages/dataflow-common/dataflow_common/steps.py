@@ -433,15 +433,36 @@ class AuditLoggingStep(PipelineStep):
                 project=self.config.get('project'),
                 dataset=self.config.get('dataset')
             )
-            
-            audit_data | f"WriteAudit_{self.step_name}" >> audit_connector.write(
-                table=self.config['audit_table'],
-                mode='WRITE_APPEND',
-                method='FILE_LOADS',  # Use batch for audit logs
-                schema='SCHEMA_AUTODETECT',
-                custom_gcs_temp_location=self.config.get('temp_location')  # เพิ่มบรรทัดนี้
+            if self.config.get('runner') == 'DirectRunner':
+                audit_data | f"WriteAudit_{self.step_name}" >> audit_connector.write(
+                    table=self.config['audit_table'],
+                    mode='WRITE_APPEND',
+                    method='STREAMING_INSERTS',  # Use batch for audit logs
+                    schema={
+                        'fields': [
+                            {"name": "job_time","mode": "NULLABLE","type": "STRING"},
+                            {"name": "pipeline","mode": "NULLABLE","type": "STRING"},
+                            {"name": "term_type","mode": "NULLABLE","type": "STRING"},
+                            {"name": "mode","mode": "NULLABLE","type": "STRING"},
+                            {"name": "environment","mode": "NULLABLE","type": "STRING"},
+                            {"name": "records_processed","mode": "NULLABLE","type": "STRING"},
+                            {"name": "unique_members","mode": "NULLABLE","type": "STRING"},
+                            {"name": "window_start","mode": "NULLABLE","type": "STRING"},
+                            {"name": "window_end","mode": "NULLABLE","type": "STRING"},
+                            {"name": "status","mode": "NULLABLE","type": "STRING"}
+                            ]
+                    },
+                    custom_gcs_temp_location=self.config.get('temp_location')  # เพิ่มบรรทัดนี้
+                )
+            else:
+                audit_data | f"WriteAudit_{self.step_name}" >> audit_connector.write(
+                    table=self.config['audit_table'],
+                    mode='WRITE_APPEND',
+                    method='FILE_LOADS',  # Use batch for audit logs
+                    schema='SCHEMA_AUTODETECT',
+                    custom_gcs_temp_location=self.config.get('temp_location')  # เพิ่มบรรทัดนี้
 
-            )
+                )
         
         return input_pcoll
 
