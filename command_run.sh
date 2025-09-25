@@ -279,3 +279,51 @@ python dataflow/FW/unified_dataflow_pipeline_bigtable.py \
    # --network=projects/the1-network-stg/global/networks/the1-vpc-net-share-stg \
    # --subnetwork=regions/asia-southeast1/subnetworks/the1-subnet-dataflow-stg \
 
+# --------------------------------------------------------------------------------
+python dataflow/FW/unified_dataflow_pipeline_bigtable.py \
+    --project_id=the1-insight-dev \
+    --source_project=the1-insight-dev \
+    --term_type=short \
+    --mode=batch \
+    --env=dev \
+    --source_dataset=insight_dev \
+    --staging_dataset=insight_dev \
+    --refined_dataset=insight_dev \
+    --source_table=personas_test \
+    --stg_ongoing_source_table=stg_personas \
+    --stg_source_table=stg_ms_personas \
+    --stg_origin_table=stg_ms_member \
+    --refined_ongoing_table=ms_personas \
+    --audit_table=audit_job_log \
+    --mapping_table=stg_mapping_reconcile \
+    --error_table=dq_errors \
+    --min_batch_size=100 \
+    --max_batch_size=5000 \
+    --enrichment_batch_size=5000 \
+    --read_method=DIRECT_READ \
+    --write_method=FILE_LOADS \
+    --max_errors_percent=0.05 \
+    --bq_priority=INTERACTIVE \
+    --bq_write_disposition=WRITE_TRUNCATE \
+    --bq_create_disposition=CREATE_IF_NEEDED \
+    --metrics_enabled \
+    --audit_enabled \
+    --error_tracking_enabled \
+    --max_retries=3 \
+    --initial_backoff=1 \
+    --max_backoff=60 \
+    --runner=DataflowRunner \
+    --region=asia-southeast1 \
+    --temp_location=gs://t1-insight-audit-bucket/audit_log/dataflow/temp \
+    --staging_location=gs://t1-insight-audit-bucket/audit_log/dataflow/staging \
+    --machine_type=n1-standard-2 \
+    --num_workers=1 \
+    --max_num_workers=1 \
+    --save_main_session \
+    --extra_packages=gs://t1-dataflow-framework-bucket/common/packages/dataflow_common.tar.gz \
+    --job_name=ms-member-short-batch-$(date +%Y%m%d-%H%M%S) \
+    --service_account_email=t1-ins-dev-sa-data@the1-insight-dev.iam.gserviceaccount.com \
+    --setup_file=dataflow/setup.py \
+   --network=projects/the1-network-dev/global/networks/dataflow \
+   --subnetwork=regions/asia-southeast1/subnetworks/dataflow-private \
+    --requirements_file=requirements.txt
