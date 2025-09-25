@@ -214,8 +214,14 @@ def build_batch_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConfig):
             # """,
             'method': read_method
         })
+
         logger.info("DEBUG: About to execute source_data read...")
         source_data = read_step.execute(pipeline)
+        # source_data = (
+        #     read_step.execute(pipeline)
+        #     | 'Count' >> beam.combiners.Count.Globally()
+        #     | 'Log' >> beam.Map(lambda x: logging.info(f"Read {x} records"))
+        # )
         logger.info("DEBUG: source_data read executed")
         _ = (source_data
             | 'Count_Source' >> combiners.Count.Globally()
