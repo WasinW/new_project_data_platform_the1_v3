@@ -111,6 +111,12 @@ class BigQueryConnector(DataConnector):
             # WRITE_TRUNCATE is handled by BigQueryDisposition
             if method == 'FILE_LOADS':
                 logger.info(f"Using WRITE_TRUNCATE with FILE_LOADS for table {full_table}")
+                if 'custom_gcs_temp_location' not in write_options:
+                    write_options['custom_gcs_temp_location'] = (
+                        kwargs.get('custom_gcs_temp_location') or
+                        kwargs.get('temp_location') or
+                        'gs://t1-insight-audit-bucket/audit_log/dataflow/temp'
+                    )
             else:
                 logger.info(f"Using WRITE_TRUNCATE with {method} for table {full_table}")
 

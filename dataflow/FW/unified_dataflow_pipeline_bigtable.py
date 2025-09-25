@@ -12,6 +12,8 @@ import sys
 import os
 from datetime import datetime
 import apache_beam as beam
+from apache_beam import combiners
+
 from apache_beam.options.pipeline_options import PipelineOptions, StandardOptions
 from typing import Optional, Dict, Any, List
 # Setup logging
@@ -215,11 +217,17 @@ def build_batch_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConfig):
         logger.info("DEBUG: About to execute source_data read...")
         source_data = read_step.execute(pipeline)
         logger.info("DEBUG: source_data read executed")
-        
+        _ = (source_data
+            | 'Count_Source' >> combiners.Count.Globally()
+            | 'Log_Source_Count' >> beam.Map(lambda c: logger.info(f"[METRIC] source_count={c}")))
+
         logger.info("DEBUG: About to execute mapping_data read...")
         mapping_data = read_mapping_step.execute(pipeline)
         logger.info("DEBUG: mapping_data read executed")
-        
+        _ = (mapping_data
+            | 'Count_Mapping' >> combiners.Count.Globally()
+            | 'Log_Mapping_Count' >> beam.Map(lambda c: logger.info(f"[METRIC] mapping_count={c}")))
+
         # Convert mapping to side input
         logger.info("DEBUG: Converting mapping to side input...")
         mapping_list = beam.pvalue.AsList(mapping_data)
@@ -260,6 +268,10 @@ def build_batch_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConfig):
         try:
             validated_data = dq_step.execute(pipeline, source_data)
             logger.info("DEBUG: DataQualityStep executed successfully")
+            _ = (validated_data
+                | 'Count_Validated' >> combiners.Count.Globally()
+                | 'Log_Validated_Count' >> beam.Map(lambda c: logger.info(f"[METRIC] validated_count={c}")))
+
         except Exception as e:
             logger.error(f"Error executing DataQualityStep: {e}")
             import traceback
@@ -292,6 +304,9 @@ def build_batch_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConfig):
         try:
             mapping_personas_data = mapping_step.execute(pipeline, validated_data)
             logger.info("DEBUG: ColumnMappingStep executed successfully")
+            _ = (mapping_personas_data
+                | 'Count_Before_Write' >> combiners.Count.Globally()
+                | 'Log_Before_Write_Count' >> beam.Map(lambda c: logger.info(f"[METRIC] rows_before_write={c}")))
         except Exception as e:
             logger.error(f"Error executing ColumnMappingStep: {e}")
             import traceback
@@ -312,7 +327,9 @@ def build_batch_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConfig):
             'mode': 'WRITE_TRUNCATE', 
             'create_disposition': config.get('bq_create_disposition', 'CREATE_IF_NEEDED'),
             'priority': config.get('bq_priority', 'INTERACTIVE'),
-            'remove_metadata': True
+            'remove_metadata': True,
+            'temp_location': config.get('temp_location')  # เพิ่มบรรทัดนี้
+
         })
         write_mapping_personas_step.execute(pipeline, mapping_personas_data)
 

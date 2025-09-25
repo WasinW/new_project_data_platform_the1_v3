@@ -89,6 +89,7 @@ deactivate
 rm -rf .venv
 pip install --upgrade pip setuptools wheel
 python -m build
+gsutil cp dist/dataflow_common_the1-1.0.0.tar.gz gs://t1-dataflow-framework-bucket/common/packages/
 
 unset PYTHONPATH
 

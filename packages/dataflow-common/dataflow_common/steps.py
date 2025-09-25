@@ -438,7 +438,9 @@ class AuditLoggingStep(PipelineStep):
                 table=self.config['audit_table'],
                 mode='WRITE_APPEND',
                 method='FILE_LOADS',  # Use batch for audit logs
-                schema='SCHEMA_AUTODETECT'
+                schema='SCHEMA_AUTODETECT',
+                custom_gcs_temp_location=self.config.get('temp_location')  # เพิ่มบรรทัดนี้
+
             )
         
         return input_pcoll
