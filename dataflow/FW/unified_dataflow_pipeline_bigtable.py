@@ -157,7 +157,8 @@ def build_batch_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConfig):
                 -- json field is sensitivity
                 , ROW_NUMBER() OVER(PARTITION BY JSON_VALUE(profiles, '$.memberId') ORDER BY TIMESTAMP DESC) RN_PK
                 FROM `{source_table_full}`
-                WHERE timestamp > (SELECT COALESCE(MAX(updated_date), TIMESTAMP('1999-12-31')) FROM `{target_table_full}`)
+                -- WHERE timestamp > (SELECT COALESCE(MAX(updated_date), TIMESTAMP('1999-12-31')) FROM `{target_table_full}`)
+                LIMIT 1000
             ) AS LAST_UPD
             WHERE RN_PK = 1 
         """
@@ -214,14 +215,9 @@ def build_batch_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConfig):
             # """,
             'method': read_method
         })
-
+        
         logger.info("DEBUG: About to execute source_data read...")
         source_data = read_step.execute(pipeline)
-        # source_data = (
-        #     read_step.execute(pipeline)
-        #     | 'Count' >> beam.combiners.Count.Globally()
-        #     | 'Log' >> beam.Map(lambda x: logging.info(f"Read {x} records"))
-        # )
         logger.info("DEBUG: source_data read executed")
         _ = (source_data
             | 'Count_Source' >> combiners.Count.Globally()
