@@ -155,7 +155,7 @@ def build_batch_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConfig):
             FROM (
                 SELECT *
                 -- json field is sensitivity
-                , ROW_NUMBER() OVER(PARTITION BY JSON_VALUE(profiles.memberId) ORDER BY TIMESTAMP DESC) RN_PK
+                , ROW_NUMBER() OVER(PARTITION BY JSON_VALUE(profiles, '$.memberId') ORDER BY TIMESTAMP DESC) RN_PK
                 FROM `{source_table_full}`
                 WHERE timestamp > (SELECT COALESCE(MAX(updated_date), TIMESTAMP('1999-12-31')) FROM `{target_table_full}`)
             ) AS LAST_UPD

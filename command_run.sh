@@ -91,6 +91,8 @@ pip install --upgrade pip setuptools wheel
 python -m build
 gsutil cp dist/dataflow_common_the1-1.0.0.tar.gz gs://t1-dataflow-framework-bucket/common/packages/
 
+pip install -e packages/dataflow-common
+
 unset PYTHONPATH
 
 export PYTHONPATH="C:/Users/wasin.wangsombut/Documents/git/sandbox/merge_project/refactor/git_refactor/new_project_data_platform_the1_v3/"
