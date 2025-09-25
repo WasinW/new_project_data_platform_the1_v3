@@ -149,14 +149,13 @@ def build_batch_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConfig):
         logger.info(f"DEBUG: source_table_full = {source_table_full}")
         logger.info(f"DEBUG: target_table_full = {target_table_full}")
         query = f"""
-            SELECT * 
-            EXCEPT(RN_PK)
+            SELECT * EXCEPT(RN_PK)
             FROM (
                 SELECT *
                 -- json field is sensitivity
                 , ROW_NUMBER() OVER(PARTITION BY JSON_VALUE(profiles.memberId) ORDER BY TIMESTAMP DESC) RN_PK
                 FROM `{source_table_full}`
-                WHERE timestamp > (SELECT MAX(COALESCE(updated_date, '2000-01-01')) FROM `{target_table_full}`)
+                WHERE timestamp > (SELECT COALESCE(MAX(updated_date), TIMESTAMP('1999-12-31')) FROM `{target_table_full}`)
             ) AS LAST_UPD
             WHERE RN_PK = 1 
         """
@@ -171,18 +170,6 @@ def build_batch_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConfig):
             'tgt_table': target_table_full,
             # 'tgt_table': f"{config.get('project_id')}.{config.get('staging_dataset')}.{config.get('stg_ongoing_source_table')}",
             'query': query,
-            # 'query': f"""
-            #     SELECT * 
-            #     EXCEPT(RN_PK)
-            #     FROM (
-            #         SELECT *
-            #         -- json field is sensitivity
-            #         , ROW_NUMBER() OVER(PARTITION BY JSON_VALUE(profiles.memberId) ORDER BY TIMESTAMP DESC ) RN_PK
-            #         FROM `{config.get('source_project')}.{config.get('source_dataset')}.{config.get('source_table')}` 
-            #         WHERE timestamp > (SELECT MAX(updated_date) FROM `{config.get('project_id')}.{config.get('staging_dataset')}.{config.get('stg_source_table')}`
-            #     ) AS LAST_UPD
-            #     WHERE RN_PK = 1 
-            # """,
             # 'partition_filter': config.get('partition_filter'),
             'method': read_method
         })
@@ -196,7 +183,7 @@ def build_batch_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConfig):
             FROM `{project_id}.{staging_dataset}.{mapping_table}`
             WHERE TRUE
                 AND COALESCE(UPDATED_DATE, "1999-12-31") = (
-                    SELECT MAX(COALESCE(updated_date, '2000-01-01'))
+                    SELECT COALESCE(MAX(updated_date), '1999-12-31')
                     FROM `{project_id}.{staging_dataset}.{mapping_table}`
                 )
         """

@@ -202,10 +202,10 @@ python dataflow/FW/unified_dataflow_pipeline_bigtable.py \
 
 # -- SELECT  FROM `the1-insight-stg.insight.personas` LIMIT 1000
 
-# SELECT * FROM `the1-insight-dev.insight_dev.mapping_reconcile`
+# SELECT * FROM `the1-insight-dev.insight_dev.stg_mapping_reconcile`
 # WHERE updated_date > (
 #   SELECT COALESCE(MAX(updated_date), TIMESTAMP('2000-01-01'))
-#   FROM `the1-insight-dev.insight_dev.mapping_reconcile`
+#   FROM `the1-insight-dev.insight_dev.stg_mapping_reconcile`
 # )
 # LIMIT 1000
 
