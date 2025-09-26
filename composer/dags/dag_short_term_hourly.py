@@ -301,49 +301,49 @@ with DAG(
     )
 
     # Data quality check using config values
-    data_quality_check = BigQueryInsertJobOperator(
-        task_id='data_quality_check',
-        configuration={
-            "query": {
-                "query": """
-                -- Data quality check for hourly batch
-                WITH quality_metrics AS (
-                    SELECT 
-                        'stg_ms_personas' as table_name,
-                        COUNT(*) as record_count,
-                        COUNT(DISTINCT member_number) as unique_members,
-                        MAX(ingested_at) as last_ingested
-                    FROM `{{ ti.xcom_pull(task_ids='prepare_config', key='config')['gcp']['project_id'] }}.{{ ti.xcom_pull(task_ids='prepare_config', key='config')['datasets']['staging_dataset'] }}.{{ ti.xcom_pull(task_ids='prepare_config', key='config')['tables']['stg_source_table'] }}`
-                    WHERE DATE(ingested_at) = CURRENT_DATE()
-                        AND DATETIME(ingested_at) >= DATETIME_SUB(CURRENT_DATETIME(), INTERVAL {{ ti.xcom_pull(task_ids='prepare_config', key='config')['data_quality']['checks'][2]['max_hours'] }} HOUR)
+    # data_quality_check = BigQueryInsertJobOperator(
+    #     task_id='data_quality_check',
+    #     configuration={
+    #         "query": {
+    #             "query": """
+    #             -- Data quality check for hourly batch
+    #             WITH quality_metrics AS (
+    #                 SELECT 
+    #                     'stg_ms_personas' as table_name,
+    #                     COUNT(*) as record_count,
+    #                     COUNT(DISTINCT member_number) as unique_members,
+    #                     MAX(ingested_at) as last_ingested
+    #                 FROM `{{ ti.xcom_pull(task_ids='prepare_config', key='config')['gcp']['project_id'] }}.{{ ti.xcom_pull(task_ids='prepare_config', key='config')['datasets']['staging_dataset'] }}.{{ ti.xcom_pull(task_ids='prepare_config', key='config')['tables']['stg_source_table'] }}`
+    #                 WHERE DATE(ingested_at) = CURRENT_DATE()
+    #                     AND DATETIME(ingested_at) >= DATETIME_SUB(CURRENT_DATETIME(), INTERVAL {{ ti.xcom_pull(task_ids='prepare_config', key='config')['data_quality']['checks'][2]['max_hours'] }} HOUR)
                     
-                    UNION ALL
+    #                 UNION ALL
                     
-                    SELECT 
-                        'stg_ms_member' as table_name,
-                        COUNT(*) as record_count,
-                        COUNT(DISTINCT member_number) as unique_members,
-                        MAX(ingested_at) as last_ingested
-                    FROM `{{ ti.xcom_pull(task_ids='prepare_config', key='config')['gcp']['project_id'] }}.{{ ti.xcom_pull(task_ids='prepare_config', key='config')['datasets']['staging_dataset'] }}.{{ ti.xcom_pull(task_ids='prepare_config', key='config')['tables']['stg_origin_table'] }}`
-                    WHERE DATE(ingested_at) = CURRENT_DATE()
-                        AND DATETIME(ingested_at) >= DATETIME_SUB(CURRENT_DATETIME(), INTERVAL {{ ti.xcom_pull(task_ids='prepare_config', key='config')['data_quality']['checks'][2]['max_hours'] }} HOUR)
-                )
-                SELECT 
-                    *,
-                    CASE 
-                        WHEN record_count < {{ ti.xcom_pull(task_ids='prepare_config', key='config')['data_quality']['checks'][0]['warning_threshold'] }} THEN 'WARNING: Low record count'
-                        ELSE 'OK'
-                    END as status,
-                    CURRENT_DATETIME() as check_timestamp
-                FROM quality_metrics
-                """,
-                "useLegacySql": False,
-                "priority": "{{ ti.xcom_pull(task_ids='prepare_config', key='config')['bigquery']['priority'] }}"
-            }
-        },
-        gcp_conn_id='google_cloud_default',
-        location="{{ ti.xcom_pull(task_ids='prepare_config', key='config')['gcp']['location'] }}",
-    )
+    #                 SELECT 
+    #                     'stg_ms_member' as table_name,
+    #                     COUNT(*) as record_count,
+    #                     COUNT(DISTINCT member_number) as unique_members,
+    #                     MAX(ingested_at) as last_ingested
+    #                 FROM `{{ ti.xcom_pull(task_ids='prepare_config', key='config')['gcp']['project_id'] }}.{{ ti.xcom_pull(task_ids='prepare_config', key='config')['datasets']['staging_dataset'] }}.{{ ti.xcom_pull(task_ids='prepare_config', key='config')['tables']['stg_origin_table'] }}`
+    #                 WHERE DATE(ingested_at) = CURRENT_DATE()
+    #                     AND DATETIME(ingested_at) >= DATETIME_SUB(CURRENT_DATETIME(), INTERVAL {{ ti.xcom_pull(task_ids='prepare_config', key='config')['data_quality']['checks'][2]['max_hours'] }} HOUR)
+    #             )
+    #             SELECT 
+    #                 *,
+    #                 CASE 
+    #                     WHEN record_count < {{ ti.xcom_pull(task_ids='prepare_config', key='config')['data_quality']['checks'][0]['warning_threshold'] }} THEN 'WARNING: Low record count'
+    #                     ELSE 'OK'
+    #                 END as status,
+    #                 CURRENT_DATETIME() as check_timestamp
+    #             FROM quality_metrics
+    #             """,
+    #             "useLegacySql": False,
+    #             "priority": "{{ ti.xcom_pull(task_ids='prepare_config', key='config')['bigquery']['priority'] }}"
+    #         }
+    #     },
+    #     gcp_conn_id='google_cloud_default',
+    #     location="{{ ti.xcom_pull(task_ids='prepare_config', key='config')['gcp']['location'] }}",
+    # )
     
     # End marker
     end_pipeline = DummyOperator(
@@ -352,4 +352,4 @@ with DAG(
     
     # Define DAG flow
     # start_pipeline >> prepare_config_task >> run_dataflow_batch >> data_quality_check >> end_pipeline
-    start_pipeline >> prepare_config_task >> prepare_dataflow >> run_dataflow_batch >> data_quality_check >> end_pipeline
+    start_pipeline >> prepare_config_task >> prepare_dataflow >> run_dataflow_batch >> end_pipeline

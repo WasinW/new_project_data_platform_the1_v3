@@ -3,18 +3,28 @@
 
 # Default datasets and tables
 defaults:
+  # GCP defaults
+  gcp:
+    project_id: the1-insight-dev
+    location: asia-southeast1
+    environment: dev
+
+  # Dataset defaults
   datasets:
-    source_dataset: insight
+    source_dataset: insight_dev
     staging_dataset: insight_dev
     refined_dataset: insight_dev
 
+  # Table defaults
   tables:
-    source_table: personas_sync
-    stg_source_table: stg_ms_personas
-    stg_origin_table: stg_ms_member
+    source_project: the1-insight-dev # Project containing source data
+    source_table: personas_test
+    stg_source_table: stg_ms_personas # All personas records
+    stg_ongoing_source_table: stg_personas # Temporary staging for current batch
+    stg_origin_table: stg_ms_member # Member table after reconciliation
     refined_ongoing_table: ms_personas
     audit_table: audit_job_log
-    mapping_table: mapping_reconcile
+    mapping_table: stg_mapping_reconcile # Reconciliation mapping table
     error_table: dq_errors
 
   # Batch processing settings
@@ -22,6 +32,7 @@ defaults:
     min_batch_size: 100
     max_batch_size: 500
     enrichment_batch_size: 500
+    batch_limit: 1000 # Default limit for testing (remove or increase for production)
     partition_filter: "DATE(_PARTITIONTIME) = CURRENT_DATE()"
     read_method: DIRECT_READ
     write_method: FILE_LOADS
@@ -36,6 +47,7 @@ defaults:
     mapping_refresh_interval_seconds: 600
     enrichment_timeout_seconds: 10
     write_method: STORAGE_WRITE_API
+    streaming_mode: at_least_once # or exactly_once
 
   # Data quality settings
   data_quality:
@@ -58,19 +70,22 @@ defaults:
     - ALLOW_FIELD_ADDITION
     - ALLOW_FIELD_RELAXATION
 
-  # Bigtable settings
+  # Bigtable settings (for streaming)
   bigtable:
+    instance_id: null # Set in environment-specific config
+    table_id: null # Set in environment-specific config
+    app_profile_id: default
     timeout_seconds: 10
     row_key_field: member_number
     columns_to_fetch:
     - member_number
-    # - first_name
-    # - last_name
-    # - email
-    # - status
-    # - updated_at
 
-    # Monitoring and logging
+  # Pub/Sub settings (for streaming)
+  pubsub:
+    topic: null # Set in streaming config
+    subscription: null # Set in streaming config
+
+  # Monitoring and logging
   monitoring:
     metrics_enabled: true
     audit_enabled: true
@@ -84,9 +99,37 @@ defaults:
     max_backoff_seconds: 60
     backoff_multiplier: 2
 
-  # Pipeline execution settings
-  execution:
+  # Dataflow execution settings
+  dataflow:
+    machine_type: n1-standard-2
+    max_num_workers: 5
+    disk_size_gb: 100
     save_main_session: true
     setup_file_required: false
     requirements_cache_enabled: true
     worker_cache_mb: 100
+    service_account: t1-ins-dev-sa-data@the1-insight-dev.iam.gserviceaccount.com
+    execution_timeout_minutes: 30
+
+  # Storage locations
+  storage:
+    airflow_bucket: gs://t1-airflow-composer-bucket
+    dataflow_bucket: gs://t1-dataflow-framework-bucket
+    audit_bucket: gs://t1-insight-audit-bucket
+    temp_location: gs://t1-insight-audit-bucket/audit_log/dataflow/temp
+    staging_location: gs://t1-insight-audit-bucket/audit_log/dataflow/staging
+
+  # Job settings
+  job:
+    tags:
+    - ms_member
+    - data_pipeline
+
+  # Ownership and notifications
+  owner: data-engineering
+  email_on_failure: false
+  email_on_retry: false
+  email_recipients: []
+  retries: 2
+  retry_delay_minutes: 5
+  depends_on_past: false

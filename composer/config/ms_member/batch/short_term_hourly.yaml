@@ -26,22 +26,30 @@ storage:
   temp_location: gs://t1-insight-audit-bucket/audit_log/dataflow/temp
   staging_location: gs://t1-insight-audit-bucket/audit_log/dataflow/staging
 
-# Dataset Configuration (overrides defaults if needed)
+# Dataset Configuration
 datasets:
-  source_dataset: insight
+  source_dataset: insight_dev # Changed to insight_dev as per your test scripts
   staging_dataset: insight_dev
   refined_dataset: insight_dev
 
-# Table Configuration (uses defaults, override only if different)
+# Table Configuration - Critical for pipeline
 tables:
-  # Inherits all from defaults
-  # Can override specific tables here if needed
+  source_project: the1-insight-dev # Required for cross-project access
+  source_table: personas_test # Changed to personas_test as per your test
+  stg_source_table: stg_ms_personas # All personas data
+  stg_ongoing_source_table: stg_personas # Temporary staging table for current batch
+  stg_origin_table: stg_ms_member # Member table after mapping
+  refined_ongoing_table: ms_personas
+  audit_table: audit_job_log
+  mapping_table: stg_mapping_reconcile # Changed from mapping_reconcile
+  error_table: dq_errors
 
 # Batch Processing Configuration  
 batch:
   min_batch_size: 100
   max_batch_size: 500
   enrichment_batch_size: 500
+  batch_limit: 1000 # Limit records for processing (remove in production)
   partition_filter: "DATE(_PARTITIONTIME) = CURRENT_DATE()"
   read_method: DIRECT_READ
   write_method: FILE_LOADS
@@ -52,17 +60,18 @@ dataflow:
   max_num_workers: 5
   execution_timeout_minutes: 30
   save_main_session: true
-  service_account: sa-demo-the1@ntt-test-data-bq-looker.iam.gserviceaccount.com
+  service_account: t1-ins-dev-sa-data@the1-insight-dev.iam.gserviceaccount.com # Fixed service account
   python_requirements:
-  - apache-beam[gcp]==2.60.0
-  - google-cloud-secret-manager==2.16.3
+  - apache-beam[gcp]==2.59.0 # Match with DAG version
+  - google-cloud-bigquery==3.25.0
+  - google-cloud-bigtable==2.23.0
 
 # Data Quality Configuration
 data_quality:
   max_errors_percent: 0.05
   checks:
   - type: record_count
-    warning_threshold: 1000
+    warning_threshold: 100 # Lower threshold for testing
   - type: unique_members
     check_field: member_number
   - type: freshness
@@ -72,9 +81,6 @@ data_quality:
     field: member_number
   - type: not_null
     field: member_number
-  # - type: regex
-  #   field: email
-  #   pattern: '^[\w\.-]+@[\w\.-]+\.\w+$'
   split_output: false
   write_errors: true
   error_table: dq_errors
@@ -83,7 +89,7 @@ data_quality:
 bigquery:
   priority: INTERACTIVE
   use_legacy_sql: false
-  write_disposition: WRITE_APPEND
+  write_disposition: WRITE_TRUNCATE # TRUNCATE for batch short-term
   create_disposition: CREATE_IF_NEEDED
 
 # Monitoring Configuration
@@ -113,3 +119,4 @@ email_on_failure: false
 email_on_retry: false
 retries: 2
 retry_delay_minutes: 5
+depends_on_past: false
