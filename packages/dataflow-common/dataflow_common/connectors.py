@@ -17,10 +17,12 @@ class BigQueryConnector(DataConnector):
     """Enhanced BigQuery connector with CDC and WRITE_TRUNCATE support"""
     
     def __init__(self, project: str, dataset: str = None, 
-                 credentials_path: Optional[str] = None):
+                 credentials_path: Optional[str] = None,
+                 gcs_location: Optional[str] = None):  # เพิ่ม default gcs_location
         self.project = project
         self.dataset = dataset
         self.credentials_path = credentials_path
+        self.gcs_location = gcs_location or f'gs://{project}-temp/bigquery/temp'
         self._client = None
         
     @property
@@ -36,7 +38,7 @@ class BigQueryConnector(DataConnector):
         return self._client
         
     def read(self, table: str = None, query: str = None, 
-             method: str = 'DIRECT_READ', **kwargs):
+             method: str = 'EXPORT', gcs_location: str = None, **kwargs):
         """Read from BigQuery with various methods"""
         read_options = {
             'use_standard_sql': True,
@@ -44,20 +46,44 @@ class BigQueryConnector(DataConnector):
         }
         
         if method:
-            read_method = getattr(beam.io.ReadFromBigQuery.Method, method, None)
-            if read_method:
-                read_options['method'] = read_method
+            if hasattr(ReadFromBigQuery.Method, method):
+                read_options['method'] = getattr(ReadFromBigQuery.Method, method)
+            else:
+                # Default to EXPORT for queries
+                logger.warning(f"Unknown method {method}, using EXPORT")
+                read_options['method'] = ReadFromBigQuery.Method.EXPORT
         
+        # Add credentials if provided
         if self.credentials_path:
             read_options['service_account_json'] = self.credentials_path
         
-        read_options.update(kwargs)
-        
+        # Handle query
         if query:
             read_options['query'] = query
+            # Query requires gcs_location for temporary storage
+            read_options['gcs_location'] = gcs_location or self.gcs_location
+            logger.info(f"Reading from BigQuery with query, using temp location: {read_options['gcs_location']}")
+        # Handle table read
         elif table:
-            full_table = f"{self.project}.{self.dataset}.{table}" if self.dataset else table
-            read_options['table'] = full_table
+            # Check if table already has project.dataset prefix
+            if '.' in table and table.count('.') == 2:
+                # Already in project.dataset.table format
+                read_options['table'] = table
+            elif '.' in table:
+                # dataset.table format, add project
+                read_options['table'] = f"{self.project}.{table}"
+            else:
+                # Just table name, add project and dataset
+                if self.dataset:
+                    read_options['table'] = f"{self.project}.{self.dataset}.{table}"
+                else:
+                    raise ValueError(f"Dataset not specified for table: {table}")
+                    
+            # For table reads, gcs_location is optional but recommended
+            if gcs_location or self.gcs_location:
+                read_options['gcs_location'] = gcs_location or self.gcs_location
+            
+            logger.info(f"Reading from BigQuery table: {read_options['table']}")
         else:
             raise ValueError("Either table or query must be provided")
             
