@@ -37,7 +37,8 @@ class ReadFromBigQueryStep(PipelineStep):
         connector = BigQueryConnector(
             project=self.config.get('project'),
             dataset=self.config.get('dataset'),
-            credentials_path=self.config.get('credentials_path')
+            credentials_path=self.config.get('credentials_path'),
+            gcs_location='gs://t1-insight-audit-bucket/audit_log/dataflow/temp'
         )
         
         query = self.config.get('query')
@@ -67,8 +68,8 @@ class ReadFromBigQueryStep(PipelineStep):
         return (
             pipeline
             | f"Read_{self.step_name}" >> connector.read(
-                query=query,
-                method=self.config.get('method', 'DIRECT_READ')
+                query=query
+                # method=self.config.get('method', 'DIRECT_READ')
             )
         )
 
