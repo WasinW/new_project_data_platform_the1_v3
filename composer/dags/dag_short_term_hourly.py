@@ -8,6 +8,7 @@ from airflow.providers.apache.beam.operators.beam import BeamRunPythonPipelineOp
 from airflow.providers.google.cloud.operators.bigquery import BigQueryInsertJobOperator
 from airflow.operators.dummy import DummyOperator
 from airflow.operators.python import PythonOperator
+from airflow.providers.google.cloud.operators.dataflow import DataflowConfiguration
 from datetime import datetime, timedelta
 import yaml
 import logging
@@ -137,6 +138,91 @@ def load_and_prepare_config(**context):
     logger.info(f"Prepared {len(dataflow_params)} parameters for Dataflow")
     
     return final_config
+def prepare_dataflow_config(**context):
+    """Prepare configuration for Dataflow job"""
+    config = context['ti'].xcom_pull(task_ids='prepare_config', key='config')
+    dataflow_params = context['ti'].xcom_pull(task_ids='prepare_config', key='dataflow_params')
+    
+    # Build pipeline options as string list (not dict)
+    # pipeline_options = []
+    
+    # Required parameters
+    # pipeline_options.extend([
+    #     f"--project={config['gcp']['project_id']}",
+    #     f"--region={config['gcp']['location']}",
+    #     "--runner=DataflowRunner",
+    #     f"--temp_location={config['storage']['temp_location']}",
+    #     f"--staging_location={config['storage']['staging_location']}",
+    #     f"--job_name=short-term-{datetime.now().strftime('%Y%m%d-%H%M%S')}",
+    #     "--save_main_session",
+    #     f"--experiments=['use_runner_v2']",
+    #     f"--enable_streaming_engine=False",
+    #     f"--worker_zone='asia-southeast1-a'",
+    #     # f"--kms_key_name={config['gcp']['location']}",
+    # ])
+    
+    # # VPC Configuration (Critical for VPC-SC)
+    # pipeline_options.extend([
+    #     "--no_use_public_ips",
+    #     "--network=projects/the1-network-dev/global/networks/dataflow",
+    #     "--subnetwork=regions/asia-southeast1/subnetworks/dataflow-private",
+    #     f"--service_account_email={config['dataflow'].get('service_account')}",
+    # ])
+    
+    # # Dataflow parameters
+    # pipeline_options.extend([
+    #     f"--machine_type={config['dataflow']['machine_type']}",
+    #     f"--max_num_workers={config['dataflow']['max_num_workers']}",
+    # ])
+    
+    # # Add all business logic parameters
+    # for key, value in dataflow_params.items():
+    #     if value is not None:
+    #         pipeline_options.append(f"--{key}={value}")
+
+    pipeline_options = {
+        'project': config['gcp']['project_id'],
+        'region': config['gcp']['location'],
+        'temp_location': config['storage']['temp_location'],
+        'staging_location': config['storage']['staging_location'],
+        'runner': 'DataflowRunner',
+        'save_main_session': True,
+        'machine_type': config['dataflow']['machine_type'],
+        'max_num_workers': config['dataflow']['max_num_workers'],
+        'job_name': f"short-term-{datetime.now().strftime('%Y%m%d-%H%M%S')}",
+        
+        # VPC Settings
+        # VPC Settings - สำคัญมากสำหรับ VPC-SC
+        'no_use_public_ips': True,
+        'network': 'projects/the1-network-dev/global/networks/dataflow',  # เพิ่ม
+        'subnetwork': 'regions/asia-southeast1/subnetworks/dataflow-private',
+        'service_account_email': config['dataflow'].get('service_account'),
+        
+        # Worker configuration
+        'worker_zone': 'asia-southeast1-a',  # เพิ่ม - สำคัญสำหรับ VPC
+        'enable_streaming_engine': False,  # เพิ่ม - ปิดสำหรับ batch job
+        
+        # Experiments for VPC
+        'experiments': ['use_runner_v2'],  # สำคัญสำหรับ VPC-SC
+        
+        # Extra packages
+        'extra_packages': [
+            'gs://t1-dataflow-framework-bucket/common/packages/dataflow_common_the1-1.0.0-py3-none-any.whl'
+        ],
+        
+        # Add source_project parameter
+        # Add missing parameters
+        'source_project': config['gcp']['project_id'],
+        'stg_ongoing_source_table': 'stg_personas',
+    }
+    
+    # Add all dataflow params
+    pipeline_options.update(dataflow_params)
+    
+    # Store for next task
+    context['ti'].xcom_push(key='pipeline_options', value=pipeline_options)
+
+    return pipeline_options
 
 
 # Load initial config for DAG setup
@@ -184,37 +270,34 @@ with DAG(
         python_callable=load_and_prepare_config,
         provide_context=True
     )
-    
+    # เพิ่ม task นี้หลัง prepare_config_task
+    prepare_dataflow = PythonOperator(
+        task_id='prepare_dataflow_config',
+        python_callable=prepare_dataflow_config,
+        provide_context=True
+    )
     # Trigger Dataflow job with all parameters from config
     run_dataflow_batch = BeamRunPythonPipelineOperator(
         task_id='run_dataflow_batch',
-        py_file="gs://t1-dataflow-framework-bucket/framework/unified_dataflow_pipeline_bigtable.py",
-        # py_file="{{ ti.xcom_pull(task_ids='prepare_config', key='config')['storage']['dataflow_file'] }}",
-        pipeline_options={
-            # Standard Dataflow options
-            'project': "{{ ti.xcom_pull(task_ids='prepare_config', key='config')['gcp']['project_id'] }}",
-            'region': "{{ ti.xcom_pull(task_ids='prepare_config', key='config')['gcp']['location'] }}",
-            'runner': 'DataflowRunner',
-            'temp_location': "{{ ti.xcom_pull(task_ids='prepare_config', key='config')['storage']['temp_location'] }}",
-            'staging_location': "{{ ti.xcom_pull(task_ids='prepare_config', key='config')['storage']['staging_location'] }}",
-            'machine_type': "{{ ti.xcom_pull(task_ids='prepare_config', key='config')['dataflow']['machine_type'] }}",
-            'max_num_workers': "{{ ti.xcom_pull(task_ids='prepare_config', key='config')['dataflow']['max_num_workers'] }}",
-            'job_name': "{{ ti.xcom_pull(task_ids='prepare_config', key='config')['job']['name_template'] }}",
-            'save_main_session': "{{ ti.xcom_pull(task_ids='prepare_config', key='config')['dataflow']['save_main_session'] }}",
-            'setup_file': 'gs://t1-dataflow-framework-bucket/common/setup.py',  # Points to Dataflow setup.py
-            'extra_packages': [
-                'gs://t1-dataflow-framework-bucket/common/packages/dataflow_common_the1-1.0.0-py3-none-any.whl'
-            ],
-            # OR use requirements file
-            # 'requirements_file': 'gs://t1-dataflow-framework-bucket/common/requirements.txt',
-
-            # Pass ALL parameters from prepared config - no defaults here
-            **{{ ti.xcom_pull(task_ids='prepare_config', key='dataflow_params') }}
-        },
-        execution_timeout=timedelta(minutes=initial_config.get('dataflow', {}).get('execution_timeout_minutes', 30)),
-        py_requirements=initial_config.get('dataflow', {}).get('python_requirements', []),
-        py_interpreter='python3',
+        runner='DataflowRunner',
+        py_file='gs://t1-dataflow-framework-bucket/framework/unified_dataflow_pipeline_bigtable.py',
+        pipeline_options="{{ ti.xcom_pull(task_ids='prepare_dataflow_config', key='pipeline_options') }}",  # Use py_options instead
+        dataflow_config=DataflowConfiguration(
+            job_name=f"short-term-batch-{datetime.now().strftime('%Y%m%d-%H%M%S')}",
+            project_id="{{ ti.xcom_pull(task_ids='prepare_config', key='config')['gcp']['project_id'] }}",
+            location="{{ ti.xcom_pull(task_ids='prepare_config', key='config')['gcp']['location'] }}",
+            wait_until_finished=False,
+            check_if_running='IgnoreJob',
         gcp_conn_id='google_cloud_default',
+        ),
+        py_requirements=[
+            'apache-beam[gcp]==2.59.0',
+            'google-cloud-bigquery==3.25.0',
+            'google-cloud-bigtable==2.23.0',
+        ],
+        py_system_site_packages=False,
+        gcp_conn_id='google_cloud_default',
+        # extra_packages=['gs://t1-dataflow-framework-bucket/framework/dataflow_common_the1-1.0.0-py3-none-any.whl'],
     )
 
     # Data quality check using config values

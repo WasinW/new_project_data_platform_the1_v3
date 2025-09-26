@@ -58,37 +58,27 @@ class BigQueryConnector(DataConnector):
             read_options['service_account_json'] = self.credentials_path
         
         # Handle query
+    # สำคัญ: Query ต้องมี gcs_location เสมอ
         if query:
             read_options['query'] = query
-            # Query requires gcs_location for temporary storage
             read_options['gcs_location'] = gcs_location or self.gcs_location
-            logger.info(f"Reading from BigQuery with query, using temp location: {read_options['gcs_location']}")
-        # Handle table read
+            # Query ใช้ EXPORT method เท่านั้น
+            if method and hasattr(ReadFromBigQuery.Method, method):
+                read_options['method'] = getattr(ReadFromBigQuery.Method, method)        # Handle table read
         elif table:
-            # Check if table already has project.dataset prefix
-            if '.' in table and table.count('.') == 2:
-                # Already in project.dataset.table format
-                read_options['table'] = table
-            elif '.' in table:
-                # dataset.table format, add project
-                read_options['table'] = f"{self.project}.{table}"
-            else:
-                # Just table name, add project and dataset
-                if self.dataset:
-                    read_options['table'] = f"{self.project}.{self.dataset}.{table}"
-                else:
-                    raise ValueError(f"Dataset not specified for table: {table}")
-                    
-            # For table reads, gcs_location is optional but recommended
+            # Table read อาจใช้ DIRECT_READ ได้
+            read_options['table'] = self._format_table_id(table)
+            if method and hasattr(ReadFromBigQuery.Method, method):
+                read_options['method'] = getattr(ReadFromBigQuery.Method, method)
+            # gcs_location optional for table reads
             if gcs_location or self.gcs_location:
                 read_options['gcs_location'] = gcs_location or self.gcs_location
-            
-            logger.info(f"Reading from BigQuery table: {read_options['table']}")
-        else:
-            raise ValueError("Either table or query must be provided")
-            
-        return ReadFromBigQuery(**read_options)
-    
+        
+        # Apply kwargs และ remove None values
+        read_options.update(kwargs)
+        read_options = {k: v for k, v in read_options.items() if v is not None}
+        
+        return ReadFromBigQuery(**read_options)    
     def write(self, table: str, mode: str = "WRITE_APPEND", 
               method: str = "STORAGE_WRITE_API", schema: Union[str, dict] = 'SCHEMA_AUTODETECT',
               streaming_mode: Optional[str] = None, 
