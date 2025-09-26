@@ -351,4 +351,5 @@ with DAG(
     )
     
     # Define DAG flow
-    start_pipeline >> prepare_config_task >> run_dataflow_batch >> data_quality_check >> end_pipeline
+    # start_pipeline >> prepare_config_task >> run_dataflow_batch >> data_quality_check >> end_pipeline
+    start_pipeline >> prepare_config_task >> prepare_dataflow >> run_dataflow_batch >> data_quality_check >> end_pipeline
