@@ -61,7 +61,11 @@ class BigQueryConnector(DataConnector):
     # สำคัญ: Query ต้องมี gcs_location เสมอ
         if query:
             read_options['query'] = query
-            read_options['gcs_location'] = gcs_location or self.gcs_location
+            gcs_loc = gcs_location or self.gcs_location or f'gs://{self.project}-temp/bigquery/temp'
+            if not gcs_loc:
+                raise ValueError("gcs_location is required for query with EXPORT method")
+
+            read_options['gcs_location'] = gcs_loc
             # Query ใช้ EXPORT method เท่านั้น
             if method and hasattr(ReadFromBigQuery.Method, method):
                 read_options['method'] = getattr(ReadFromBigQuery.Method, method)        # Handle table read

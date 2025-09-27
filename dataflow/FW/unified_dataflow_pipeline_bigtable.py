@@ -124,7 +124,7 @@ def build_batch_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConfig):
         target_table_full = f"{project_id}.{staging_dataset}.{stg_source_table}"
         
         # Get batch limit from config or use default
-        batch_limit = config.get('batch_limit', 1000)
+        batch_limit = config.get('batch_limit') or 1000
         
         # Step 1.1: Read source data from BigQuery
         logger.info(f"Reading source data from: {source_table_full}")
@@ -197,9 +197,16 @@ def build_batch_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConfig):
         _ = (mapping_data
             | 'Count_Mapping' >> combiners.Count.Globally()
             | 'Log_Mapping_Count' >> beam.Map(lambda c: logger.info(f"[METRIC] mapping_count={c}")))
-
+        
+        mapping_with_default = (
+            mapping_data 
+            | 'EnsureNotEmpty' >> beam.FlatMap(
+                lambda x: [x] if x else [{}]  # Default empty dict
+            )
+        )
         # Convert mapping to side input
-        mapping_list = beam.pvalue.AsList(mapping_data)
+        # mapping_list = beam.pvalue.AsList(mapping_data)
+        mapping_list = beam.pvalue.AsList(mapping_with_default)
 
         # Step 2: Data Quality Validation
         logger.info("Applying data quality validation")

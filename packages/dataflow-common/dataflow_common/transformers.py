@@ -644,7 +644,8 @@ class MergeQueryExecutor(beam.DoFn):
         
     def setup(self):
         """Initialize BigQuery connector"""
-        from .connectors import BigQueryConnector
+        from dataflow_common.connectors import BigQueryConnector
+        # from .connectors import BigQueryConnector
         self._connector = BigQueryConnector(
             project=self.project_id,
             dataset=self.dataset
