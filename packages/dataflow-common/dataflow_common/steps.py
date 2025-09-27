@@ -38,7 +38,7 @@ class ReadFromBigQueryStep(PipelineStep):
             project=self.config.get('project'),
             dataset=self.config.get('dataset'),
             credentials_path=self.config.get('credentials_path'),
-            gcs_location='gs://t1-insight-audit-bucket/audit_log/dataflow/temp'
+            gcs_location=self.config.get('gcs_location','gs://t1-insight-audit-bucket/audit_log/dataflow/temp')
         )
         
         query = self.config.get('query')

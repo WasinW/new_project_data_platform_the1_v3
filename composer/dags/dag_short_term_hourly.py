@@ -212,8 +212,10 @@ def prepare_dataflow_config(**context):
         
         # Add source_project parameter
         # Add missing parameters
-        'source_project': config['gcp']['project_id'],
-        'stg_ongoing_source_table': 'stg_personas',
+        'batch_limit': config.get('batch', {}).get('batch_limit'),
+        'source_project': config['tables'].get('source_project', config['gcp']['project_id']),
+        'gcs_location': config['storage'].get('temp_location'),
+        'stg_ongoing_source_table': 'stg_personas'
     }
     
     # Add all dataflow params

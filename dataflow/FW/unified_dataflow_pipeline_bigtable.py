@@ -150,7 +150,7 @@ def build_batch_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConfig):
             'tgt_table': target_table_full,
             'query': source_query,
             'method': read_method,
-            'gcs_location': config.get('temp_location')
+            'gcs_location': config.get('gcs_location') or config.get('temp_location')
         })
         
         source_data = read_step.execute(pipeline)
@@ -180,7 +180,7 @@ def build_batch_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConfig):
             'dataset': staging_dataset,
             'query': mapping_query,
             'method': read_method,
-            'gcs_location': config.get('temp_location')
+            'gcs_location': config.get('gcs_location') or config.get('temp_location')
         })
         
         mapping_data = read_mapping_step.execute(pipeline)
