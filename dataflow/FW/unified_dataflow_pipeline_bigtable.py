@@ -153,8 +153,16 @@ def build_batch_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConfig):
             'gcs_location': config.get('gcs_location') or config.get('temp_location')
         })
         
-        source_data = read_step.execute(pipeline)
-        
+        # source_data = read_step.execute(pipeline)
+        try:
+            source_data = read_step.execute(pipeline)
+            if not source_data:
+                raise RuntimeError("Failed to read source data")
+        except Exception as e:
+            logger.error(f"Pipeline step failed: {e}")
+            # Send alert or fallback logic
+            raise
+
         # Count source records
         _ = (source_data
             | 'Count_Source' >> combiners.Count.Globally()
@@ -357,8 +365,16 @@ def build_streaming_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConf
             'accumulation_mode': config.get('accumulation_mode')
         })
         
-        source_data = read_step.execute(pipeline)
-        
+        # source_data = read_step.execute(pipeline)
+        try:
+            source_data = read_step.execute(pipeline)
+            if not source_data:
+                raise RuntimeError("Failed to read source data")
+        except Exception as e:
+            logger.error(f"Pipeline step failed: {e}")
+            # Send alert or fallback logic
+            raise
+
         # Step 2: Enrich with Bigtable (optional)
         enriched_data = source_data
         if config.get('bigtable_instance_id') and config.get('bigtable_table_id'):

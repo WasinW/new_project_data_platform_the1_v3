@@ -165,9 +165,14 @@ class BatchColumnMapper(beam.DoFn):
 
     def __init__(self, target_table: str):
         self.target_table = target_table
+        self.cache_size_limit = 100000
+
         
     def process(self, element, mapping_dict):
         """Map columns using cached mapping from side input"""
+        if len(mapping_dict) > self.cache_size_limit:
+            logger.warning("Mapping cache too large, consider pagination")
+
         column_mapping = mapping_dict  # This is the list of mappings
         
         mapped_record = {}
