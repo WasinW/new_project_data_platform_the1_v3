@@ -268,7 +268,14 @@ with DAG(
     #     # extra_packages=['gs://t1-dataflow-framework-bucket/framework/dataflow_common_the1-1.0.0-py3-none-any.whl'],
     # )
 
-    py_reqs = initial_config.get('dataflow', {}).get('python_requirements', [])
+    # py_reqs = initial_config.get('dataflow', {}).get('python_requirements', [])
+    py_reqs = [
+        "apache-beam[gcp]==2.59.0",       # ต้องมีสำหรับ venv ของ Operator
+        "google-cloud-bigquery==3.25.0",
+        "google-cloud-bigtable==2.23.0",
+        # "google-cloud-secret-manager==<เวอร์ชันที่ใช้>"   # ถ้าต้องใช้
+    ]
+
     run_dataflow_batch = BeamRunPythonPipelineOperator(
         task_id='run_dataflow_batch',
         runner='DataflowRunner',
@@ -321,8 +328,9 @@ with DAG(
 
         },
         # py_requirements="{{ ti.xcom_pull(task_ids='prepare_config', key='config')['dataflow']['python_requirements'] }}",
+        # py_requirements=py_reqs,
+        
         py_requirements=py_reqs,
-
         dataflow_config=DataflowConfiguration(
             job_name=f"short-term-batch-{datetime.now().strftime('%Y%m%d-%H%M%S')}",
             project_id='the1-insight-dev',
