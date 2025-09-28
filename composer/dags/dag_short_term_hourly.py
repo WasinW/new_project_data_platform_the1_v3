@@ -156,7 +156,7 @@ def prepare_dataflow_config(**context):
         'save_main_session': True,
         'machine_type': config['dataflow']['machine_type'],
         'max_num_workers': config['dataflow']['max_num_workers'],
-        'job_name': f"short-term-{datetime.now().strftime('%Y%m%d-%H%M%S')}",
+        'job_name': default_args['job_name'],
         
         # VPC Settings
         # VPC Settings - สำคัญมากสำหรับ VPC-SC
@@ -174,7 +174,7 @@ def prepare_dataflow_config(**context):
         
         # Extra packages
         # 'extra_packages': ["{{ ti.xcom_pull(task_ids='load_config', key='config')['dataflow']['extra_packages'][0] }}"],
-        'extra_packages': ['gs://t1-dataflow-framework-bucket/framework/artifacts/dataflow_common-1.0.0-py3-none-any.whl'],
+        # 'extra_packages': ['gs://t1-dataflow-framework-bucket/framework/artifacts/dataflow_common-1.0.0-py3-none-any.whl'],
 
         # Add source_project parameter
         # Add missing parameters
@@ -214,6 +214,7 @@ default_args = {
     'retry_delay': timedelta(minutes=initial_config.get('retry_delay_minutes', 5)),
     'email_on_failure': initial_config.get('email_on_failure', False),
     'email_on_retry': initial_config.get('email_on_retry', False),
+    'job_name' : f"short-term-batch-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
 }
 
 # Define DAG
@@ -275,7 +276,6 @@ with DAG(
         "google-cloud-bigtable==2.23.0",
         # "google-cloud-secret-manager==<เวอร์ชันที่ใช้>"   # ถ้าต้องใช้
     ]
-
     run_dataflow_batch = BeamRunPythonPipelineOperator(
         task_id='run_dataflow_batch',
         runner='DataflowRunner',
@@ -289,7 +289,7 @@ with DAG(
             'save_main_session': True,
             'machine_type': 'n1-standard-2',
             'max_num_workers': 5,
-            'job_name': f"short-term-{datetime.now().strftime('%Y%m%d-%H%M%S')}",
+            'job_name': default_args['job_name'],
             
             # VPC Settings
             'no_use_public_ips': True,
@@ -332,7 +332,7 @@ with DAG(
         
         py_requirements=py_reqs,
         dataflow_config=DataflowConfiguration(
-            job_name=f"short-term-batch-{datetime.now().strftime('%Y%m%d-%H%M%S')}",
+            job_name=default_args['job_name'],
             project_id='the1-insight-dev',
             location='asia-southeast1',
             wait_until_finished=False,
