@@ -319,7 +319,7 @@ with DAG(
             # 'requirements_file': 'gs://t1-dataflow-framework-bucket/framework/requirements.txt',
 
         },
-        py_requirements="{{ ti.xcom_pull(task_ids='load_config', key='config')['dataflow']['python_requirements'] }}",
+        py_requirements="{{ ti.xcom_pull(task_ids='prepare_config', key='config')['dataflow']['python_requirements'] }}",
         dataflow_config=DataflowConfiguration(
             job_name=f"short-term-batch-{datetime.now().strftime('%Y%m%d-%H%M%S')}",
             project_id='the1-insight-dev',
