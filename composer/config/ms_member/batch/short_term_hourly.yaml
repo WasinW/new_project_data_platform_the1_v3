@@ -62,9 +62,12 @@ dataflow:
   save_main_session: true
   service_account: t1-ins-dev-sa-data@the1-insight-dev.iam.gserviceaccount.com # Fixed service account
   python_requirements:
-  - apache-beam[gcp]==2.59.0 # Match with DAG version
+  - google-cloud-secret-manager==2.16.3
   - google-cloud-bigquery==3.25.0
   - google-cloud-bigtable==2.23.0
+  # - apache-beam[gcp]==2.59.0 # Match with DAG version
+  extra_packages:
+  - gs://t1-dataflow-framework-bucket/artifacts/dataflow_common-1.0.0-py3-none-any.whl
 
 # Data Quality Configuration
 data_quality:

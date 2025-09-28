@@ -1,7 +1,7 @@
 cd packages/dataflow-common && python -m build
 cd ../..
 # common package
-gsutil cp packages/dataflow-common/dist/dataflow_common-1.0.0-py3-none-any.whl gs://t1-dataflow-framework-bucket/common/packages/
+gsutil cp packages/dataflow-common/dist/dataflow_common-1.0.0-py3-none-any.whl gs://t1-dataflow-framework-bucket/framework/artifacts/
 gsutil cp packages/dataflow-common/dist/dataflow_common-1.0.0.tar.gz gs://t1-dataflow-framework-bucket/common/packages/
 
 # dags

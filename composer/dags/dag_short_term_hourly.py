@@ -295,12 +295,9 @@ with DAG(
             'experiments': ['use_runner_v2'],
             
             # Extra packages
-            'setup_file': 'gs://t1-dataflow-framework-bucket/framework/setup.py',
-            'extra_packages': [
-                'gs://t1-dataflow-framework-bucket/framework/unified_pipeline-1.0.0-py3-none-any.whl'
-                # 'gs://t1-dataflow-framework-bucket/common/packages/dataflow_common-1.0.0-py3-none-any.whl'
-                # 'gs://t1-dataflow-framework-bucket/common/packages/dataflow_common-1.0.0-20250928132027.whl'
-            ],
+            # 'setup_file': 'gs://t1-dataflow-framework-bucket/framework/setup.py',
+            # 'extra_packages': ['gs://t1-dataflow-framework-bucket/framework/unified_pipeline-1.0.0-py3-none-any.whl'],
+            'extra_packages': ["{{ ti.xcom_pull(task_ids='load_config', key='config')['dataflow']['extra_packages'][0] }}"],
 
             # Business logic parameters
             'batch_limit': 1000,
@@ -322,9 +319,11 @@ with DAG(
             'audit_table': 'audit_job_log',
             'mapping_table': 'stg_mapping_reconcile',
             'error_table': 'dq_errors',
-            'requirements_file': 'gs://t1-dataflow-framework-bucket/framework/requirements.txt',
+            # 'requirements_file': 'gs://t1-dataflow-framework-bucket/framework/requirements.txt',
 
         },
+        # py_requirements=config['dataflow']['python_requirements'],
+        py_requirements="{{ ti.xcom_pull(task_ids='load_config', key='config')['dataflow']['python_requirements'] }}",
         dataflow_config=DataflowConfiguration(
             job_name=f"short-term-batch-{datetime.now().strftime('%Y%m%d-%H%M%S')}",
             project_id='the1-insight-dev',
