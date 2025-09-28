@@ -268,6 +268,7 @@ with DAG(
     #     # extra_packages=['gs://t1-dataflow-framework-bucket/framework/dataflow_common_the1-1.0.0-py3-none-any.whl'],
     # )
 
+    py_reqs = initial_config.get('dataflow', {}).get('python_requirements', [])
     run_dataflow_batch = BeamRunPythonPipelineOperator(
         task_id='run_dataflow_batch',
         runner='DataflowRunner',
@@ -319,7 +320,6 @@ with DAG(
             # 'requirements_file': 'gs://t1-dataflow-framework-bucket/framework/requirements.txt',
 
         },
-        py_reqs = initial_config.get('dataflow', {}).get('python_requirements', [])
         # py_requirements="{{ ti.xcom_pull(task_ids='prepare_config', key='config')['dataflow']['python_requirements'] }}",
         py_requirements=py_reqs,
 
