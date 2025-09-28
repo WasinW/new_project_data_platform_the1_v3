@@ -577,19 +577,34 @@ class MergeQueryGenerator(beam.DoFn):
         source_table = config.get('stg_ongoing_source_table')  # stg_personas (temp table)
         
         # Build MERGE query
+        # merge_query = f"""
+        # MERGE `{config['project_id']}.{config['staging_dataset']}.{target_table}` AS tgt
+        # USING `{config['project_id']}.{config['staging_dataset']}.{source_table}` AS src
+        # ON tgt.member_number = src.member_number
+        # WHEN MATCHED THEN
+        #     UPDATE SET
+        #         {',\n                '.join(set_clauses)},
+        #         tgt.updated_at = CURRENT_TIMESTAMP()
+        # WHEN NOT MATCHED THEN
+        #     INSERT ({', '.join(insert_columns)})
+        #     VALUES ({', '.join(insert_values)})
+        # """
+        separator = ',\\n                '
+        set_clauses_str = separator.join(set_clauses)
+
+        # สร้างคำสั่ง MERGE SQL
         merge_query = f"""
-        MERGE `{config['project_id']}.{config['staging_dataset']}.{target_table}` AS tgt
-        USING `{config['project_id']}.{config['staging_dataset']}.{source_table}` AS src
-        ON tgt.member_number = src.member_number
-        WHEN MATCHED THEN
-            UPDATE SET
-                {',\n                '.join(set_clauses)},
-                tgt.updated_at = CURRENT_TIMESTAMP()
-        WHEN NOT MATCHED THEN
-            INSERT ({', '.join(insert_columns)})
-            VALUES ({', '.join(insert_values)})
-        """
-        
+            MERGE `{config['project_id']}.{config['staging_dataset']}.{target_table}` AS tgt
+            USING `{config['project_id']}.{config['staging_dataset']}.{source_table}` AS src
+            ON tgt.member_number = src.member_number
+            WHEN MATCHED THEN
+                UPDATE SET
+                    {set_clauses_str},
+                    tgt.updated_at = CURRENT_TIMESTAMP()
+            WHEN NOT MATCHED THEN
+                INSERT ({', '.join(insert_columns)})
+                VALUES ({', '.join(insert_values)})
+            """
         logger.info(f"Generated MERGE query for {target_table} with {len(set_clauses)} fields")
         return merge_query
     

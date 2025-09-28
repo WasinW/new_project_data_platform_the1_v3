@@ -290,7 +290,7 @@ with DAG(
             'machine_type': 'n1-standard-2',
             'max_num_workers': 5,
             'job_name': default_args['job_name'],
-            'setup_file': 'gs://t1-dataflow-framework-bucket/framework/setup.py',  # ใช้ setup_file แทน
+            # 'setup_file': 'gs://t1-dataflow-framework-bucket/framework/setup.py',  # OPTION 3 FAILED
 
             # VPC Settings
             'no_use_public_ips': True,
@@ -302,7 +302,7 @@ with DAG(
             'experiments': ['use_runner_v2'],
             
             # Extra packages
-            # 'extra_packages': ['gs://t1-dataflow-framework-bucket/framework/artifacts/dataflow_common-1.0.0-py3-none-any.whl'],
+            'extra_packages': ['gs://t1-dataflow-framework-bucket/framework/artifacts/dataflow_common-1.0.0-py3-none-any.whl'], # OPTION 2
             # 'extra_packages': ["{{ ti.xcom_pull(task_ids='load_config', key='config')['dataflow']['extra_packages'][0] }}"],
 
             # Business logic parameters

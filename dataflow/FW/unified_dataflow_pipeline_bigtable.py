@@ -14,8 +14,8 @@ import apache_beam as beam
 from apache_beam import combiners
 from apache_beam.options.pipeline_options import PipelineOptions, StandardOptions
 from typing import Optional, Dict, Any, List
-# from apache_beam.io import filesystems
-# import tempfile
+from apache_beam.io import filesystems
+import tempfile
 
 # Setup logging
 logging.basicConfig(
@@ -26,71 +26,71 @@ logger = logging.getLogger(__name__)
 # Debug imports
 
 # Continue with normal imports
-from dataflow_common import (
-    CommonPipelineConfig,
-    DataflowJobConfig,
-    ReadFromBigQueryStep,
-    ReadFromPubSubStep,
-    BigtableEnrichmentStep,
-    ColumnMappingStep,
-    DataQualityStep,
-    WriteToBigQueryStep,
-    AuditLoggingStep,
-    CreateMappingSideInput,
-    WindowedAuditLogger,
-    CDCUpsertFormatter,
-    MergeQueryGenerator, 
-    MergeQueryExecutor
-)
-logger.info("Successfully imported dataflow_common package")
-# try:
-#     from dataflow_common import (
-#         CommonPipelineConfig,
-#         DataflowJobConfig,
-#         ReadFromBigQueryStep,
-#         ReadFromPubSubStep,
-#         BigtableEnrichmentStep,
-#         ColumnMappingStep,
-#         DataQualityStep,
-#         WriteToBigQueryStep,
-#         AuditLoggingStep,
-#         CreateMappingSideInput,
-#         WindowedAuditLogger,
-#         CDCUpsertFormatter,
-#         MergeQueryGenerator, 
-#         MergeQueryExecutor
-#     )
-# except ImportError:
-#     # fallback: parse --extra_packages to find dataflow_common wheel
-#     for arg in sys.argv:
-#         if arg.startswith('--extra_packages='):
-#             pkgs = arg.split('=')[1].split(',')
-#             for pkg in pkgs:
-#                 if 'dataflow_common' in pkg:
-#                     # download wheel from GCS to a temp file
-#                     local_path = tempfile.mktemp(prefix='dataflow_common_', suffix='.whl')
-#                     with filesystems.FileSystems.open(pkg) as src, open(local_path, 'wb') as dst:
-#                         dst.write(src.read())
-#                     sys.path.insert(0, local_path)
-#                     break
-#     # try importing again
-#     from dataflow_common import (
-#         CommonPipelineConfig,
-#         DataflowJobConfig,
-#         ReadFromBigQueryStep,
-#         ReadFromPubSubStep,
-#         BigtableEnrichmentStep,
-#         ColumnMappingStep,
-#         DataQualityStep,
-#         WriteToBigQueryStep,
-#         AuditLoggingStep,
-#         CreateMappingSideInput,
-#         WindowedAuditLogger,
-#         CDCUpsertFormatter,
-#         MergeQueryGenerator, 
-#         MergeQueryExecutor
-#     )
-#     logging.info("Loaded dataflow_common from downloaded wheel")
+# from dataflow_common import (
+#     CommonPipelineConfig,
+#     DataflowJobConfig,
+#     ReadFromBigQueryStep,
+#     ReadFromPubSubStep,
+#     BigtableEnrichmentStep,
+#     ColumnMappingStep,
+#     DataQualityStep,
+#     WriteToBigQueryStep,
+#     AuditLoggingStep,
+#     CreateMappingSideInput,
+#     WindowedAuditLogger,
+#     CDCUpsertFormatter,
+#     MergeQueryGenerator, 
+#     MergeQueryExecutor
+# )
+# logger.info("Successfully imported dataflow_common package")
+try:
+    from dataflow_common import (
+        CommonPipelineConfig,
+        DataflowJobConfig,
+        ReadFromBigQueryStep,
+        ReadFromPubSubStep,
+        BigtableEnrichmentStep,
+        ColumnMappingStep,
+        DataQualityStep,
+        WriteToBigQueryStep,
+        AuditLoggingStep,
+        CreateMappingSideInput,
+        WindowedAuditLogger,
+        CDCUpsertFormatter,
+        MergeQueryGenerator, 
+        MergeQueryExecutor
+    )
+except ImportError:
+    # fallback: parse --extra_packages to find dataflow_common wheel
+    for arg in sys.argv:
+        if arg.startswith('--extra_packages='):
+            pkgs = arg.split('=')[1].split(',')
+            for pkg in pkgs:
+                if 'dataflow_common' in pkg:
+                    # download wheel from GCS to a temp file
+                    local_path = tempfile.mktemp(prefix='dataflow_common_', suffix='.whl')
+                    with filesystems.FileSystems.open(pkg) as src, open(local_path, 'wb') as dst:
+                        dst.write(src.read())
+                    sys.path.insert(0, local_path)
+                    break
+    # try importing again
+    from dataflow_common import (
+        CommonPipelineConfig,
+        DataflowJobConfig,
+        ReadFromBigQueryStep,
+        ReadFromPubSubStep,
+        BigtableEnrichmentStep,
+        ColumnMappingStep,
+        DataQualityStep,
+        WriteToBigQueryStep,
+        AuditLoggingStep,
+        CreateMappingSideInput,
+        WindowedAuditLogger,
+        CDCUpsertFormatter,
+        MergeQueryGenerator, 
+        MergeQueryExecutor
+    )
+    logging.info("Loaded dataflow_common from downloaded wheel")
 
 
 def validate_required_params(config: CommonPipelineConfig, mode: str) -> List[str]:
