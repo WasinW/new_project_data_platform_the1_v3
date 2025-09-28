@@ -207,7 +207,7 @@ def prepare_dataflow_config(**context):
         
         # Extra packages
         'extra_packages': [
-            'gs://t1-dataflow-framework-bucket/common/packages/dataflow_common_the1-1.0.0-py3-none-any.whl'
+            'gs://t1-dataflow-framework-bucket/common/packages/dataflow_common-1.0.0-py3-none-any.whl'
         ],
         
         # Add source_project parameter
@@ -279,18 +279,86 @@ with DAG(
         provide_context=True
     )
     # Trigger Dataflow job with all parameters from config
+    # run_dataflow_batch = BeamRunPythonPipelineOperator(
+    #     task_id='run_dataflow_batch',
+    #     runner='DataflowRunner',
+    #     py_file='gs://t1-dataflow-framework-bucket/framework/unified_dataflow_pipeline_bigtable.py',
+    #     pipeline_options="{{ ti.xcom_pull(task_ids='prepare_dataflow_config', key='pipeline_options') }}",  # Use py_options instead
+    #     dataflow_config=DataflowConfiguration(
+    #         job_name=f"short-term-batch-{datetime.now().strftime('%Y%m%d-%H%M%S')}",
+    #         project_id="{{ ti.xcom_pull(task_ids='prepare_config', key='config')['gcp']['project_id'] }}",
+    #         location="{{ ti.xcom_pull(task_ids='prepare_config', key='config')['gcp']['location'] }}",
+    #         wait_until_finished=False,
+    #         check_if_running='IgnoreJob',
+    #     gcp_conn_id='google_cloud_default',
+    #     ),
+    #     py_requirements=[
+    #         'apache-beam[gcp]==2.59.0',
+    #         'google-cloud-bigquery==3.25.0',
+    #         'google-cloud-bigtable==2.23.0',
+    #     ],
+    #     py_system_site_packages=False,
+    #     gcp_conn_id='google_cloud_default',
+    #     # extra_packages=['gs://t1-dataflow-framework-bucket/framework/dataflow_common_the1-1.0.0-py3-none-any.whl'],
+    # )
+
     run_dataflow_batch = BeamRunPythonPipelineOperator(
         task_id='run_dataflow_batch',
         runner='DataflowRunner',
         py_file='gs://t1-dataflow-framework-bucket/framework/unified_dataflow_pipeline_bigtable.py',
-        pipeline_options="{{ ti.xcom_pull(task_ids='prepare_dataflow_config', key='pipeline_options') }}",  # Use py_options instead
+        pipeline_options={
+            'project': '{{ ti.xcom_pull(task_ids="prepare_config", key="config")["gcp"]["project_id"] }}',
+            'region': '{{ ti.xcom_pull(task_ids="prepare_config", key="config")["gcp"]["location"] }}',
+            'temp_location': '{{ ti.xcom_pull(task_ids="prepare_config", key="config")["storage"]["temp_location"] }}',
+            'staging_location': '{{ ti.xcom_pull(task_ids="prepare_config", key="config")["storage"]["staging_location"] }}',
+            'runner': 'DataflowRunner',
+            'save_main_session': True,
+            'machine_type': 'n1-standard-2',
+            'max_num_workers': 5,
+            'job_name': f"short-term-{datetime.now().strftime('%Y%m%d-%H%M%S')}",
+            
+            # VPC Settings
+            'no_use_public_ips': True,
+            'network': 'projects/the1-network-dev/global/networks/dataflow',
+            'subnetwork': 'regions/asia-southeast1/subnetworks/dataflow-private',
+            'service_account_email': 't1-ins-dev-sa-data@the1-insight-dev.iam.gserviceaccount.com',
+            'worker_zone': 'asia-southeast1-a',
+            'enable_streaming_engine': False,
+            'experiments': ['use_runner_v2'],
+            
+            # Extra packages
+            'extra_packages': [
+                'gs://t1-dataflow-framework-bucket/common/packages/dataflow_common-1.0.0-py3-none-any.whl'
+            ],
+            
+            # Business logic parameters
+            'batch_limit': 1000,
+            'source_project': 'the1-insight-dev',
+            'gcs_location': 'gs://t1-insight-audit-bucket/audit_log/dataflow/temp',
+            'stg_ongoing_source_table': 'stg_personas',
+            
+            # Add all other params from config
+            'term_type': 'short',
+            'mode': 'batch',
+            'env': 'dev',
+            'source_dataset': 'insight_dev',
+            'staging_dataset': 'insight_dev',
+            'refined_dataset': 'insight_dev',
+            'source_table': 'personas_test',
+            'stg_source_table': 'stg_ms_personas',
+            'stg_origin_table': 'stg_ms_member',
+            'refined_ongoing_table': 'ms_personas',
+            'audit_table': 'audit_job_log',
+            'mapping_table': 'stg_mapping_reconcile',
+            'error_table': 'dq_errors',
+        },
         dataflow_config=DataflowConfiguration(
             job_name=f"short-term-batch-{datetime.now().strftime('%Y%m%d-%H%M%S')}",
-            project_id="{{ ti.xcom_pull(task_ids='prepare_config', key='config')['gcp']['project_id'] }}",
-            location="{{ ti.xcom_pull(task_ids='prepare_config', key='config')['gcp']['location'] }}",
+            project_id='the1-insight-dev',
+            location='asia-southeast1',
             wait_until_finished=False,
             check_if_running='IgnoreJob',
-        gcp_conn_id='google_cloud_default',
+            gcp_conn_id='google_cloud_default',
         ),
         py_requirements=[
             'apache-beam[gcp]==2.59.0',
@@ -299,53 +367,8 @@ with DAG(
         ],
         py_system_site_packages=False,
         gcp_conn_id='google_cloud_default',
-        # extra_packages=['gs://t1-dataflow-framework-bucket/framework/dataflow_common_the1-1.0.0-py3-none-any.whl'],
     )
 
-    # Data quality check using config values
-    # data_quality_check = BigQueryInsertJobOperator(
-    #     task_id='data_quality_check',
-    #     configuration={
-    #         "query": {
-    #             "query": """
-    #             -- Data quality check for hourly batch
-    #             WITH quality_metrics AS (
-    #                 SELECT 
-    #                     'stg_ms_personas' as table_name,
-    #                     COUNT(*) as record_count,
-    #                     COUNT(DISTINCT member_number) as unique_members,
-    #                     MAX(ingested_at) as last_ingested
-    #                 FROM `{{ ti.xcom_pull(task_ids='prepare_config', key='config')['gcp']['project_id'] }}.{{ ti.xcom_pull(task_ids='prepare_config', key='config')['datasets']['staging_dataset'] }}.{{ ti.xcom_pull(task_ids='prepare_config', key='config')['tables']['stg_source_table'] }}`
-    #                 WHERE DATE(ingested_at) = CURRENT_DATE()
-    #                     AND DATETIME(ingested_at) >= DATETIME_SUB(CURRENT_DATETIME(), INTERVAL {{ ti.xcom_pull(task_ids='prepare_config', key='config')['data_quality']['checks'][2]['max_hours'] }} HOUR)
-                    
-    #                 UNION ALL
-                    
-    #                 SELECT 
-    #                     'stg_ms_member' as table_name,
-    #                     COUNT(*) as record_count,
-    #                     COUNT(DISTINCT member_number) as unique_members,
-    #                     MAX(ingested_at) as last_ingested
-    #                 FROM `{{ ti.xcom_pull(task_ids='prepare_config', key='config')['gcp']['project_id'] }}.{{ ti.xcom_pull(task_ids='prepare_config', key='config')['datasets']['staging_dataset'] }}.{{ ti.xcom_pull(task_ids='prepare_config', key='config')['tables']['stg_origin_table'] }}`
-    #                 WHERE DATE(ingested_at) = CURRENT_DATE()
-    #                     AND DATETIME(ingested_at) >= DATETIME_SUB(CURRENT_DATETIME(), INTERVAL {{ ti.xcom_pull(task_ids='prepare_config', key='config')['data_quality']['checks'][2]['max_hours'] }} HOUR)
-    #             )
-    #             SELECT 
-    #                 *,
-    #                 CASE 
-    #                     WHEN record_count < {{ ti.xcom_pull(task_ids='prepare_config', key='config')['data_quality']['checks'][0]['warning_threshold'] }} THEN 'WARNING: Low record count'
-    #                     ELSE 'OK'
-    #                 END as status,
-    #                 CURRENT_DATETIME() as check_timestamp
-    #             FROM quality_metrics
-    #             """,
-    #             "useLegacySql": False,
-    #             "priority": "{{ ti.xcom_pull(task_ids='prepare_config', key='config')['bigquery']['priority'] }}"
-    #         }
-    #     },
-    #     gcp_conn_id='google_cloud_default',
-    #     location="{{ ti.xcom_pull(task_ids='prepare_config', key='config')['gcp']['location'] }}",
-    # )
     
     # End marker
     end_pipeline = DummyOperator(

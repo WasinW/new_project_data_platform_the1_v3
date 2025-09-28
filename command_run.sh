@@ -86,11 +86,22 @@ gcloud projects add-iam-policy-binding the1-insight-dev \
 # LIMIT 10
 # ออกจาก virtual environment ก่อน
 deactivate
+gcloud auth login
+gcloud auth application-default login
+gcloud config set project the1-insight-dev  
+
+
 rm -rf .venv
 pip install --upgrade pip setuptools wheel
 python -m build
-gsutil cp dist/dataflow_common_the1-1.0.0.tar.gz gs://t1-dataflow-framework-bucket/common/packages/
+gsutil cp packages/dataflow-common/dist/dataflow_common_the1-1.0.0.tar.gz gs://t1-dataflow-framework-bucket/common/packages/
+gsutil cp composer/config/ms_member/batch/short_term_hourly.yaml gs://t1-airflow-composer-bucket/dags/composer/config/ms_member/batch/
+gsutil cp composer/config/ms_member/common/defaults.yaml gs://t1-airflow-composer-bucket/dags/composer/config/ms_member/common/
+gsutil cp composer/config/ms_member/init/pl_init_config.yaml gs://t1-airflow-composer-bucket/dags/composer/config/ms_member/init/
+gsutil cp composer/config/ms_member/reconcile/full_patch_config.yaml gs://t1-airflow-composer-bucket/dags/composer/config/ms_member/reconcile/
+gsutil cp composer/config/ms_member/streaming/streaming_realtime.yaml gs://t1-airflow-composer-bucket/dags/composer/config/ms_member/streaming/
 
+gs://t1-dataflow-framework-bucket/framework/dataflow_common_the1-1.0.0-py3-none-any.whl
 pip install -e packages/dataflow-common
 
 unset PYTHONPATH

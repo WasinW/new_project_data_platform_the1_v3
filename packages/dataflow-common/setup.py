@@ -14,7 +14,7 @@ with open('README.md', 'r', encoding='utf-8') as fh:
     long_description = fh.read()
 
 setup(
-    name='dataflow-common-the1',
+    name='dataflow_common',
     version=version['__version__'],
     author='THE1 Data Engineering',
     author_email='data-engineering@the1.co.th',
