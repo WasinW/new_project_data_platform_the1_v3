@@ -22,29 +22,29 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 # Debug imports
-logger.info(f"Python version: {sys.version}")
-logger.info(f"Python path: {sys.path}")
-logger.info(f"Working directory: {os.getcwd()}")
+# logger.info(f"Python version: {sys.version}")
+# logger.info(f"Python path: {sys.path}")
+# logger.info(f"Working directory: {os.getcwd()}")
 
 # Import dataflow_common package
-try:
-    import dataflow_common
-    logger.info(f"Successfully imported dataflow_common from: {dataflow_common.__file__}")
-except ImportError as e:
-    logger.error(f"Import error details: {e}")
+# try:
+#     import dataflow_common
+#     logger.info(f"Successfully imported dataflow_common from: {dataflow_common.__file__}")
+# except ImportError as e:
+#     logger.error(f"Import error details: {e}")
     
-    # Try to find what packages are available
-    import pkg_resources
-    installed_packages = [d.project_name for d in pkg_resources.working_set]
-    logger.info(f"Installed packages: {installed_packages}")
+#     # Try to find what packages are available
+#     import pkg_resources
+#     installed_packages = [d.project_name for d in pkg_resources.working_set]
+#     logger.info(f"Installed packages: {installed_packages}")
     
-    # Check if wheel was extracted
-    import os
-    for path in sys.path:
-        if os.path.exists(path):
-            logger.info(f"Contents of {path}: {os.listdir(path)[:10]}")
+#     # Check if wheel was extracted
+#     import os
+#     for path in sys.path:
+#         if os.path.exists(path):
+#             logger.info(f"Contents of {path}: {os.listdir(path)[:10]}")
     
-    raise
+#     raise
 
 # Continue with normal imports
 from dataflow_common import (
