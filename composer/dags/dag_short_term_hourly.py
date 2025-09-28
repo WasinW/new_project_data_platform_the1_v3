@@ -173,8 +173,8 @@ def prepare_dataflow_config(**context):
         'experiments': ['use_runner_v2'],  # สำคัญสำหรับ VPC-SC
         
         # Extra packages
-        'extra_packages': ["{{ ti.xcom_pull(task_ids='load_config', key='config')['dataflow']['extra_packages'][0] }}"],
-        # 'extra_packages': ['gs://t1-dataflow-framework-bucket/framework/unified_pipeline-1.0.0-py3-none-any.whl'],
+        # 'extra_packages': ["{{ ti.xcom_pull(task_ids='load_config', key='config')['dataflow']['extra_packages'][0] }}"],
+        'extra_packages': ['gs://t1-dataflow-framework-bucket/framework/artifacts/dataflow_common-1.0.0-py3-none-any.whl'],
 
         # Add source_project parameter
         # Add missing parameters
@@ -293,8 +293,8 @@ with DAG(
             'experiments': ['use_runner_v2'],
             
             # Extra packages
-            # 'extra_packages': ['gs://t1-dataflow-framework-bucket/framework/unified_pipeline-1.0.0-py3-none-any.whl'],
-            'extra_packages': ["{{ ti.xcom_pull(task_ids='load_config', key='config')['dataflow']['extra_packages'][0] }}"],
+            'extra_packages': ['gs://t1-dataflow-framework-bucket/framework/artifacts/dataflow_common-1.0.0-py3-none-any.whl'],
+            # 'extra_packages': ["{{ ti.xcom_pull(task_ids='load_config', key='config')['dataflow']['extra_packages'][0] }}"],
 
             # Business logic parameters
             'batch_limit': 1000,
