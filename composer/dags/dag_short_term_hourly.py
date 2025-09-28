@@ -173,9 +173,8 @@ def prepare_dataflow_config(**context):
         'experiments': ['use_runner_v2'],  # สำคัญสำหรับ VPC-SC
         
         # Extra packages
-        'extra_packages': [
-            '   '
-        ],
+        'setup_file': 'gs://t1-dataflow-framework-bucket/framework/setup.py',
+        # 'extra_packages': [],
 
         # Add source_project parameter
         # Add missing parameters
@@ -295,10 +294,10 @@ with DAG(
             
             # Extra packages
             'setup_file': 'gs://t1-dataflow-framework-bucket/framework/setup.py',
-            'extra_packages': [
-                'gs://t1-dataflow-framework-bucket/common/packages/dataflow_common-1.0.0-py3-none-any.whl'
-                # 'gs://t1-dataflow-framework-bucket/common/packages/dataflow_common-1.0.0-20250928132027.whl'
-            ],
+            # 'extra_packages': [
+            #     'gs://t1-dataflow-framework-bucket/common/packages/dataflow_common-1.0.0-py3-none-any.whl'
+            #     # 'gs://t1-dataflow-framework-bucket/common/packages/dataflow_common-1.0.0-20250928132027.whl'
+            # ],
 
             # Business logic parameters
             'batch_limit': 1000,
