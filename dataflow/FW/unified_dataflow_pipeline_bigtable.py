@@ -21,30 +21,54 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+# Debug imports
+logger.info(f"Python version: {sys.version}")
+logger.info(f"Python path: {sys.path}")
+logger.info(f"Working directory: {os.getcwd()}")
 
 # Import dataflow_common package
 try:
-    from dataflow_common import (
-        CommonPipelineConfig,
-        DataflowJobConfig,
-        ReadFromBigQueryStep,
-        ReadFromPubSubStep,
-        BigtableEnrichmentStep,
-        ColumnMappingStep,
-        DataQualityStep,
-        WriteToBigQueryStep,
-        AuditLoggingStep,
-        CreateMappingSideInput,
-        WindowedAuditLogger,
-        CDCUpsertFormatter,
-        MergeQueryGenerator, 
-        MergeQueryExecutor
-    )
-    logger.info("Successfully imported dataflow_common package")
+    import dataflow_common
+    logger.info(f"Successfully imported dataflow_common from: {dataflow_common.__file__}")
 except ImportError as e:
-    logger.error(f"Failed to import dataflow_common modules: {e}")
-    logger.error("Make sure dataflow_common package is installed via extra_packages")
-    sys.exit(1)
+    logger.error(f"Import error details: {e}")
+    
+    # Try to find what packages are available
+    import pkg_resources
+    installed_packages = [d.project_name for d in pkg_resources.working_set]
+    logger.info(f"Installed packages: {installed_packages}")
+    
+    # Check if wheel was extracted
+    import os
+    for path in sys.path:
+        if os.path.exists(path):
+            logger.info(f"Contents of {path}: {os.listdir(path)[:10]}")
+    
+    raise
+
+# Continue with normal imports
+from dataflow_common import (
+    CommonPipelineConfig,
+    DataflowJobConfig,
+    ReadFromBigQueryStep,
+    ReadFromPubSubStep,
+    BigtableEnrichmentStep,
+    ColumnMappingStep,
+    DataQualityStep,
+    WriteToBigQueryStep,
+    AuditLoggingStep,
+    CreateMappingSideInput,
+    WindowedAuditLogger,
+    CDCUpsertFormatter,
+    MergeQueryGenerator, 
+    MergeQueryExecutor
+)
+logger.info("Successfully imported dataflow_common package")
+# except ImportError as e:
+#     logger.error(f"Failed to import dataflow_common modules: {e}")
+#     logger.error("Make sure dataflow_common package is installed via extra_packages")
+#     sys.exit(1)
+# Try different import methods
 
 
 def validate_required_params(config: CommonPipelineConfig, mode: str) -> List[str]:

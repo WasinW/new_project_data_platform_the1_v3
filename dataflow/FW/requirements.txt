@@ -1,0 +1,5 @@
+# requirements.txt
+apache-beam[gcp]==2.59.0
+google-cloud-bigquery==3.25.0
+google-cloud-bigtable==2.23.0
+gs://t1-dataflow-framework-bucket/common/packages/dataflow_common-1.0.0-py3-none-any.whl

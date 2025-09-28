@@ -11,6 +11,7 @@ gsutil cp composer/dags/dag_short_term_hourly.py gs://t1-airflow-composer-bucket
 # gsutil cp dataflow/setup.py gs://t1-dataflow-framework-bucket/framework/
 gsutil cp dataflow/FW/unified_dataflow_pipeline_bigtable.py gs://t1-dataflow-framework-bucket/framework/
 
+# configs
 gsutil cp composer/config/ms_member/batch/short_term_hourly.yaml gs://t1-airflow-composer-bucket/dags/composer/config/ms_member/batch/
 gsutil cp composer/config/ms_member/common/defaults.yaml gs://t1-airflow-composer-bucket/dags/composer/config/ms_member/common/
 gsutil cp composer/config/ms_member/init/pl_init_config.yaml gs://t1-airflow-composer-bucket/dags/composer/config/ms_member/init/

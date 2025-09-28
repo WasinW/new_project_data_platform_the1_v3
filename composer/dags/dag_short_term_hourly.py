@@ -174,7 +174,7 @@ def prepare_dataflow_config(**context):
         
         # Extra packages
         'extra_packages': [
-            'gs://t1-dataflow-framework-bucket/common/packages/dataflow_common-1.0.0-py3-none-any.whl'
+            '   '
         ],
 
         # Add source_project parameter
@@ -294,10 +294,12 @@ with DAG(
             'experiments': ['use_runner_v2'],
             
             # Extra packages
+            'setup_file': 'gs://t1-dataflow-framework-bucket/framework/setup.py',
             'extra_packages': [
                 'gs://t1-dataflow-framework-bucket/common/packages/dataflow_common-1.0.0-py3-none-any.whl'
+                # 'gs://t1-dataflow-framework-bucket/common/packages/dataflow_common-1.0.0-20250928132027.whl'
             ],
-            
+
             # Business logic parameters
             'batch_limit': 1000,
             'source_project': 'the1-insight-dev',
@@ -318,6 +320,8 @@ with DAG(
             'audit_table': 'audit_job_log',
             'mapping_table': 'stg_mapping_reconcile',
             'error_table': 'dq_errors',
+            'requirements_file': 'gs://t1-dataflow-framework-bucket/framework/requirements.txt',
+
         },
         dataflow_config=DataflowConfiguration(
             job_name=f"short-term-batch-{datetime.now().strftime('%Y%m%d-%H%M%S')}",
