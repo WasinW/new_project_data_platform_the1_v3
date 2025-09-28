@@ -173,10 +173,8 @@ def prepare_dataflow_config(**context):
         'experiments': ['use_runner_v2'],  # สำคัญสำหรับ VPC-SC
         
         # Extra packages
-        # 'setup_file': 'gs://t1-dataflow-framework-bucket/framework/setup.py',
-        'extra_packages': [
-            'gs://t1-dataflow-framework-bucket/framework/unified_pipeline-1.0.0-py3-none-any.whl'
-        ],
+        'extra_packages': ["{{ ti.xcom_pull(task_ids='load_config', key='config')['dataflow']['extra_packages'][0] }}"],
+        # 'extra_packages': ['gs://t1-dataflow-framework-bucket/framework/unified_pipeline-1.0.0-py3-none-any.whl'],
 
         # Add source_project parameter
         # Add missing parameters
@@ -295,7 +293,6 @@ with DAG(
             'experiments': ['use_runner_v2'],
             
             # Extra packages
-            # 'setup_file': 'gs://t1-dataflow-framework-bucket/framework/setup.py',
             # 'extra_packages': ['gs://t1-dataflow-framework-bucket/framework/unified_pipeline-1.0.0-py3-none-any.whl'],
             'extra_packages': ["{{ ti.xcom_pull(task_ids='load_config', key='config')['dataflow']['extra_packages'][0] }}"],
 
@@ -322,7 +319,6 @@ with DAG(
             # 'requirements_file': 'gs://t1-dataflow-framework-bucket/framework/requirements.txt',
 
         },
-        # py_requirements=config['dataflow']['python_requirements'],
         py_requirements="{{ ti.xcom_pull(task_ids='load_config', key='config')['dataflow']['python_requirements'] }}",
         dataflow_config=DataflowConfiguration(
             job_name=f"short-term-batch-{datetime.now().strftime('%Y%m%d-%H%M%S')}",
@@ -332,11 +328,6 @@ with DAG(
             check_if_running='IgnoreJob',
             gcp_conn_id='google_cloud_default',
         ),
-        py_requirements=[
-            'apache-beam[gcp]==2.59.0',
-            'google-cloud-bigquery==3.25.0',
-            'google-cloud-bigtable==2.23.0',
-        ],
         py_system_site_packages=False,
         gcp_conn_id='google_cloud_default',
     )
