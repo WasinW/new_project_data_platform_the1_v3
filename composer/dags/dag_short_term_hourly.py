@@ -331,6 +331,8 @@ with DAG(
         # py_requirements=py_reqs,
         
         py_requirements=py_reqs,
+        # py_extra_packages=['gs://t1-dataflow-framework-bucket/framework/artifacts/dataflow_common-1.0.0-py3-none-any.whl'],
+
         dataflow_config=DataflowConfiguration(
             job_name=default_args['job_name'],
             project_id='the1-insight-dev',
