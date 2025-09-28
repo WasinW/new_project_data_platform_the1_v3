@@ -147,39 +147,6 @@ def prepare_dataflow_config(**context):
     # pipeline_options = []
     
     # Required parameters
-    # pipeline_options.extend([
-    #     f"--project={config['gcp']['project_id']}",
-    #     f"--region={config['gcp']['location']}",
-    #     "--runner=DataflowRunner",
-    #     f"--temp_location={config['storage']['temp_location']}",
-    #     f"--staging_location={config['storage']['staging_location']}",
-    #     f"--job_name=short-term-{datetime.now().strftime('%Y%m%d-%H%M%S')}",
-    #     "--save_main_session",
-    #     f"--experiments=['use_runner_v2']",
-    #     f"--enable_streaming_engine=False",
-    #     f"--worker_zone='asia-southeast1-a'",
-    #     # f"--kms_key_name={config['gcp']['location']}",
-    # ])
-    
-    # # VPC Configuration (Critical for VPC-SC)
-    # pipeline_options.extend([
-    #     "--no_use_public_ips",
-    #     "--network=projects/the1-network-dev/global/networks/dataflow",
-    #     "--subnetwork=regions/asia-southeast1/subnetworks/dataflow-private",
-    #     f"--service_account_email={config['dataflow'].get('service_account')}",
-    # ])
-    
-    # # Dataflow parameters
-    # pipeline_options.extend([
-    #     f"--machine_type={config['dataflow']['machine_type']}",
-    #     f"--max_num_workers={config['dataflow']['max_num_workers']}",
-    # ])
-    
-    # # Add all business logic parameters
-    # for key, value in dataflow_params.items():
-    #     if value is not None:
-    #         pipeline_options.append(f"--{key}={value}")
-
     pipeline_options = {
         'project': config['gcp']['project_id'],
         'region': config['gcp']['location'],
@@ -209,7 +176,7 @@ def prepare_dataflow_config(**context):
         'extra_packages': [
             'gs://t1-dataflow-framework-bucket/common/packages/dataflow_common-1.0.0-py3-none-any.whl'
         ],
-        
+
         # Add source_project parameter
         # Add missing parameters
         'batch_limit': config.get('batch', {}).get('batch_limit'),

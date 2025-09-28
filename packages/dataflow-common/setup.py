@@ -22,7 +22,6 @@ setup(
     long_description=long_description,
     long_description_content_type='text/markdown',
     url='https://github.com/the1/dataflow-common',
-    packages=find_packages(exclude=['tests*']),
     classifiers=[
         'Development Status :: 4 - Beta',
         'Intended Audience :: Developers',
@@ -41,6 +40,9 @@ setup(
         'google-cloud-storage>=2.0.0,<3.0.0',
         'pyyaml>=6.0.0,<7.0.0',
     ],
+    # packages=find_packages(exclude=['tests*']),
+    packages=['dataflow_common'],  # Include local package
+    package_dir={'dataflow_common': 'packages/dataflow-common/dataflow_common'}
     extras_require={
         'dev': [
             'pytest>=7.0.0',
