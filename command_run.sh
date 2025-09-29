@@ -93,7 +93,8 @@ gcloud config set project the1-insight-dev
 
 rm -rf .venv
 pip install --upgrade pip setuptools wheel
-python -m build
+# python -m build
+python -m build --wheel
 gsutil cp packages/dataflow-common/dist/dataflow_common_the1-1.0.0.tar.gz gs://t1-dataflow-framework-bucket/common/packages/
 gsutil cp composer/config/ms_member/batch/short_term_hourly.yaml gs://t1-airflow-composer-bucket/dags/composer/config/ms_member/batch/
 gsutil cp composer/config/ms_member/common/defaults.yaml gs://t1-airflow-composer-bucket/dags/composer/config/ms_member/common/
