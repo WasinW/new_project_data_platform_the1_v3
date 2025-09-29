@@ -289,7 +289,7 @@ with DAG(
             'runner': 'DataflowRunner',
             'save_main_session': False,
             'machine_type': 'n1-standard-2',
-            'max_num_workers': 5,
+            'max_num_workers': 1,
             'job_name': default_args['job_name'],
             # 'setup_file': 'gs://t1-dataflow-framework-bucket/framework/setup.py',  # OPTION 3 FAILED
 

@@ -196,7 +196,7 @@ def build_batch_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConfig):
             'tgt_table': target_table_full,
             'query': source_query,
             'method': read_method,
-            'gcs_location': config.get('gcs_location') or config.get('temp_location')
+            'gcs_location': config.get('gcs_location') or config.get('temp_location') or 'gs://t1-insight-audit-bucket/audit_log/dataflow/temp'
         })
         
         # source_data = read_step.execute(pipeline)
