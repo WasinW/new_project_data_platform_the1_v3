@@ -661,18 +661,18 @@ class MergeQueryExecutor(beam.DoFn):
         """Initialize BigQuery connector"""
         from dataflow_common.connectors import BigQueryConnector
         # from .connectors import BigQueryConnector
-        self._connector = BigQueryConnector(
-            project=self.project_id,
-            dataset=self.dataset
-        )
+        # self._connector = BigQueryConnector(
+        #     project=self.project_id,
+        #     dataset=self.dataset
+        # )
 
-    def execute_with_retry(self, query: str, max_retries: int = 3):
+    def execute_with_retry(self, connector, query: str, max_retries: int = 3):
         """Execute query with exponential backoff retry"""
         import time
         
         for attempt in range(max_retries):
             try:
-                return self._connector.execute_query(query)
+                return connector.execute_query(query)
             except Exception as e:
                 if attempt == max_retries - 1:
                     raise
@@ -689,6 +689,12 @@ class MergeQueryExecutor(beam.DoFn):
         Yields:
             Execution results
         """
+        from dataflow_common.connectors import BigQueryConnector
+        connector = BigQueryConnector(
+            project=self.project_id,
+            dataset=self.dataset
+        )
+
         results = {
             'timestamp': datetime.utcnow().isoformat(),
             'personas_result': None,
@@ -699,7 +705,7 @@ class MergeQueryExecutor(beam.DoFn):
             # Execute personas merge
             if 'personas_query' in queries_dict and queries_dict['personas_query']:
                 logger.info("Executing personas merge query via connector")
-                personas_result = self._connector.execute_merge_query(
+                personas_result = connector.execute_merge_query(
                     queries_dict['personas_query'],
                     table_name='stg_ms_personas'
                 )
@@ -711,7 +717,7 @@ class MergeQueryExecutor(beam.DoFn):
             # Execute member merge  
             if 'member_query' in queries_dict and queries_dict['member_query']:
                 logger.info("Executing member merge query via connector")
-                member_result = self._connector.execute_merge_query(
+                member_result = connector.execute_merge_query(
                     queries_dict['member_query'],
                     table_name='stg_ms_member'
                 )

@@ -339,30 +339,46 @@ class BigtableConnector(DataConnector):
         self._client = None
         self._table = None
         
-    @property
-    def client(self):
-        """Lazy load Bigtable client"""
-        if not self._client:
-            if self.credentials_path:
-                from google.oauth2 import service_account
-                credentials = service_account.Credentials.from_service_account_file(
-                    self.credentials_path
-                )
-                self._client = bigtable.Client(
-                    project=self.project,
-                    credentials=credentials
-                )
-            else:
-                self._client = bigtable.Client(project=self.project)
-        return self._client
+    # @property
+    # def client(self):
+    #     """Lazy load Bigtable client"""
+    #     if not self._client:
+    #         if self.credentials_path:
+    #             from google.oauth2 import service_account
+    #             credentials = service_account.Credentials.from_service_account_file(
+    #                 self.credentials_path
+    #             )
+    #             self._client = bigtable.Client(
+    #                 project=self.project,
+    #                 credentials=credentials
+    #             )
+    #         else:
+    #             self._client = bigtable.Client(project=self.project)
+    #     return self._client
     
-    @property
-    def table(self):
-        """Get Bigtable table reference"""
-        if not self._table:
-            instance = self.client.instance(self.instance_id)
-            self._table = instance.table(self.table_id)
-        return self._table
+    # @property
+    # def table(self):
+    #     """Get Bigtable table reference"""
+    #     if not self._table:
+    #         instance = self.client.instance(self.instance_id)
+    #         self._table = instance.table(self.table_id)
+    #     return self._table
+    def _get_client(self):  # เปลี่ยนเป็น method ธรรมดา
+        if self.credentials_path:
+            from google.oauth2 import service_account
+            from google.cloud import bigtable
+            credentials = service_account.Credentials.from_service_account_file(
+                self.credentials_path
+            )
+            return bigtable.Client(project=self.project, credentials=credentials)
+        else:
+            from google.cloud import bigtable
+            return bigtable.Client(project=self.project)
+
+    def _get_table(self):  # แยก table getter
+        client = self._get_client()
+        instance = client.instance(self.instance_id)
+        return instance.table(self.table_id)
     
     def read(self, row_keys: List[str] = None, row_filter=None):
         """Read from Bigtable"""
