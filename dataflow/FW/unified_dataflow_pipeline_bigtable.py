@@ -181,7 +181,6 @@ def build_batch_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConfig):
                 SELECT *
                 , ROW_NUMBER() OVER(PARTITION BY JSON_VALUE(profiles, '$.memberId') ORDER BY TIMESTAMP DESC) RN_PK
                 FROM `{source_table_full}`
-                LIMIT {batch_limit}
             ) AS LAST_UPD
             WHERE RN_PK = 1 
         """
@@ -240,9 +239,9 @@ def build_batch_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConfig):
         mapping_data = read_mapping_step.execute(pipeline)
         
         # Count mapping records
-        _ = (mapping_data
-            | 'Count_Mapping' >> combiners.Count.Globally()
-            | 'Log_Mapping_Count' >> beam.Map(lambda c: logger.info(f"[METRIC] mapping_count={c}")))
+        # _ = (mapping_data
+        #     | 'Count_Mapping' >> combiners.Count.Globally()
+        #     | 'Log_Mapping_Count' >> beam.Map(lambda c: logger.info(f"[METRIC] mapping_count={c}")))
         
         mapping_with_default = (
             mapping_data 
@@ -280,9 +279,9 @@ def build_batch_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConfig):
         validated_data = dq_step.execute(pipeline, source_data)
         
         # Count validated records
-        _ = (validated_data
-            | 'Count_Validated' >> combiners.Count.Globally()
-            | 'Log_Validated_Count' >> beam.Map(lambda c: logger.info(f"[METRIC] validated_count={c}")))
+        # _ = (validated_data
+        #     | 'Count_Validated' >> combiners.Count.Globally()
+        #     | 'Log_Validated_Count' >> beam.Map(lambda c: logger.info(f"[METRIC] validated_count={c}")))
 
         # Step 3: Apply column mapping
         logger.info("Applying column mapping transformation")
