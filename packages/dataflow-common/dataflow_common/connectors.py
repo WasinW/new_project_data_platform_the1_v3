@@ -70,13 +70,13 @@ class BigQueryConnector(DataConnector):
             'project': self.project,
         }
         
-        if method:
-            if hasattr(ReadFromBigQuery.Method, method):
-                read_options['method'] = getattr(ReadFromBigQuery.Method, method)
-            else:
-                # Default to EXPORT for queries
-                logger.warning(f"Unknown method {method}, using EXPORT")
-                read_options['method'] = ReadFromBigQuery.Method.EXPORT
+        # if method:
+        #     if hasattr(ReadFromBigQuery.Method, method):
+        #         read_options['method'] = getattr(ReadFromBigQuery.Method, method)
+        #     else:
+        #         # Default to EXPORT for queries
+        #         logger.warning(f"Unknown method {method}, using EXPORT")
+        #         read_options['method'] = ReadFromBigQuery.Method.EXPORT
         
         # Add credentials if provided
         if self.credentials_path:
@@ -86,28 +86,52 @@ class BigQueryConnector(DataConnector):
     # สำคัญ: Query ต้องมี gcs_location เสมอ
         if query:
             read_options['query'] = query
-            gcs_loc = gcs_location or self.gcs_location or f'gs://{self.project}-temp/bigquery/temp'
-            if not gcs_loc:
-                raise ValueError("gcs_location is required for query with EXPORT method")
+            # gcs_loc = gcs_location or self.gcs_location or f'gs://{self.project}-temp/bigquery/temp'
+            # if not gcs_loc:
+            #     raise ValueError("gcs_location is required for query with EXPORT method")
 
-            read_options['gcs_location'] = gcs_loc
-            # Query ใช้ EXPORT method เท่านั้น
-            if method and hasattr(ReadFromBigQuery.Method, method):
-                read_options['method'] = getattr(ReadFromBigQuery.Method, method)        # Handle table read
+            # read_options['gcs_location'] = gcs_loc
+            # # Query ใช้ EXPORT method เท่านั้น
+            # if method and hasattr(ReadFromBigQuery.Method, method):
+            #     read_options['method'] = getattr(ReadFromBigQuery.Method, method)        # Handle table read
+            # Determine temporary storage location
+            tmp_location = gcs_location or self.gcs_location
+            if not tmp_location:
+                tmp_location = f'gs://{self.project}-temp/bigquery/temp'
+            read_options['gcs_location'] = tmp_location
+            read_options['method'] = ReadFromBigQuery.Method.EXPORT
+
         elif table:
-            # Table read อาจใช้ DIRECT_READ ได้
+            # # Table read อาจใช้ DIRECT_READ ได้
+            # read_options['table'] = self._format_table_id(table)
+            # if method and hasattr(ReadFromBigQuery.Method, method):
+            #     read_options['method'] = getattr(ReadFromBigQuery.Method, method)
+            # # gcs_location optional for table reads
+            # if gcs_location or self.gcs_location:
+            #     read_options['gcs_location'] = gcs_location or self.gcs_location
             read_options['table'] = self._format_table_id(table)
+            # Honour provided method for table reads if valid; default to EXPORT
             if method and hasattr(ReadFromBigQuery.Method, method):
                 read_options['method'] = getattr(ReadFromBigQuery.Method, method)
-            # gcs_location optional for table reads
-            if gcs_location or self.gcs_location:
-                read_options['gcs_location'] = gcs_location or self.gcs_location
-        
+            else:
+                read_options['method'] = ReadFromBigQuery.Method.EXPORT
+            # Optionally include gcs_location for table reads
+            tmp_location = gcs_location or self.gcs_location
+            if tmp_location:
+                read_options['gcs_location'] = tmp_location
+        else:
+            raise ValueError("Either 'table' or 'query' must be provided to read from BigQuery")
+
+
         # Apply kwargs และ remove None values
-        read_options.update(kwargs)
-        read_options = {k: v for k, v in read_options.items() if v is not None}
-        
-        return ReadFromBigQuery(**read_options)    
+        # read_options.update(kwargs)
+        # read_options = {k: v for k, v in read_options.items() if v is not None}
+        for k, v in kwargs.items():
+            if v is not None:
+                read_options[k] = v
+
+        return ReadFromBigQuery(**read_options)
+
     def write(self, table: str, mode: str = "WRITE_APPEND", 
               method: str = "STORAGE_WRITE_API", schema: Union[str, dict] = 'SCHEMA_AUTODETECT',
               streaming_mode: Optional[str] = None, 
