@@ -163,7 +163,7 @@ def build_batch_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConfig):
         stg_source_table = config.get('stg_source_table')
         stg_ongoing_source_table = config.get('stg_ongoing_source_table')
         mapping_table = config.get('mapping_table')
-        read_method = config.get('read_method', 'DIRECT_READ')
+        read_method = config.get('read_method', 'EXPORT')
         
         # Full table names
         source_table_full = f"{source_project}.{source_dataset}.{source_table}"

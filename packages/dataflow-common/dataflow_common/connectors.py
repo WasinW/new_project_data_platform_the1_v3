@@ -6,6 +6,7 @@ import logging
 import apache_beam as beam
 from apache_beam.io import ReadFromPubSub, WriteToBigQuery
 from apache_beam.io.gcp.bigquery import ReadFromBigQuery, BigQueryDisposition
+from apache_beam.options.pipeline_options import PipelineOptions
 from google.cloud import bigquery, bigtable
 from google.cloud.bigtable import row_filters
 from .core import DataConnector
@@ -23,10 +24,11 @@ class BigQueryConnector(DataConnector):
         self.dataset = dataset
         self.credentials_path = credentials_path
         self.gcs_location = gcs_location or f'gs://{project}-temp/bigquery/temp'
-        # self._client = None
+        self._client = None
     def __getstate__(self):
         """Control what gets pickled - exclude any client objects"""
         state = self.__dict__.copy()
+        state['_client'] = None
         # ไม่ต้อง pickle client
         return state
     def __setstate__(self, state):
@@ -35,14 +37,18 @@ class BigQueryConnector(DataConnector):
 
     def _get_client(self):
         """Create BigQuery client when needed (not pickled)"""
-        if self.credentials_path:
-            from google.cloud import bigquery
-            return bigquery.Client.from_service_account_json(
-                self.credentials_path, project=self.project
-            )
-        else:
-            from google.cloud import bigquery
-            return bigquery.Client(project=self.project)
+        # if self.credentials_path:
+        #     from google.cloud import bigquery
+        #     return bigquery.Client.from_service_account_json(
+        #         self.credentials_path, project=self.project
+        #     )
+        # else:
+        #     from google.cloud import bigquery
+        #     return bigquery.Client(project=self.project)
+        if self._client is None:
+            self._client = bigquery.Client(project=self.project)
+        return self._client
+
 
     # @property
     # def client(self):

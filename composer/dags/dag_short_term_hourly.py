@@ -164,6 +164,7 @@ def prepare_dataflow_config(**context):
         'network': 'projects/the1-network-dev/global/networks/dataflow',  # เพิ่ม
         'subnetwork': 'regions/asia-southeast1/subnetworks/dataflow-private',
         'service_account_email': config['dataflow'].get('service_account'),
+        'gcs_location': config['storage']['temp_location'],
         
         # Worker configuration
         'worker_zone': 'asia-southeast1-a',  # เพิ่ม - สำคัญสำหรับ VPC
