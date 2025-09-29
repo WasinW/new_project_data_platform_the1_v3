@@ -274,6 +274,7 @@ with DAG(
         "apache-beam[gcp]==2.59.0",       # ต้องมีสำหรับ venv ของ Operator
         "google-cloud-bigquery==3.25.0",
         "google-cloud-bigtable==2.23.0",
+        "pyyaml==6.0"  # เพิ่มบรรทัดนี้
         # "google-cloud-secret-manager==<เวอร์ชันที่ใช้>"   # ถ้าต้องใช้
     ]
     run_dataflow_batch = BeamRunPythonPipelineOperator(
