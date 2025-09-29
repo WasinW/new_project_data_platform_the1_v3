@@ -314,9 +314,12 @@ with DAG(
         expected_statuses={"SUCCEEDED"},
         project_id="{{ ti.xcom_pull(task_ids='load_config', key='config')['gcp']['project_id'] }}",
         location="{{ ti.xcom_pull(task_ids='load_config', key='config')['gcp']['location'] }}",
-        poke_interval="{{ ti.xcom_pull(task_ids='load_config', key='config')['monitoring']['poke_interval_seconds'] }}",
-        timeout="{{ ti.xcom_pull(task_ids='load_config', key='config')['monitoring']['mapping_timeout_seconds'] }}",
-        mode="{{ ti.xcom_pull(task_ids='load_config', key='config')['monitoring']['mode'] }}",
+        # poke_interval="{{ ti.xcom_pull(task_ids='load_config', key='config')['monitoring']['poke_interval_seconds'] }}",
+        # timeout="{{ ti.xcom_pull(task_ids='load_config', key='config')['monitoring']['mapping_timeout_seconds'] }}",
+        # mode="{{ ti.xcom_pull(task_ids='load_config', key='config')['monitoring']['mode'] }}",
+        poke_interval=60,  # ใช้ค่าตัวเลขโดยตรง
+        timeout=600,       # ใช้ค่าตัวเลขโดยตรง  
+        mode="poke",       # ใช้ค่า string โดยตรง
         gcp_conn_id='google_cloud_default',
     )
 
@@ -339,9 +342,12 @@ with DAG(
         expected_statuses={"SUCCEEDED"},
         project_id="{{ ti.xcom_pull(task_ids='load_config', key='config')['gcp']['project_id'] }}",
         location="{{ ti.xcom_pull(task_ids='load_config', key='config')['gcp']['location'] }}",
-        poke_interval="{{ ti.xcom_pull(task_ids='load_config', key='config')['monitoring']['poke_interval_seconds'] }}",
-        timeout="{{ ti.xcom_pull(task_ids='load_config', key='config')['monitoring']['member_timeout_seconds'] }}",
-        mode="{{ ti.xcom_pull(task_ids='load_config', key='config')['monitoring']['mode'] }}",
+        # poke_interval="{{ ti.xcom_pull(task_ids='load_config', key='config')['monitoring']['poke_interval_seconds'] }}",
+        # timeout="{{ ti.xcom_pull(task_ids='load_config', key='config')['monitoring']['member_timeout_seconds'] }}",
+        # mode="{{ ti.xcom_pull(task_ids='load_config', key='config')['monitoring']['mode'] }}",
+        poke_interval=60,  # ใช้ค่าตัวเลขโดยตรง
+        timeout=600,       # ใช้ค่าตัวเลขโดยตรง  
+        mode="poke",       # ใช้ค่า string โดยตรง
         gcp_conn_id='google_cloud_default',
     )
 

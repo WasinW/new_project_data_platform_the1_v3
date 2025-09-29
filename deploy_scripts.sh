@@ -6,6 +6,7 @@ gsutil cp packages/dataflow-common/dist/dataflow_common-1.0.0.tar.gz gs://t1-dat
 
 # dags
 gsutil cp composer/dags/dag_short_term_hourly.py gs://t1-airflow-composer-bucket/dags/composer/dags/
+gsutil cp composer/dags/full_patch_pl.py gs://t1-airflow-composer-bucket/dags/composer/dags/
 
 # dataflow framework
 # gsutil cp dataflow/setup.py gs://t1-dataflow-framework-bucket/framework/
