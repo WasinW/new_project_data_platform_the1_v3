@@ -729,81 +729,81 @@ def main():
 
     
     # Map all expected parameters
-    param_mapping = {
-        # Core parameters
-        'project_id': 'project',  # Airflow sends as 'project'
-        'project': 'project_id',  # Also check both names
-        'source_project': 'source_project',
-        'term_type': 'term_type',
-        'mode': 'mode',
-        'env': 'env',
+    # param_mapping = {
+    #     # Core parameters
+    #     'project_id': 'project',  # Airflow sends as 'project'
+    #     'project': 'project_id',  # Also check both names
+    #     'source_project': 'source_project',
+    #     'term_type': 'term_type',
+    #     'mode': 'mode',
+    #     'env': 'env',
         
-        # Datasets
-        'source_dataset': 'source_dataset',
-        'staging_dataset': 'staging_dataset',
-        'refined_dataset': 'refined_dataset',
+    #     # Datasets
+    #     'source_dataset': 'source_dataset',
+    #     'staging_dataset': 'staging_dataset',
+    #     'refined_dataset': 'refined_dataset',
         
-        # Tables
-        'source_table': 'source_table',
-        'stg_source_table': 'stg_source_table',
-        'stg_ongoing_source_table': 'stg_ongoing_source_table',
-        'stg_origin_table': 'stg_origin_table',
-        'refined_ongoing_table': 'refined_ongoing_table',
-        'audit_table': 'audit_table',
-        'mapping_table': 'mapping_table',
-        'error_table': 'error_table',
+    #     # Tables
+    #     'source_table': 'source_table',
+    #     'stg_source_table': 'stg_source_table',
+    #     'stg_ongoing_source_table': 'stg_ongoing_source_table',
+    #     'stg_origin_table': 'stg_origin_table',
+    #     'refined_ongoing_table': 'refined_ongoing_table',
+    #     'audit_table': 'audit_table',
+    #     'mapping_table': 'mapping_table',
+    #     'error_table': 'error_table',
         
-        # Batch settings
-        'min_batch_size': 'min_batch_size',
-        'max_batch_size': 'max_batch_size',
-        'enrichment_batch_size': 'enrichment_batch_size',
-        'batch_limit': 'batch_limit',
-        'partition_filter': 'partition_filter',
-        'read_method': 'read_method',
-        'write_method': 'write_method',
+    #     # Batch settings
+    #     'min_batch_size': 'min_batch_size',
+    #     'max_batch_size': 'max_batch_size',
+    #     'enrichment_batch_size': 'enrichment_batch_size',
+    #     'batch_limit': 'batch_limit',
+    #     'partition_filter': 'partition_filter',
+    #     'read_method': 'read_method',
+    #     'write_method': 'write_method',
         
-        # Data quality
-        'max_errors_percent': 'max_errors_percent',
-        'validation_rules': 'validation_rules',
-        'split_output': 'split_output',
-        'write_errors': 'write_errors',
+    #     # Data quality
+    #     'max_errors_percent': 'max_errors_percent',
+    #     'validation_rules': 'validation_rules',
+    #     'split_output': 'split_output',
+    #     'write_errors': 'write_errors',
         
-        # BigQuery settings
-        'bq_priority': 'bq_priority',
-        'bq_write_disposition': 'bq_write_disposition',
-        'bq_create_disposition': 'bq_create_disposition',
+    #     # BigQuery settings
+    #     'bq_priority': 'bq_priority',
+    #     'bq_write_disposition': 'bq_write_disposition',
+    #     'bq_create_disposition': 'bq_create_disposition',
         
-        # Monitoring
-        'metrics_enabled': 'metrics_enabled',
-        'audit_enabled': 'audit_enabled',
-        'error_tracking_enabled': 'error_tracking_enabled',
+    #     # Monitoring
+    #     'metrics_enabled': 'metrics_enabled',
+    #     'audit_enabled': 'audit_enabled',
+    #     'error_tracking_enabled': 'error_tracking_enabled',
         
-        # Streaming parameters
-        'pubsub_topic': 'pubsub_topic',
-        'window_duration_seconds': 'window_duration_seconds',
-        'early_trigger_seconds': 'early_trigger_seconds',
-        'late_trigger_seconds': 'late_trigger_seconds',
-        'allowed_lateness_seconds': 'allowed_lateness_seconds',
-        'accumulation_mode': 'accumulation_mode',
-        'mapping_refresh_interval_seconds': 'mapping_refresh_interval_seconds',
-        'streaming_mode': 'streaming_mode',
+    #     # Streaming parameters
+    #     'pubsub_topic': 'pubsub_topic',
+    #     'window_duration_seconds': 'window_duration_seconds',
+    #     'early_trigger_seconds': 'early_trigger_seconds',
+    #     'late_trigger_seconds': 'late_trigger_seconds',
+    #     'allowed_lateness_seconds': 'allowed_lateness_seconds',
+    #     'accumulation_mode': 'accumulation_mode',
+    #     'mapping_refresh_interval_seconds': 'mapping_refresh_interval_seconds',
+    #     'streaming_mode': 'streaming_mode',
         
-        # Bigtable parameters
-        'bigtable_instance_id': 'bigtable_instance_id',
-        'bigtable_table_id': 'bigtable_table_id',
-        'bigtable_app_profile_id': 'bigtable_app_profile_id',
-        'bigtable_row_key_field': 'bigtable_row_key_field',
-        'bigtable_columns_to_fetch': 'bigtable_columns_to_fetch',
-        'bigtable_timeout_seconds': 'bigtable_timeout_seconds',
+    #     # Bigtable parameters
+    #     'bigtable_instance_id': 'bigtable_instance_id',
+    #     'bigtable_table_id': 'bigtable_table_id',
+    #     'bigtable_app_profile_id': 'bigtable_app_profile_id',
+    #     'bigtable_row_key_field': 'bigtable_row_key_field',
+    #     'bigtable_columns_to_fetch': 'bigtable_columns_to_fetch',
+    #     'bigtable_timeout_seconds': 'bigtable_timeout_seconds',
         
-        # Pipeline settings
-        'temp_location': 'temp_location',
-        'staging_location': 'staging_location',
-        'runner': 'runner',
-        'region': 'region',
-        'job_name': 'job_name',
-        'service_account_email': 'service_account_email',
-    }
+    #     # Pipeline settings
+    #     'temp_location': 'temp_location',
+    #     'staging_location': 'staging_location',
+    #     'runner': 'runner',
+    #     'region': 'region',
+    #     'job_name': 'job_name',
+    #     'service_account_email': 'service_account_email',
+    # }
     
     # # Extract values from pipeline options
     # for target_key, source_key in param_mapping.items():

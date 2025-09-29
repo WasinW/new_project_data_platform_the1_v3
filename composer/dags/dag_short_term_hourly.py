@@ -327,6 +327,11 @@ with DAG(
             'mapping_table': 'stg_mapping_reconcile',
             'error_table': 'dq_errors',
             # 'requirements_file': 'gs://t1-dataflow-framework-bucket/framework/requirements.txt',
+            'min_batch_size': '{{ ti.xcom_pull(task_ids="prepare_config", key="config")["batch"]["min_batch_size"] }}',
+            'max_batch_size': '{{ ti.xcom_pull(task_ids="prepare_config", key="config")["batch"]["max_batch_size"] }}',
+            'enrichment_batch_size': '{{ ti.xcom_pull(task_ids="prepare_config", key="config")["batch"]["enrichment_batch_size"] }}',
+            'read_method': '{{ ti.xcom_pull(task_ids="prepare_config", key="config")["batch"]["read_method"] }}',
+            'write_method': '{{ ti.xcom_pull(task_ids="prepare_config", key="config")["batch"]["write_method"] }}',
 
         },
         # py_requirements="{{ ti.xcom_pull(task_ids='prepare_config', key='config')['dataflow']['python_requirements'] }}",
