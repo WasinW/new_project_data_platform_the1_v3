@@ -59,7 +59,7 @@ class PipelineOrchestrator:
             'temp_location': self.config.get('storage', {}).get('temp_location'),
             'staging_location': self.config.get('storage', {}).get('staging_location'),
             'runner': kwargs.get('runner', 'DataflowRunner'),
-            'save_main_session': self.config.get('dataflow', {}).get('save_main_session', True),
+            'save_main_session': self.config.get('dataflow', {}).get('save_main_session', False),
         }
         
         # Add job name if template provided

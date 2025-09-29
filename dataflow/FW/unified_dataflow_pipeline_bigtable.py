@@ -920,10 +920,11 @@ def main():
         
         # Setup options
         setup_options = pipeline_options.view_as(SetupOptions)
-        if all_options.get('save_main_session'):
-            setup_options.save_main_session = False
-        if all_options.get('extra_packages'):
-            setup_options.extra_packages = all_options['extra_packages']
+        setup_options.save_main_session = False
+        # if all_options.get('save_main_session'):
+        #     setup_options.save_main_session = False
+        # if all_options.get('extra_packages'):
+        #     setup_options.extra_packages = all_options['extra_packages']
         
         # Experiments
         # if all_options.get('experiments'):

@@ -295,10 +295,10 @@ with DAG(
 
             # VPC Settings
             'no_use_public_ips': True,
-            # 'network': 'projects/the1-network-dev/global/networks/dataflow',
-            # 'subnetwork': 'regions/asia-southeast1/subnetworks/dataflow-private',
-            'network': 'projects/the1-network-stg/global/networks/the1-vpc-net-share-stg',
-            'subnetwork': 'projects/the1-network-stg/regions/asia-southeast1/subnetworks/the1-subnet-dataflow-stg',
+            'network': 'projects/the1-network-dev/global/networks/dataflow',
+            'subnetwork': 'regions/asia-southeast1/subnetworks/dataflow-private',
+            # 'network': 'projects/the1-network-stg/global/networks/the1-vpc-net-share-stg',
+            # 'subnetwork': 'regions/asia-southeast1/subnetworks/the1-subnet-dataflow-stg',
             # --network=projects/the1-network-stg/global/networks/the1-vpc-net-share-stg \
             # --subnetwork=projects/the1-network-stg/regions/asia-southeast1/subnetworks/the1-subnet-dataflow-stg \
 
