@@ -51,7 +51,7 @@ batch:
   enrichment_batch_size: 500
   batch_limit: 1000 # Limit records for processing (remove in production)
   partition_filter: "DATE(_PARTITIONTIME) = CURRENT_DATE()"
-  read_method: DIRECT_READ
+  read_method: EXPORT
   write_method: FILE_LOADS
 
 # Dataflow Configuration
