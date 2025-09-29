@@ -34,17 +34,17 @@ class BigQueryConnector(DataConnector):
         else:
             return bigquery.Client(project=self.project)
 
-    @property
-    def client(self):
-        """Lazy load BigQuery client"""
-        if not self._client:
-            if self.credentials_path:
-                self._client = bigquery.Client.from_service_account_json(
-                    self.credentials_path, project=self.project
-                )
-            else:
-                self._client = bigquery.Client(project=self.project)
-        return self._client
+    # @property
+    # def client(self):
+    #     """Lazy load BigQuery client"""
+    #     if not self._client:
+    #         if self.credentials_path:
+    #             self._client = bigquery.Client.from_service_account_json(
+    #                 self.credentials_path, project=self.project
+    #             )
+    #         else:
+    #             self._client = bigquery.Client(project=self.project)
+    #     return self._client
         
     def read(self, table: str = None, query: str = None, 
              method: str = 'EXPORT', gcs_location: str = None, **kwargs):
