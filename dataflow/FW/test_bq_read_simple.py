@@ -59,7 +59,7 @@ def run():
                 gcs_location='gs://t1-insight-audit-bucket/audit_log/dataflow/temp'
             )
             | 'Count' >> beam.combiners.Count.Globally()
-            | 'LogResults' >> beam.Map( )  # Use function instead of lambda
+            | 'LogResults' >> beam.Map(log_count)  # Use function instead of lambda
         )
     
     logging.info("Pipeline completed successfully")
