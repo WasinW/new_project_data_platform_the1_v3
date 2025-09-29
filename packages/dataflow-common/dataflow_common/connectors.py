@@ -24,14 +24,24 @@ class BigQueryConnector(DataConnector):
         self.credentials_path = credentials_path
         self.gcs_location = gcs_location or f'gs://{project}-temp/bigquery/temp'
         # self._client = None
-        
+    def __getstate__(self):
+        """Control what gets pickled - exclude any client objects"""
+        state = self.__dict__.copy()
+        # ไม่ต้อง pickle client
+        return state
+    def __setstate__(self, state):
+        """Restore state after unpickling"""
+        self.__dict__.update(state)
+
     def _get_client(self):
         """Create BigQuery client when needed (not pickled)"""
         if self.credentials_path:
+            from google.cloud import bigquery
             return bigquery.Client.from_service_account_json(
                 self.credentials_path, project=self.project
             )
         else:
+            from google.cloud import bigquery
             return bigquery.Client(project=self.project)
 
     # @property
