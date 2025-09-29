@@ -175,16 +175,16 @@ def build_batch_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConfig):
         # Step 1.1: Read source data from BigQuery
         logger.info(f"Reading source data from: {source_table_full}")
         
-        source_query = f"""
-            SELECT * EXCEPT(RN_PK)
-            FROM (
-                SELECT *
-                , ROW_NUMBER() OVER(PARTITION BY JSON_VALUE(profiles, '$.memberId') ORDER BY TIMESTAMP DESC) RN_PK
-                FROM `{source_table_full}`
-            ) AS LAST_UPD
-            WHERE RN_PK = 1 
-        """
-        
+        # source_query = f"""
+        #     SELECT * EXCEPT(RN_PK)
+        #     FROM (
+        #         SELECT *
+        #         , ROW_NUMBER() OVER(PARTITION BY JSON_VALUE(profiles, '$.memberId') ORDER BY TIMESTAMP DESC) RN_PK
+        #         FROM `{source_table_full}`
+        #     ) AS LAST_UPD
+        #     WHERE RN_PK = 1 
+        # """
+        source_query = "SELECT * FROM `{source_table_full}` LIMIT 1000"
         read_step = ReadFromBigQueryStep({
             'enabled': True,
             'step_name': 'ReadSource',

@@ -7,7 +7,7 @@ defaults_file: ../common/defaults.yaml
 pipeline:
   name: ms_member_short_term_hourly
   description: MS Member Pipeline - Short Term Hourly Batch
-  schedule: "@hourly"
+  # schedule: "@hourly"
   term_type: short
   mode: batch
 
