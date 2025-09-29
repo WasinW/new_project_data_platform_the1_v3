@@ -927,8 +927,8 @@ def main():
             setup_options.extra_packages = all_options['extra_packages']
         
         # Experiments
-        if all_options.get('experiments'):
-            gcp_options.experiments = all_options['experiments']
+        # if all_options.get('experiments'):
+        #     gcp_options.experiments = all_options['experiments']
     
     # Run pipeline
     try:
