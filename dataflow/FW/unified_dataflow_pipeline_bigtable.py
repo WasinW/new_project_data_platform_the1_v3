@@ -566,6 +566,77 @@ def run_pipeline(config: CommonPipelineConfig, pipeline_options: PipelineOptions
         logger.error(f"Pipeline execution failed: {e}")
         raise
 
+class BizOptions(PipelineOptions):
+    @classmethod
+    def _add_argparse_args(cls, parser):
+        # Core
+        parser.add_argument('--term_type')
+        parser.add_argument('--mode', default='batch')
+        parser.add_argument('--env', default='dev')
+        parser.add_argument('--source_project')
+
+        # Datasets
+        parser.add_argument('--source_dataset')
+        parser.add_argument('--staging_dataset')
+        parser.add_argument('--refined_dataset')
+
+        # Tables
+        parser.add_argument('--source_table')
+        parser.add_argument('--stg_source_table')
+        parser.add_argument('--stg_ongoing_source_table')
+        parser.add_argument('--stg_origin_table')
+        parser.add_argument('--refined_ongoing_table')
+        parser.add_argument('--audit_table')
+        parser.add_argument('--mapping_table')
+        parser.add_argument('--error_table')
+
+        # Batch settings
+        parser.add_argument('--min_batch_size', type=int)
+        parser.add_argument('--max_batch_size', type=int)
+        parser.add_argument('--enrichment_batch_size', type=int)
+        parser.add_argument('--batch_limit', type=int)
+        parser.add_argument('--partition_filter')
+        parser.add_argument('--read_method')
+        parser.add_argument('--write_method')
+
+        # Data quality
+        parser.add_argument('--max_errors_percent', type=float)
+        parser.add_argument('--validation_rules')      # JSON string หรือ yaml ที่แปลงแล้ว
+        parser.add_argument('--split_output', type=lambda v: v.lower() == 'true')
+        parser.add_argument('--write_errors', type=lambda v: v.lower() == 'true')
+
+        # BigQuery settings
+        parser.add_argument('--bq_priority')
+        parser.add_argument('--bq_write_disposition')
+        parser.add_argument('--bq_create_disposition')
+
+        # Monitoring
+        parser.add_argument('--metrics_enabled', type=lambda v: v.lower() == 'true')
+        parser.add_argument('--audit_enabled', type=lambda v: v.lower() == 'true')
+        parser.add_argument('--error_tracking_enabled', type=lambda v: v.lower() == 'true')
+
+        # Streaming parameters
+        parser.add_argument('--pubsub_topic')
+        parser.add_argument('--window_duration_seconds', type=int)
+        parser.add_argument('--early_trigger_seconds', type=int)
+        parser.add_argument('--late_trigger_seconds', type=int)
+        parser.add_argument('--allowed_lateness_seconds', type=int)
+        parser.add_argument('--accumulation_mode')
+        parser.add_argument('--mapping_refresh_interval_seconds', type=int)
+        parser.add_argument('--streaming_mode')  # e.g. at_least_once
+
+        # Bigtable
+        parser.add_argument('--bigtable_instance_id')
+        parser.add_argument('--bigtable_table_id')
+        parser.add_argument('--bigtable_app_profile_id')
+        parser.add_argument('--bigtable_row_key_field')
+        parser.add_argument('--bigtable_columns_to_fetch')   # JSON string
+        parser.add_argument('--bigtable_timeout_seconds', type=int)
+
+        # Misc & pipeline-side
+        parser.add_argument('--gcs_location')
+        # เผื่อ field รวม config ทั้งก้อน
+        parser.add_argument('--raw_config')  # JSON string
 
 def main():
     """
@@ -581,7 +652,81 @@ def main():
     logger.info(f"Received {len(all_options)} options from Airflow")
     
     # Extract configuration parameters
-    config_dict = {}
+    # >>> NEW: อ่าน custom args ที่ Beam จะไม่ discard แล้ว
+    biz = pipeline_options.view_as(BizOptions)
+    # สร้าง config_dict จาก biz (และ core project)
+    config_dict = {
+        # Core
+        'project_id': all_options.get('project') or all_options.get('project_id'),
+        'source_project': biz.source_project,
+        'term_type': biz.term_type,
+        'mode': biz.mode,
+        'env': biz.env,
+
+        # Datasets
+        'source_dataset': biz.source_dataset,
+        'staging_dataset': biz.staging_dataset,
+        'refined_dataset': biz.refined_dataset,
+
+        # Tables
+        'source_table': biz.source_table,
+        'stg_source_table': biz.stg_source_table,
+        'stg_ongoing_source_table': biz.stg_ongoing_source_table,
+        'stg_origin_table': biz.stg_origin_table,
+        'refined_ongoing_table': biz.refined_ongoing_table,
+        'audit_table': biz.audit_table,
+        'mapping_table': biz.mapping_table,
+        'error_table': biz.error_table,
+
+        # Batch settings
+        'min_batch_size': biz.min_batch_size,
+        'max_batch_size': biz.max_batch_size,
+        'enrichment_batch_size': biz.enrichment_batch_size,
+        'batch_limit': biz.batch_limit,
+        'partition_filter': biz.partition_filter,
+        'read_method': biz.read_method,
+        'write_method': biz.write_method,
+
+        # DQ
+        'max_errors_percent': biz.max_errors_percent,
+        'validation_rules': biz.validation_rules,
+        'split_output': biz.split_output,
+        'write_errors': biz.write_errors,
+
+        # BQ
+        'bq_priority': biz.bq_priority,
+        'bq_write_disposition': biz.bq_write_disposition,
+        'bq_create_disposition': biz.bq_create_disposition,
+
+        # Monitoring
+        'metrics_enabled': biz.metrics_enabled,
+        'audit_enabled': biz.audit_enabled,
+        'error_tracking_enabled': biz.error_tracking_enabled,
+
+        # Streaming
+        'pubsub_topic': biz.pubsub_topic,
+        'window_duration_seconds': biz.window_duration_seconds,
+        'early_trigger_seconds': biz.early_trigger_seconds,
+        'late_trigger_seconds': biz.late_trigger_seconds,
+        'allowed_lateness_seconds': biz.allowed_lateness_seconds,
+        'accumulation_mode': biz.accumulation_mode,
+        'mapping_refresh_interval_seconds': biz.mapping_refresh_interval_seconds,
+        'streaming_mode': biz.streaming_mode,
+
+        # Bigtable
+        'bigtable_instance_id': biz.bigtable_instance_id,
+        'bigtable_table_id': biz.bigtable_table_id,
+        'bigtable_app_profile_id': biz.bigtable_app_profile_id,
+        'bigtable_row_key_field': biz.bigtable_row_key_field,
+        'bigtable_columns_to_fetch': biz.bigtable_columns_to_fetch,
+        'bigtable_timeout_seconds': biz.bigtable_timeout_seconds,
+
+        # Misc
+        'gcs_location': biz.gcs_location,
+        'temp_location': all_options.get('temp_location'),
+        'staging_location': all_options.get('staging_location'),
+    }
+
     
     # Map all expected parameters
     param_mapping = {
@@ -660,45 +805,78 @@ def main():
         'service_account_email': 'service_account_email',
     }
     
-    # Extract values from pipeline options
-    for target_key, source_key in param_mapping.items():
-        # Check both possible keys
-        value = all_options.get(source_key) or all_options.get(target_key)
-        if value is not None:
-            config_dict[target_key] = value
+    # # Extract values from pipeline options
+    # for target_key, source_key in param_mapping.items():
+    #     # Check both possible keys
+    #     value = all_options.get(source_key) or all_options.get(target_key)
+    #     if value is not None:
+    #         config_dict[target_key] = value
     
-    # Handle special case for project_id
-    if 'project_id' not in config_dict and 'project' in all_options:
-        config_dict['project_id'] = all_options['project']
+    # # Handle special case for project_id
+    # if 'project_id' not in config_dict and 'project' in all_options:
+    #     config_dict['project_id'] = all_options['project']
     
-    # Parse JSON fields
-    if 'validation_rules' in config_dict and isinstance(config_dict['validation_rules'], str):
+    # # Parse JSON fields
+    # if 'validation_rules' in config_dict and isinstance(config_dict['validation_rules'], str):
+    #     try:
+    #         config_dict['validation_rules'] = json.loads(config_dict['validation_rules'])
+    #     except json.JSONDecodeError:
+    #         logger.warning("Failed to parse validation_rules as JSON")
+    
+    # # Parse raw_config if provided
+    # if 'raw_config' in all_options and all_options['raw_config']:
+    #     try:
+    #         raw_config = json.loads(all_options['raw_config'])
+    #         for key, value in raw_config.items():
+    #             if key not in config_dict or config_dict[key] is None:
+    #                 config_dict[key] = value
+    #     except json.JSONDecodeError as e:
+    #         logger.error(f"Failed to parse raw_config: {e}")
+    # ----------------------------------------------------------------------------------------------------------------
+    # parse JSON fields ถ้าส่งมาเป็น string
+    if isinstance(config_dict.get('validation_rules'), str):
         try:
             config_dict['validation_rules'] = json.loads(config_dict['validation_rules'])
         except json.JSONDecodeError:
-            logger.warning("Failed to parse validation_rules as JSON")
-    
-    # Parse raw_config if provided
-    if 'raw_config' in all_options and all_options['raw_config']:
+            logger.warning("Failed to parse validation_rules JSON; using as-is")
+
+    if isinstance(config_dict.get('bigtable_columns_to_fetch'), str):
         try:
-            raw_config = json.loads(all_options['raw_config'])
-            for key, value in raw_config.items():
-                if key not in config_dict or config_dict[key] is None:
-                    config_dict[key] = value
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse raw_config: {e}")
-    
-    # Create configuration object
+            config_dict['bigtable_columns_to_fetch'] = json.loads(config_dict['bigtable_columns_to_fetch'])
+        except json.JSONDecodeError:
+            pass
+
+    # raw_config (ถ้ามี) → merge เติมค่าที่หายไป
+    raw_cfg = getattr(biz, 'raw_config', None)
+    if raw_cfg:
+        try:
+            raw_cfg_json = json.loads(raw_cfg)
+            for k, v in raw_cfg_json.items():
+                if config_dict.get(k) in (None, ''):
+                    config_dict[k] = v
+        except json.JSONDecodeError:
+            logger.warning("Failed to parse raw_config JSON; ignore")
+
+    # ----------------------------------------------------------------------------------------------------------------
+    # # Create configuration object
+    # config = CommonPipelineConfig.from_dict(config_dict)
+    # # Validate configuration
+    # issues = validate_required_params(config, config.get('mode'))
+    # if issues:
+    #     logger.error("Configuration validation failed:")
+    #     for issue in issues:
+    #         logger.error(f"  - {issue}")
+    #     sys.exit(1)
+    # ----------------------------------------------------------------------------------------------------------------
     config = CommonPipelineConfig.from_dict(config_dict)
-    
-    # Validate configuration
     issues = validate_required_params(config, config.get('mode'))
     if issues:
         logger.error("Configuration validation failed:")
         for issue in issues:
             logger.error(f"  - {issue}")
         sys.exit(1)
-    
+
+    # ----------------------------------------------------------------------------------------------------------------
     # Additional validation
     config_issues = config.validate()
     if config_issues:
