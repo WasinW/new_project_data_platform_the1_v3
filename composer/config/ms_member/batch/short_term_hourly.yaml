@@ -59,7 +59,7 @@ dataflow:
   machine_type: n1-standard-2
   max_num_workers: 5
   execution_timeout_minutes: 30
-  save_main_session: true
+  save_main_session: false
   service_account: t1-ins-dev-sa-data@the1-insight-dev.iam.gserviceaccount.com # Fixed service account
   python_requirements:
   - google-cloud-secret-manager==2.16.3

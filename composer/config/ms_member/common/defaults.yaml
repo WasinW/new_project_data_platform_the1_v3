@@ -104,7 +104,7 @@ defaults:
     machine_type: n1-standard-2
     max_num_workers: 5
     disk_size_gb: 100
-    save_main_session: true
+    save_main_session: false
     setup_file_required: false
     requirements_cache_enabled: true
     worker_cache_mb: 100
