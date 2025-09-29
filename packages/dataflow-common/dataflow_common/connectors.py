@@ -23,8 +23,17 @@ class BigQueryConnector(DataConnector):
         self.dataset = dataset
         self.credentials_path = credentials_path
         self.gcs_location = gcs_location or f'gs://{project}-temp/bigquery/temp'
-        self._client = None
+        # self._client = None
         
+    def _get_client(self):
+        """Create BigQuery client when needed (not pickled)"""
+        if self.credentials_path:
+            return bigquery.Client.from_service_account_json(
+                self.credentials_path, project=self.project
+            )
+        else:
+            return bigquery.Client(project=self.project)
+
     @property
     def client(self):
         """Lazy load BigQuery client"""
@@ -194,7 +203,10 @@ class BigQueryConnector(DataConnector):
     
     def query(self, query: str) -> List[Dict[str, Any]]:
         """Execute query and return results"""
-        query_job = self.client.query(query)
+        # query_job = self.client.query(query)
+        client = self._get_client()  # Create client when needed
+
+        query_job = client.query(query)
         return [dict(row) for row in query_job.result()]
 
     def execute_query(self, query: str, timeout: int = 300) -> Dict[str, Any]:
@@ -208,6 +220,7 @@ class BigQueryConnector(DataConnector):
             Dictionary with execution results
         """
         try:
+            client = self._get_client()  # Create client when needed
             logger.info(f"Executing BigQuery query: {query[:100]}...")
             
             # Configure query job
@@ -217,7 +230,8 @@ class BigQueryConnector(DataConnector):
             )
             
             # Execute query
-            query_job = self.client.query(query, job_config=job_config)
+            query_job = client.query(query, job_config=job_config)
+            # query_job = self.client.query(query, job_config=job_config)
             
             # Wait for completion
             result = query_job.result(timeout=timeout)

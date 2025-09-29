@@ -655,7 +655,7 @@ class MergeQueryExecutor(beam.DoFn):
         """
         self.project_id = project_id
         self.dataset = dataset
-        self._connector = None
+        # self._connector = None
         
     def setup(self):
         """Initialize BigQuery connector"""
