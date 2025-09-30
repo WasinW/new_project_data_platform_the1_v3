@@ -13,6 +13,7 @@ from datetime import datetime
 import apache_beam as beam
 from apache_beam import combiners
 from apache_beam.options.pipeline_options import PipelineOptions, StandardOptions
+from apache_beam.io.gcp.bigquery import ReadFromBigQuery
 from typing import Optional, Dict, Any, List
 from apache_beam.io import filesystems
 import tempfile
@@ -46,19 +47,19 @@ logger = logging.getLogger(__name__)
 try:
     from dataflow_common import (
         CommonPipelineConfig,
-        DataflowJobConfig,
-        ReadFromBigQueryStep,
-        ReadFromPubSubStep,
-        BigtableEnrichmentStep,
-        ColumnMappingStep,
-        DataQualityStep,
-        WriteToBigQueryStep,
-        AuditLoggingStep,
-        CreateMappingSideInput,
-        WindowedAuditLogger,
-        CDCUpsertFormatter,
-        MergeQueryGenerator, 
-        MergeQueryExecutor
+        # DataflowJobConfig,
+        # ReadFromBigQueryStep,
+        # ReadFromPubSubStep,
+        # BigtableEnrichmentStep,
+        # ColumnMappingStep,
+        # DataQualityStep,
+        # WriteToBigQueryStep,
+        # AuditLoggingStep,
+        # CreateMappingSideInput,
+        # WindowedAuditLogger,
+        # CDCUpsertFormatter,
+        # MergeQueryGenerator, 
+        # MergeQueryExecutor
     )
 except ImportError:
     # fallback: parse --extra_packages to find dataflow_common wheel
@@ -76,19 +77,19 @@ except ImportError:
     # try importing again
     from dataflow_common import (
         CommonPipelineConfig,
-        DataflowJobConfig,
-        ReadFromBigQueryStep,
-        ReadFromPubSubStep,
-        BigtableEnrichmentStep,
-        ColumnMappingStep,
-        DataQualityStep,
-        WriteToBigQueryStep,
-        AuditLoggingStep,
-        CreateMappingSideInput,
-        WindowedAuditLogger,
-        CDCUpsertFormatter,
-        MergeQueryGenerator, 
-        MergeQueryExecutor
+        # DataflowJobConfig,
+        # ReadFromBigQueryStep,
+        # ReadFromPubSubStep,
+        # BigtableEnrichmentStep,
+        # ColumnMappingStep,
+        # DataQualityStep,
+        # WriteToBigQueryStep,
+        # AuditLoggingStep,
+        # CreateMappingSideInput,
+        # WindowedAuditLogger,
+        # CDCUpsertFormatter,
+        # MergeQueryGenerator, 
+        # MergeQueryExecutor
     )
     logging.info("Loaded dataflow_common from downloaded wheel")
 
@@ -175,38 +176,48 @@ def build_batch_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConfig):
         # Step 1.1: Read source data from BigQuery
         logger.info(f"Reading source data from: {source_table_full}")
         
-        # source_query = f"""
-        #     SELECT * EXCEPT(RN_PK)
-        #     FROM (
-        #         SELECT *
-        #         , ROW_NUMBER() OVER(PARTITION BY JSON_VALUE(profiles, '$.memberId') ORDER BY TIMESTAMP DESC) RN_PK
-        #         FROM `{source_table_full}`
-        #     ) AS LAST_UPD
-        #     WHERE RN_PK = 1 
-        # """
-        source_query = "SELECT * FROM `{source_table_full}` LIMIT 1000"
-        read_step = ReadFromBigQueryStep({
-            'enabled': True,
-            'step_name': 'ReadSource',
-            'project': project_id,
-            'src_project': source_project,
-            'dataset': source_dataset,
-            'src_table': source_table_full,
-            'tgt_table': target_table_full,
-            'query': source_query,
-            'method': read_method,
-            'gcs_location': config.get('gcs_location') or config.get('temp_location') or 'gs://t1-insight-audit-bucket/audit_log/dataflow/temp'
-        })
+        source_query = f"""
+            SELECT * EXCEPT(RN_PK)
+            FROM (
+                SELECT *
+                , ROW_NUMBER() OVER(PARTITION BY JSON_VALUE(profiles, '$.memberId') ORDER BY TIMESTAMP DESC) RN_PK
+                FROM `{source_table_full}`
+            ) AS LAST_UPD
+            WHERE RN_PK = 1 
+        """
+        # source_query = "SELECT * FROM `{source_table_full}` LIMIT 1000"
+        # read_step = ReadFromBigQueryStep({
+        #     'enabled': True,
+        #     'step_name': 'ReadSource',
+        #     'project': project_id,
+        #     'src_project': source_project,
+        #     'dataset': source_dataset,
+        #     'src_table': source_table_full,
+        #     'tgt_table': target_table_full,
+        #     'query': source_query,
+        #     'method': read_method,
+        #     'gcs_location': config.get('gcs_location') or config.get('temp_location') or 'gs://t1-insight-audit-bucket/audit_log/dataflow/temp'
+        # })
         
         # source_data = read_step.execute(pipeline)
-        try:
-            source_data = read_step.execute(pipeline)
-            if not source_data:
-                raise RuntimeError("Failed to read source data")
-        except Exception as e:
-            logger.error(f"Pipeline step failed: {e}")
-            # Send alert or fallback logic
-            raise
+        # try:
+        #     source_data = read_step.execute(pipeline)
+        #     if not source_data:
+        #         raise RuntimeError("Failed to read source data")
+        # except Exception as e:
+        #     logger.error(f"Pipeline step failed: {e}")
+        #     # Send alert or fallback logic
+        #     raise
+        source_data = (
+            pipeline
+            | 'ReadFromBigQuery' >> ReadFromBigQuery(
+                query=source_query,
+                use_standard_sql=True,
+                project=project_id,
+                gcs_location=config.get('gcs_location') or config.get('temp_location')
+            )
+        )
+
 
         # Count source records
         _ = (source_data
@@ -225,19 +236,29 @@ def build_batch_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConfig):
             )
         """
         
-        read_mapping_step = ReadFromBigQueryStep({
-            'enabled': True,
-            'step_name': 'ReadMapping',
-            'project': project_id,
-            'src_project': project_id,
-            'dataset': staging_dataset,
-            'query': mapping_query,
-            'method': read_method,
-            'gcs_location': config.get('gcs_location') or config.get('temp_location')
-        })
+        # read_mapping_step = ReadFromBigQueryStep({
+        #     'enabled': True,
+        #     'step_name': 'ReadMapping',
+        #     'project': project_id,
+        #     'src_project': project_id,
+        #     'dataset': staging_dataset,
+        #     'query': mapping_query,
+        #     'method': read_method,
+        #     'gcs_location': config.get('gcs_location') or config.get('temp_location')
+        # })
         
-        mapping_data = read_mapping_step.execute(pipeline)
+        # mapping_data = read_mapping_step.execute(pipeline)
         
+        mapping_data = (
+            pipeline
+            | 'ReadFromBigQuery' >> ReadFromBigQuery(
+                query=mapping_query,
+                use_standard_sql=True,
+                project=project_id,
+                gcs_location=config.get('gcs_location') or config.get('temp_location')
+            )
+        )
+
         # Count mapping records
         # _ = (mapping_data
         #     | 'Count_Mapping' >> combiners.Count.Globally()
@@ -256,123 +277,123 @@ def build_batch_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConfig):
         # Step 2: Data Quality Validation
         logger.info("Applying data quality validation")
         
-        validation_rules = config.get('validation_rules', [])
-        if isinstance(validation_rules, str):
-            try:
-                validation_rules = json.loads(validation_rules)
-            except json.JSONDecodeError as e:
-                logger.warning(f"Failed to parse validation_rules: {e}")
-                validation_rules = []
+        # validation_rules = config.get('validation_rules', [])
+        # if isinstance(validation_rules, str):
+        #     try:
+        #         validation_rules = json.loads(validation_rules)
+        #     except json.JSONDecodeError as e:
+        #         logger.warning(f"Failed to parse validation_rules: {e}")
+        #         validation_rules = []
         
-        dq_step = DataQualityStep({
-            'enabled': True,
-            'step_name': 'DataQuality',
-            'rules': validation_rules,
-            'split_output': config.get('split_output', False),
-            'max_errors_percent': config.get('max_errors_percent', 0.1),
-            'error_table': config.get('error_table'),
-            'write_errors': config.get('write_errors', True),
-            'project': config.get('project_id'),
-            'dataset': config.get('staging_dataset')
-        })
+        # dq_step = DataQualityStep({
+        #     'enabled': True,
+        #     'step_name': 'DataQuality',
+        #     'rules': validation_rules,
+        #     'split_output': config.get('split_output', False),
+        #     'max_errors_percent': config.get('max_errors_percent', 0.1),
+        #     'error_table': config.get('error_table'),
+        #     'write_errors': config.get('write_errors', True),
+        #     'project': config.get('project_id'),
+        #     'dataset': config.get('staging_dataset')
+        # })
         
-        validated_data = dq_step.execute(pipeline, source_data)
+        # validated_data = dq_step.execute(pipeline, source_data)
         
-        # Count validated records
-        # _ = (validated_data
-        #     | 'Count_Validated' >> combiners.Count.Globally()
-        #     | 'Log_Validated_Count' >> beam.Map(lambda c: logger.info(f"[METRIC] validated_count={c}")))
+        # # Count validated records
+        # # _ = (validated_data
+        # #     | 'Count_Validated' >> combiners.Count.Globally()
+        # #     | 'Log_Validated_Count' >> beam.Map(lambda c: logger.info(f"[METRIC] validated_count={c}")))
 
-        # Step 3: Apply column mapping
-        logger.info("Applying column mapping transformation")
+        # # Step 3: Apply column mapping
+        # logger.info("Applying column mapping transformation")
         
-        mapping_step = ColumnMappingStep({
-            'enabled': True,
-            'step_name': 'MappingStep',
-            'mode': 'batch',
-            'target_table': config.get('stg_origin_table'),
-            'mapping_side_input': mapping_list,
-            'min_batch_size': config.get('min_batch_size'),
-            'max_batch_size': config.get('max_batch_size'),
-            'enrichment_batch_size': config.get('enrichment_batch_size')
-        })
+        # mapping_step = ColumnMappingStep({
+        #     'enabled': True,
+        #     'step_name': 'MappingStep',
+        #     'mode': 'batch',
+        #     'target_table': config.get('stg_origin_table'),
+        #     'mapping_side_input': mapping_list,
+        #     'min_batch_size': config.get('min_batch_size'),
+        #     'max_batch_size': config.get('max_batch_size'),
+        #     'enrichment_batch_size': config.get('enrichment_batch_size')
+        # })
         
-        mapped_data = mapping_step.execute(pipeline, validated_data)
+        # mapped_data = mapping_step.execute(pipeline, validated_data)
         
-        # Count mapped records
-        _ = (mapped_data
-            | 'Count_Mapped' >> combiners.Count.Globally()
-            | 'Log_Mapped_Count' >> beam.Map(lambda c: logger.info(f"[METRIC] mapped_count={c}")))
+        # # Count mapped records
+        # _ = (mapped_data
+        #     | 'Count_Mapped' >> combiners.Count.Globally()
+        #     | 'Log_Mapped_Count' >> beam.Map(lambda c: logger.info(f"[METRIC] mapped_count={c}")))
 
-        # Step 4: Write to staging table (stg_personas)
-        logger.info(f"Writing to staging table: {stg_ongoing_source_table}")
+        # # Step 4: Write to staging table (stg_personas)
+        # logger.info(f"Writing to staging table: {stg_ongoing_source_table}")
         
-        write_staging_step = WriteToBigQueryStep({
-            'enabled': True,
-            'step_name': 'WriteStaging',
-            'project': config.get('project_id'),
-            'dataset': config.get('staging_dataset'),
-            'table': stg_ongoing_source_table,
-            'method': config.get('write_method', 'FILE_LOADS'),
-            'mode': 'WRITE_TRUNCATE',
-            'create_disposition': config.get('bq_create_disposition', 'CREATE_IF_NEEDED'),
-            'priority': config.get('bq_priority', 'INTERACTIVE'),
-            'remove_metadata': True,
-            'temp_location': config.get('temp_location')
-        })
+        # write_staging_step = WriteToBigQueryStep({
+        #     'enabled': True,
+        #     'step_name': 'WriteStaging',
+        #     'project': config.get('project_id'),
+        #     'dataset': config.get('staging_dataset'),
+        #     'table': stg_ongoing_source_table,
+        #     'method': config.get('write_method', 'FILE_LOADS'),
+        #     'mode': 'WRITE_TRUNCATE',
+        #     'create_disposition': config.get('bq_create_disposition', 'CREATE_IF_NEEDED'),
+        #     'priority': config.get('bq_priority', 'INTERACTIVE'),
+        #     'remove_metadata': True,
+        #     'temp_location': config.get('temp_location')
+        # })
         
-        write_staging_step.execute(pipeline, mapped_data)
+        # write_staging_step.execute(pipeline, mapped_data)
 
-        # Step 5: Generate and execute MERGE queries
-        logger.info("Generating and executing MERGE queries")
+        # # Step 5: Generate and execute MERGE queries
+        # logger.info("Generating and executing MERGE queries")
         
-        merge_queries = (
-            pipeline
-            | 'CreateTrigger' >> beam.Create([1])
-            | 'GenerateMergeQueries' >> beam.ParDo(
-                MergeQueryGenerator(),
-                mapping_list,
-                config.to_dict()
-            )
-        )
+        # merge_queries = (
+        #     pipeline
+        #     | 'CreateTrigger' >> beam.Create([1])
+        #     | 'GenerateMergeQueries' >> beam.ParDo(
+        #         MergeQueryGenerator(),
+        #         mapping_list,
+        #         config.to_dict()
+        #     )
+        # )
         
-        merge_results = (
-            merge_queries
-            | 'ExecuteMergeQueries' >> beam.ParDo(
-                MergeQueryExecutor(
-                    project_id=config.get('project_id'),
-                    dataset=config.get('staging_dataset')
-                )
-            )
-        )
+        # merge_results = (
+        #     merge_queries
+        #     | 'ExecuteMergeQueries' >> beam.ParDo(
+        #         MergeQueryExecutor(
+        #             project_id=config.get('project_id'),
+        #             dataset=config.get('staging_dataset')
+        #         )
+        #     )
+        # )
         
-        # Log merge results
-        _ = (
-            merge_results
-            | 'LogMergeResults' >> beam.Map(
-                lambda x: logger.info(f"Merge execution results: {x}")
-            )
-        )
+        # # Log merge results
+        # _ = (
+        #     merge_results
+        #     | 'LogMergeResults' >> beam.Map(
+        #         lambda x: logger.info(f"Merge execution results: {x}")
+        #     )
+        # )
         
-        # Step 6: Audit Logging (optional)
-        if config.get('audit_enabled', True):
-            logger.info("Writing audit logs")
+        # # Step 6: Audit Logging (optional)
+        # if config.get('audit_enabled', True):
+        #     logger.info("Writing audit logs")
             
-            audit_step = AuditLoggingStep({
-                'enabled': True,
-                'step_name': 'AuditLog',
-                'aggregate_windows': False,
-                'pipeline_name': 'ms_member_unified',
-                'mode': 'batch',
-                'project': config.get('project_id'),
-                'dataset': config.get('staging_dataset'),
-                'audit_table': config.get('audit_table'),
-                'metrics_enabled': config.get('metrics_enabled', True),
-                'error_tracking_enabled': config.get('error_tracking_enabled', True),
-                'temp_location': config.get('temp_location')
-            })
+        #     audit_step = AuditLoggingStep({
+        #         'enabled': True,
+        #         'step_name': 'AuditLog',
+        #         'aggregate_windows': False,
+        #         'pipeline_name': 'ms_member_unified',
+        #         'mode': 'batch',
+        #         'project': config.get('project_id'),
+        #         'dataset': config.get('staging_dataset'),
+        #         'audit_table': config.get('audit_table'),
+        #         'metrics_enabled': config.get('metrics_enabled', True),
+        #         'error_tracking_enabled': config.get('error_tracking_enabled', True),
+        #         'temp_location': config.get('temp_location')
+        #     })
             
-            audit_step.execute(pipeline, validated_data)
+        #     audit_step.execute(pipeline, validated_data)
             
     except Exception as e:
         logger.error(f"Error building batch pipeline: {e}")
@@ -381,169 +402,169 @@ def build_batch_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConfig):
         raise
 
 
-def build_streaming_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConfig):
-    """Build streaming pipeline for mid/long term"""
-    logger.info(f"Building streaming pipeline for term: {config.get('term_type')}")
+# def build_streaming_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConfig):
+#     """Build streaming pipeline for mid/long term"""
+#     logger.info(f"Building streaming pipeline for term: {config.get('term_type')}")
     
-    try:
-        # Create mapping side input for mid-term
-        mapping_side_input = None
-        if config.get('term_type') == 'mid':
-            mapping_step = CreateMappingSideInput({
-                'enabled': True,
-                'step_name': 'MappingCache',
-                'refresh_interval_seconds': config.get('mapping_refresh_interval_seconds', 600),
-                'project': config.get('project_id'),
-                'staging_dataset': config.get('staging_dataset'),
-                'mapping_table': config.get('mapping_table')
-            })
-            mapping_side_input = mapping_step.execute(pipeline)
+#     try:
+#         # Create mapping side input for mid-term
+#         mapping_side_input = None
+#         if config.get('term_type') == 'mid':
+#             mapping_step = CreateMappingSideInput({
+#                 'enabled': True,
+#                 'step_name': 'MappingCache',
+#                 'refresh_interval_seconds': config.get('mapping_refresh_interval_seconds', 600),
+#                 'project': config.get('project_id'),
+#                 'staging_dataset': config.get('staging_dataset'),
+#                 'mapping_table': config.get('mapping_table')
+#             })
+#             mapping_side_input = mapping_step.execute(pipeline)
         
-        # Step 1: Read from Pub/Sub
-        topic_name = config.get('pubsub_topic', '')
-        if '/' in topic_name:
-            topic_name = topic_name.split('/')[-1]
+#         # Step 1: Read from Pub/Sub
+#         topic_name = config.get('pubsub_topic', '')
+#         if '/' in topic_name:
+#             topic_name = topic_name.split('/')[-1]
         
-        read_step = ReadFromPubSubStep({
-            'enabled': True,
-            'step_name': 'ReadPubSub',
-            'project': config.get('project_id'),
-            'topic': topic_name,
-            'parse_notifications': True,
-            'window_duration_seconds': config.get('window_duration_seconds'),
-            'early_trigger_seconds': config.get('early_trigger_seconds'),
-            'late_trigger_seconds': config.get('late_trigger_seconds'),
-            'allowed_lateness_seconds': config.get('allowed_lateness_seconds'),
-            'accumulation_mode': config.get('accumulation_mode')
-        })
+#         read_step = ReadFromPubSubStep({
+#             'enabled': True,
+#             'step_name': 'ReadPubSub',
+#             'project': config.get('project_id'),
+#             'topic': topic_name,
+#             'parse_notifications': True,
+#             'window_duration_seconds': config.get('window_duration_seconds'),
+#             'early_trigger_seconds': config.get('early_trigger_seconds'),
+#             'late_trigger_seconds': config.get('late_trigger_seconds'),
+#             'allowed_lateness_seconds': config.get('allowed_lateness_seconds'),
+#             'accumulation_mode': config.get('accumulation_mode')
+#         })
         
-        # source_data = read_step.execute(pipeline)
-        try:
-            source_data = read_step.execute(pipeline)
-            if not source_data:
-                raise RuntimeError("Failed to read source data")
-        except Exception as e:
-            logger.error(f"Pipeline step failed: {e}")
-            # Send alert or fallback logic
-            raise
+#         # source_data = read_step.execute(pipeline)
+#         try:
+#             source_data = read_step.execute(pipeline)
+#             if not source_data:
+#                 raise RuntimeError("Failed to read source data")
+#         except Exception as e:
+#             logger.error(f"Pipeline step failed: {e}")
+#             # Send alert or fallback logic
+#             raise
 
-        # Step 2: Enrich with Bigtable (optional)
-        enriched_data = source_data
-        if config.get('bigtable_instance_id') and config.get('bigtable_table_id'):
-            columns_to_fetch = config.get('bigtable_columns_to_fetch')
-            if isinstance(columns_to_fetch, str):
-                try:
-                    columns_to_fetch = json.loads(columns_to_fetch)
-                except json.JSONDecodeError:
-                    columns_to_fetch = None
+#         # Step 2: Enrich with Bigtable (optional)
+#         enriched_data = source_data
+#         if config.get('bigtable_instance_id') and config.get('bigtable_table_id'):
+#             columns_to_fetch = config.get('bigtable_columns_to_fetch')
+#             if isinstance(columns_to_fetch, str):
+#                 try:
+#                     columns_to_fetch = json.loads(columns_to_fetch)
+#                 except json.JSONDecodeError:
+#                     columns_to_fetch = None
             
-            enrich_step = BigtableEnrichmentStep({
-                'enabled': True,
-                'step_name': 'BigtableEnrich',
-                'project': config.get('project_id'),
-                'instance_id': config.get('bigtable_instance_id'),
-                'table_id': config.get('bigtable_table_id'),
-                'app_profile_id': config.get('bigtable_app_profile_id'),
-                'row_key_field': config.get('bigtable_row_key_field', 'member_number'),
-                'columns_to_fetch': columns_to_fetch,
-                'timeout': config.get('bigtable_timeout_seconds', 10)
-            })
+#             enrich_step = BigtableEnrichmentStep({
+#                 'enabled': True,
+#                 'step_name': 'BigtableEnrich',
+#                 'project': config.get('project_id'),
+#                 'instance_id': config.get('bigtable_instance_id'),
+#                 'table_id': config.get('bigtable_table_id'),
+#                 'app_profile_id': config.get('bigtable_app_profile_id'),
+#                 'row_key_field': config.get('bigtable_row_key_field', 'member_number'),
+#                 'columns_to_fetch': columns_to_fetch,
+#                 'timeout': config.get('bigtable_timeout_seconds', 10)
+#             })
             
-            enriched_data = enrich_step.execute(pipeline, source_data)
+#             enriched_data = enrich_step.execute(pipeline, source_data)
         
-        # Step 3: Data Quality Validation
-        dq_step = DataQualityStep({
-            'enabled': True,
-            'step_name': 'DataQuality',
-            'rules': [
-                {'type': 'required', 'field': 'member_number'}
-            ]
-        })
+#         # Step 3: Data Quality Validation
+#         dq_step = DataQualityStep({
+#             'enabled': True,
+#             'step_name': 'DataQuality',
+#             'rules': [
+#                 {'type': 'required', 'field': 'member_number'}
+#             ]
+#         })
         
-        validated_data = dq_step.execute(pipeline, enriched_data)
+#         validated_data = dq_step.execute(pipeline, enriched_data)
         
-        # Step 4: Process based on term type
-        if config.get('term_type') == 'mid':
-            # Map to stg_ms_member
-            member_mapping_step = ColumnMappingStep({
-                'enabled': True,
-                'step_name': 'MapToMember',
-                'mode': 'streaming',
-                'target_table': config.get('stg_origin_table'),
-                'mapping_side_input': mapping_side_input
-            })
+#         # Step 4: Process based on term type
+#         if config.get('term_type') == 'mid':
+#             # Map to stg_ms_member
+#             member_mapping_step = ColumnMappingStep({
+#                 'enabled': True,
+#                 'step_name': 'MapToMember',
+#                 'mode': 'streaming',
+#                 'target_table': config.get('stg_origin_table'),
+#                 'mapping_side_input': mapping_side_input
+#             })
             
-            member_data = member_mapping_step.execute(pipeline, validated_data)
+#             member_data = member_mapping_step.execute(pipeline, validated_data)
             
-            # Format for CDC upsert
-            cdc_formatted_data = (
-                member_data
-                | 'FormatForCDC' >> beam.ParDo(CDCUpsertFormatter())
-            )
+#             # Format for CDC upsert
+#             cdc_formatted_data = (
+#                 member_data
+#                 | 'FormatForCDC' >> beam.ParDo(CDCUpsertFormatter())
+#             )
             
-            # Write to stg_ms_member with CDC
-            write_member_step = WriteToBigQueryStep({
-                'enabled': True,
-                'step_name': 'WriteMemberCDC',
-                'project': config.get('project_id'),
-                'dataset': config.get('staging_dataset'),
-                'table': config.get('stg_origin_table'),
-                'mode': 'WRITE_APPEND',
-                'method': config.get('write_method', 'STORAGE_WRITE_API'),
-                'use_cdc': True,
-                'primary_key': ['member_number'],
-                'streaming_mode': config.get('streaming_mode', 'at_least_once'),
-                'remove_metadata': True
-            })
+#             # Write to stg_ms_member with CDC
+#             write_member_step = WriteToBigQueryStep({
+#                 'enabled': True,
+#                 'step_name': 'WriteMemberCDC',
+#                 'project': config.get('project_id'),
+#                 'dataset': config.get('staging_dataset'),
+#                 'table': config.get('stg_origin_table'),
+#                 'mode': 'WRITE_APPEND',
+#                 'method': config.get('write_method', 'STORAGE_WRITE_API'),
+#                 'use_cdc': True,
+#                 'primary_key': ['member_number'],
+#                 'streaming_mode': config.get('streaming_mode', 'at_least_once'),
+#                 'remove_metadata': True
+#             })
             
-            write_member_step.execute(pipeline, cdc_formatted_data)
+#             write_member_step.execute(pipeline, cdc_formatted_data)
             
-        elif config.get('term_type') == 'long':
-            # Write only to refined
-            refined_data = (
-                validated_data
-                | 'AddRefinedMetadata' >> beam.Map(
-                    lambda x: {**x, 'ingested_at': datetime.utcnow().isoformat()}
-                )
-                | 'FormatLongForCDC' >> beam.ParDo(CDCUpsertFormatter())
-            )
+#         elif config.get('term_type') == 'long':
+#             # Write only to refined
+#             refined_data = (
+#                 validated_data
+#                 | 'AddRefinedMetadata' >> beam.Map(
+#                     lambda x: {**x, 'ingested_at': datetime.utcnow().isoformat()}
+#                 )
+#                 | 'FormatLongForCDC' >> beam.ParDo(CDCUpsertFormatter())
+#             )
             
-            write_refined_step = WriteToBigQueryStep({
-                'enabled': True,
-                'step_name': 'WriteRefinedCDC',
-                'project': config.get('project_id'),
-                'dataset': config.get('refined_dataset'),
-                'table': config.get('refined_ongoing_table'),
-                'mode': 'WRITE_APPEND',
-                'method': config.get('write_method', 'STORAGE_WRITE_API'),
-                'use_cdc': True,
-                'primary_key': ['member_number'],
-                'streaming_mode': config.get('streaming_mode', 'at_least_once'),
-                'remove_metadata': True
-            })
+#             write_refined_step = WriteToBigQueryStep({
+#                 'enabled': True,
+#                 'step_name': 'WriteRefinedCDC',
+#                 'project': config.get('project_id'),
+#                 'dataset': config.get('refined_dataset'),
+#                 'table': config.get('refined_ongoing_table'),
+#                 'mode': 'WRITE_APPEND',
+#                 'method': config.get('write_method', 'STORAGE_WRITE_API'),
+#                 'use_cdc': True,
+#                 'primary_key': ['member_number'],
+#                 'streaming_mode': config.get('streaming_mode', 'at_least_once'),
+#                 'remove_metadata': True
+#             })
             
-            write_refined_step.execute(pipeline, refined_data)
+#             write_refined_step.execute(pipeline, refined_data)
         
-        # Step 5: Audit Logging (optional)
-        if config.get('audit_enabled', True):
-            audit_step = AuditLoggingStep({
-                'enabled': True,
-                'step_name': 'AuditLog',
-                'aggregate_windows': True,
-                'window_duration_seconds': config.get('audit_window_duration', 3600),
-                'pipeline_name': 'ms_member_unified',
-                'mode': 'streaming',
-                'project': config.get('project_id'),
-                'dataset': config.get('staging_dataset'),
-                'audit_table': config.get('audit_table')
-            })
+#         # Step 5: Audit Logging (optional)
+#         if config.get('audit_enabled', True):
+#             audit_step = AuditLoggingStep({
+#                 'enabled': True,
+#                 'step_name': 'AuditLog',
+#                 'aggregate_windows': True,
+#                 'window_duration_seconds': config.get('audit_window_duration', 3600),
+#                 'pipeline_name': 'ms_member_unified',
+#                 'mode': 'streaming',
+#                 'project': config.get('project_id'),
+#                 'dataset': config.get('staging_dataset'),
+#                 'audit_table': config.get('audit_table')
+#             })
             
-            audit_step.execute(pipeline, validated_data)
+#             audit_step.execute(pipeline, validated_data)
             
-    except Exception as e:
-        logger.error(f"Error building streaming pipeline: {e}")
-        import traceback
-        logger.error(traceback.format_exc())
+#     except Exception as e:
+#         logger.error(f"Error building streaming pipeline: {e}")
+#         import traceback
+#         logger.error(traceback.format_exc())
         raise
 
 
@@ -554,10 +575,10 @@ def run_pipeline(config: CommonPipelineConfig, pipeline_options: PipelineOptions
     
     try:
         with beam.Pipeline(options=pipeline_options) as pipeline:
-            if config.get('mode') == 'streaming':
-                build_streaming_pipeline(pipeline, config)
-            else:
+            if config.get('mode') != 'streaming':
                 build_batch_pipeline(pipeline, config)
+            # else:
+            #     build_streaming_pipeline(pipeline, config)
         
         logger.info("Pipeline execution completed successfully")
         
