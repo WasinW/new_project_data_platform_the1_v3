@@ -37,3 +37,10 @@ gsutil cp composer/config/ms_member/batch/short_term_hourly.yaml gs://t1-airflow
 gsutil cp composer/config/ms_member/common/defaults.yaml gs://t1-airflow-composer-bucket/dags/composer/config/ms_member/common/
 gsutil cp composer/dags/dag_short_term_hourly.py gs://t1-airflow-composer-bucket/dags/composer/dags/
 gsutil cp dataflow/FW/unified_dataflow_pipeline_bigtable.py gs://t1-dataflow-framework-bucket/framework/
+
+
+gsutil cp dataflow/FW/test_bq_read_simple.py gs://t1-airflow-composer-bucket/dags/composer/dags/
+gsutil cp dataflow/FW/test_bq_read_simple2.py gs://t1-airflow-composer-bucket/dags/composer/dags/
+
+gsutil cp composer/dags/test_run_bigquery_pipeline.py gs://t1-airflow-composer-bucket/dags/composer/dags/
+gsutil cp dataflow/FW/test_bq_read_simple4.py gs://t1-airflow-composer-bucket/dags/composer/dags/

@@ -93,49 +93,54 @@ except ImportError:
     )
     logging.info("Loaded dataflow_common from downloaded wheel")
 
+def log_count(count):
+    """Helper function to log count results"""
+    logging.info(f"✅ SUCCESS: Got {count} records from BigQuery")
+    return count
 
-def validate_required_params(config: CommonPipelineConfig, mode: str) -> List[str]:
-    """Validate that all required parameters are present based on mode"""
-    issues = []
+
+# def validate_required_params(config: CommonPipelineConfig, mode: str) -> List[str]:
+#     """Validate that all required parameters are present based on mode"""
+#     issues = []
     
-    # Common required fields
-    required_common = [
-        'project_id', 'env', 'term_type', 'mode',
-        'source_dataset', 'staging_dataset', 'refined_dataset',
-        'source_table', 'stg_ongoing_source_table', 'stg_source_table', 'stg_origin_table',
-        'refined_ongoing_table', 'audit_table', 'mapping_table'
-    ]
+#     # Common required fields
+#     required_common = [
+#         'project_id', 'env', 'term_type', 'mode',
+#         'source_dataset', 'staging_dataset', 'refined_dataset',
+#         'source_table', 'stg_ongoing_source_table', 'stg_source_table', 'stg_origin_table',
+#         'refined_ongoing_table', 'audit_table', 'mapping_table'
+#     ]
     
-    for field in required_common:
-        if not config.get(field):
-            issues.append(f"Missing required field: {field}")
+#     for field in required_common:
+#         if not config.get(field):
+#             issues.append(f"Missing required field: {field}")
     
-    # Mode-specific validation
-    if mode == 'batch':
-        batch_fields = [
-            'min_batch_size', 'max_batch_size', 'enrichment_batch_size',
-            'read_method', 'write_method'
-        ]
-        for field in batch_fields:
-            if config.get(field) is None:
-                issues.append(f"Missing batch field: {field}")
+#     # Mode-specific validation
+#     if mode == 'batch':
+#         batch_fields = [
+#             'min_batch_size', 'max_batch_size', 'enrichment_batch_size',
+#             'read_method', 'write_method'
+#         ]
+#         for field in batch_fields:
+#             if config.get(field) is None:
+#                 issues.append(f"Missing batch field: {field}")
     
-    elif mode == 'streaming':
-        streaming_fields = [
-            'pubsub_topic', 'window_duration_seconds',
-            'early_trigger_seconds', 'late_trigger_seconds',
-            'allowed_lateness_seconds', 'accumulation_mode'
-        ]
-        for field in streaming_fields:
-            if config.get(field) is None:
-                issues.append(f"Missing streaming field: {field}")
+#     elif mode == 'streaming':
+#         streaming_fields = [
+#             'pubsub_topic', 'window_duration_seconds',
+#             'early_trigger_seconds', 'late_trigger_seconds',
+#             'allowed_lateness_seconds', 'accumulation_mode'
+#         ]
+#         for field in streaming_fields:
+#             if config.get(field) is None:
+#                 issues.append(f"Missing streaming field: {field}")
         
-        # Mid-term specific
-        if config.get('term_type') == 'mid':
-            if not config.get('mapping_refresh_interval_seconds'):
-                issues.append("Missing mapping_refresh_interval_seconds for mid-term")
+#         # Mid-term specific
+#         if config.get('term_type') == 'mid':
+#             if not config.get('mapping_refresh_interval_seconds'):
+#                 issues.append("Missing mapping_refresh_interval_seconds for mid-term")
     
-    return issues
+#     return issues
 
 
 def build_batch_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConfig):
@@ -181,7 +186,7 @@ def build_batch_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConfig):
             FROM (
                 SELECT *
                 , ROW_NUMBER() OVER(PARTITION BY JSON_VALUE(profiles, '$.memberId') ORDER BY TIMESTAMP DESC) RN_PK
-                FROM `{source_table_full}`
+                FROM `{project}.insight_dev.personas_test`
             ) AS LAST_UPD
             WHERE RN_PK = 1 
         """
@@ -210,19 +215,22 @@ def build_batch_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConfig):
         #     raise
         source_data = (
             pipeline
-            | 'ReadFromBigQuery' >> ReadFromBigQuery(
+            | 'ReadFromBigQuery_SRC_DATA' >> ReadFromBigQuery(
                 query=source_query,
                 use_standard_sql=True,
                 project=project_id,
-                gcs_location=config.get('gcs_location') or config.get('temp_location')
+                gcs_location='gs://t1-insight-audit-bucket/audit_log/dataflow/temp'
+                # gcs_location=config.get('gcs_location') or config.get('temp_location')
             )
+            | 'Count_SRC_DATA' >> beam.combiners.Count.Globally()
+            | 'LogResults_SRC_DATA' >> beam.Map(log_count)  # Use function instead of lambda
         )
 
 
         # Count source records
-        _ = (source_data
-            | 'Count_Source' >> combiners.Count.Globally()
-            | 'Log_Source_Count' >> beam.Map(lambda c: logger.info(f"[METRIC] source_count={c}")))
+        # _ = (source_data
+        #     | 'Count_Source' >> combiners.Count.Globally()
+        #     | 'Log_Source_Count' >> beam.Map(lambda c: logger.info(f"[METRIC] source_count={c}")))
 
         # Step 1.2: Read mapping table
         logger.info(f"Reading mapping from: {project_id}.{staging_dataset}.{mapping_table}")
@@ -251,12 +259,16 @@ def build_batch_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConfig):
         
         mapping_data = (
             pipeline
-            | 'ReadFromBigQuery' >> ReadFromBigQuery(
+            | 'ReadFromBigQuery_MAPPING' >> ReadFromBigQuery(
                 query=mapping_query,
                 use_standard_sql=True,
                 project=project_id,
-                gcs_location=config.get('gcs_location') or config.get('temp_location')
+                # gcs_location=config.get('gcs_location') or config.get('temp_location')
+                gcs_location='gs://t1-insight-audit-bucket/audit_log/dataflow/temp'
             )
+            | 'Count_MAPPING' >> beam.combiners.Count.Globally()
+            | 'LogResults_MAPPING' >> beam.Map(log_count)  # Use function instead of lambda
+
         )
 
         # Count mapping records
@@ -318,7 +330,9 @@ def build_batch_pipeline(pipeline: beam.Pipeline, config: CommonPipelineConfig):
         #     'enrichment_batch_size': config.get('enrichment_batch_size')
         # })
         
-        # mapped_data = mapping_step.execute(pipeline, validated_data)
+        # # mapped_data = mapping_step.execute(pipeline, validated_data)
+        # mapped_data = mapping_step.execute(pipeline, source_data)
+        
         
         # # Count mapped records
         # _ = (mapped_data
@@ -889,12 +903,12 @@ def main():
     #     sys.exit(1)
     # ----------------------------------------------------------------------------------------------------------------
     config = CommonPipelineConfig.from_dict(config_dict)
-    issues = validate_required_params(config, config.get('mode'))
-    if issues:
-        logger.error("Configuration validation failed:")
-        for issue in issues:
-            logger.error(f"  - {issue}")
-        sys.exit(1)
+    # issues = validate_required_params(config, config.get('mode'))
+    # if issues:
+    #     logger.error("Configuration validation failed:")
+    #     for issue in issues:
+    #         logger.error(f"  - {issue}")
+    #     sys.exit(1)
 
     # ----------------------------------------------------------------------------------------------------------------
     # Additional validation

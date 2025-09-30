@@ -46,7 +46,7 @@ default_args = {
     'start_date': days_ago(1),
     'email_on_failure': False,
     'email_on_retry': False,
-    'retries': 1,
+    'retries': 2,
     'retry_delay': datetime.timedelta(minutes=5),
 }
 
@@ -70,7 +70,7 @@ pre_check = PythonOperator(
 dataflow_job = BeamRunPythonPipelineOperator(
     task_id='run_bigquery_pipeline',
     runner='DataflowRunner',
-    py_file='gs://t1-airflow-composer-bucket/dags/composer/dags/test_bq_read_simple.py',
+    py_file='gs://t1-airflow-composer-bucket/dags/composer/dags/test_bq_read_simple4.py',
     pipeline_options={
         'project': 'the1-insight-dev',
         'region': 'asia-southeast1',
@@ -78,6 +78,7 @@ dataflow_job = BeamRunPythonPipelineOperator(
         'staging_location': 'gs://t1-insight-audit-bucket/audit_log/dataflow/staging',
         'service_account_email': 't1-ins-dev-sa-data@the1-insight-dev.iam.gserviceaccount.com',
         'no_use_public_ips': True,  # Critical for VPC SC
+        'save_main_session': True,
         'subnetwork': 'regions/asia-southeast1/subnetworks/dataflow-private',  # Short form
         # หรือใช้ full path:
         # 'subnetwork': 'projects/the1-insight-dev/regions/asia-southeast1/subnetworks/dataflow-private',
@@ -85,6 +86,7 @@ dataflow_job = BeamRunPythonPipelineOperator(
         'worker_machine_type': 'n1-standard-2',
         'max_num_workers': 2,
         'project_id': 'the1-insight-dev',  # เพิ่มเพื่อให้ script รับไปใช้
+        'mode': 'batch',
     },
     py_requirements=[
         'apache-beam[gcp]==2.59.0',

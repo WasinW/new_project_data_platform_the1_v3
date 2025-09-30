@@ -194,14 +194,6 @@ class ColumnMappingStep(PipelineStep):
                     min_batch_size=min_batch_size,
                     max_batch_size=max_batch_size
                 )
-                # | f"EnrichAndMap_{self.step_name}" >> beam.FlatMap(
-                #     EnrichAndMapColumns(
-                #         config=CommonPipelineConfig.from_dict(self.config),
-                #         target_table=self.config['target_table'],
-                #         mapping_type=self.config['mapping_type'],
-                #         batch_size=enrichment_batch_size
-                #     ).process
-                # )
                 | f"BatchMap_{self.step_name}" >> beam.ParDo(
                     BatchColumnMapper(
                         self.config['target_table'],
