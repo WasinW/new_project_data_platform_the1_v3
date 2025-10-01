@@ -11,6 +11,11 @@ import json
 import logging
 import re
 from typing import Any, Dict, List, Tuple
+import os
+from datetime import datetime, timezone
+
+import pyarrow as pa
+from apache_beam.io.parquetio import WriteToParquet
 
 import apache_beam as beam
 from apache_beam.options.pipeline_options import PipelineOptions, GoogleCloudOptions, SetupOptions
