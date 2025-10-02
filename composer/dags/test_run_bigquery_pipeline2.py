@@ -176,8 +176,8 @@ dataflow_job = BeamRunPythonPipelineOperator(
         # ====== S3 credentials ผ่าน S3Options ของ Beam AWS I/O ======
         # --- เพิ่ม S3Options ---
         's3_region_name': 'ap-southeast-1',
-        's3_access_key_id': '',       # แนะนำดึงจาก Airflow Variable/Secret
-        's3_secret_access_key': '',
+        's3_access_key_id': '{{ var.value.AWS_ACCESS_KEY_ID }}',       # แนะนำดึงจาก Airflow Variable/Secret
+        's3_secret_access_key': '{{ var.value.AWS_SECRET_ACCESS_KEY }}',
         # ----------------------
 
         # ADD LIB WORKER OPTIONS
