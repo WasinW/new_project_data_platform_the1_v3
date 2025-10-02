@@ -1,0 +1,3 @@
+# beam-worker-aws.txt
+boto3>=1.28.0
+pyarrow>=12.0.0

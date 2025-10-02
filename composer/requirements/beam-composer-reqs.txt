@@ -1,0 +1,4 @@
+# composer/requirements/beam-composer-reqs.txt
+apache-beam[gcp]==2.59.0
+google-cloud-bigquery==3.25.0
+pyarrow==14.0.2

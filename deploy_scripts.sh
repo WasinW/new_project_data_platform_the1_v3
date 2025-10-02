@@ -42,5 +42,22 @@ gsutil cp dataflow/FW/unified_dataflow_pipeline_bigtable.py gs://t1-dataflow-fra
 gsutil cp dataflow/FW/test_bq_read_simple.py gs://t1-airflow-composer-bucket/dags/composer/dags/
 gsutil cp dataflow/FW/test_bq_read_simple2.py gs://t1-airflow-composer-bucket/dags/composer/dags/
 
-gsutil cp composer/dags/test_run_bigquery_pipeline.py gs://t1-airflow-composer-bucket/dags/composer/dags/
+gsutil cp composer/dags/test_run_bigquery_pipeline.py gs://t1-airflow-composer-bucket/dags/composer/dags/test_run_bigquery_pipeline.py
+gsutil cp composer/dags/test_run_bigquery_pipeline2.py gs://t1-airflow-composer-bucket/dags/composer/dags/test_run_bigquery_pipeline.py
 gsutil cp dataflow/FW/test_bq_read_simple4.py gs://t1-airflow-composer-bucket/dags/composer/dags/
+
+
+export PROJECT_ID="the1-insight-dev"
+export REGION="asia-southeast1"
+export REPOSITORY="dataflow-images"
+export IMAGE_NAME="beam-aws-pipeline"
+export IMAGE_TAG="v1.0"
+
+export IMAGE_URI="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/${IMAGE_NAME}:${IMAGE_TAG}"
+
+# Build ด้วย Cloud Build (ต้องมี Dockerfile อยู่ใน directory ปัจจุบัน)
+gcloud builds submit \
+    --tag="${IMAGE_URI}" \
+    --project="${PROJECT_ID}" \
+    --region="${REGION}" \
+    --timeout=20m

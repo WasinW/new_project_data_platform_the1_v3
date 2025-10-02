@@ -5,3 +5,5 @@ __pycache__/
 *command_run.sh
 *env*
 *lib*
+*whl*
+*.whl
