@@ -454,24 +454,24 @@ def run():
             reconcile_rows_casted
             # reconcile_rows
             | 'WriteToS3_Parquet' >> WriteToParquet(
-                # file_path_prefix=f's3://t1-analytics/refined/insights/ms_member_temp_dev_test/run_dt={RUN_DT_STR}/reconcile',
-                file_path_prefix=f's3://t1-analytics/refined/insights/ms_personas_dev/run_dt={RUN_DT_STR}',
+                file_path_prefix=f's3://t1-analytics/refined/insights/ms_member_temp_dev_test/run_dt={RUN_DT_STR}/reconcile',
+                # file_path_prefix=f's3://t1-analytics/refined/insights/ms_personas_dev/run_dt={RUN_DT_STR}',
                 # s3://t1-analytics/refined/insights/ms_personas_dev/
                 schema=PARQUET_SCHEMA,
                 file_name_suffix='.snappy.parquet',
                 num_shards=2
             )
         )
-        _ = (
-            member_rows_casted
-            | 'WriteToS3_Parquet' >> WriteToParquet(
-                file_path_prefix=f's3://t1-analytics/refined/insights/ms_member_dev/run_dt={RUN_DT_STR}',
-                # s3://t1-analytics/refined/insights/ms_member_dev/
-                schema=PARQUET_SCHEMA,
-                file_name_suffix='.snappy.parquet',
-                num_shards=2
-            )
-        )
+        # _ = (
+        #     member_rows_casted
+        #     | 'WriteToS3_Parquet' >> WriteToParquet(
+        #         file_path_prefix=f's3://t1-analytics/refined/insights/ms_member_dev/run_dt={RUN_DT_STR}',
+        #         # s3://t1-analytics/refined/insights/ms_member_dev/
+        #         schema=PARQUET_SCHEMA,
+        #         file_name_suffix='.snappy.parquet',
+        #         num_shards=2
+        #     )
+        # )
 
         # ===================================================================
         # debug counts

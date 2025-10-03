@@ -146,8 +146,12 @@ dataflow_job = BeamRunPythonPipelineOperator(
         'service_account_email': 't1-ins-dev-sa-data@the1-insight-dev.iam.gserviceaccount.com',
         'no_use_public_ips': False,  # Critical for VPC SC and False when install external libs
         'save_main_session': True,
-        'subnetwork': 'regions/asia-southeast1/subnetworks/dataflow-private',  # Short form
-        # หรือใช้ full path:
+        # 'subnetwork': 'regions/asia-southeast1/subnetworks/dataflow-private',  # Short form
+        # 'network':'projects/the1-network-stg/global/networks/the1-vpc-net-share-stg',
+        # 'subnetwork':'regions/asia-southeast1/subnetworks/the1-subnet-dataflow-stg',
+        # https://cloud.google.com/dataflow/docs/guides/specifying-networks#python
+        # https://www.googleapis.com/compute/v1/projects/the1-network-stg/regions/asia-southeast1/subnetworks/the1-subnet-dataflow-stg
+        'subnetwork':'https://www.googleapis.com/compute/v1/projects/the1-network-stg/regions/asia-southeast1/subnetworks/the1-subnet-dataflow-stg',
         # 'subnetwork': 'projects/the1-insight-dev/regions/asia-southeast1/subnetworks/dataflow-private',
         'experiments': ['use_runner_v2'],
         'worker_machine_type': 'n1-standard-2',
@@ -156,13 +160,9 @@ dataflow_job = BeamRunPythonPipelineOperator(
         'mode': 'batch',
         # ADD LIB WORKER OPTIONS
         'requirements_file': 'gs://t1-airflow-composer-bucket/dags/composer/requirements/beam-worker-aws.txt',
-        # 'sdk_container_image': 'asia-southeast1-docker.pkg.dev/the1-insight-dev/dataflow-images/beam-aws-pipeline:v1.0',
-        # 'sdk_location': 'container',
 
         # --- เพิ่ม S3Options ---
         's3_region_name': 'ap-southeast-1',
-        # 's3_access_key_id': '',       # แนะนำดึงจาก Airflow Variable/Secret
-        # 's3_secret_access_key': '',
         's3_access_key_id': '{{ var.value.AWS_ACCESS_KEY_ID }}',       # แนะนำดึงจาก Airflow Variable/Secret
         's3_secret_access_key': '{{ var.value.AWS_SECRET_ACCESS_KEY }}',
 
