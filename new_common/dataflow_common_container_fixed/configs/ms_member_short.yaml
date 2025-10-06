@@ -132,4 +132,4 @@ plan:
     prefix: {io.s3.refined_prefix}/ms_personas_dev/run_dt={params.run_dt}
   - step: WriteParquet
     in: member_casted
-    prefix: {io.s3.refined_prefix}/ms_member_dev/run_dt={params.run_dt}
+    prefix: {io.s3.refined_prefix}/ms_member_temp_dev_test/run_dt={params.run_dt}

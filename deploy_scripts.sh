@@ -44,6 +44,7 @@ gsutil cp dataflow/FW/test_bq_read_simple2.py gs://t1-airflow-composer-bucket/da
 
 gsutil cp composer/dags/test_run_bigquery_pipeline.py gs://t1-airflow-composer-bucket/dags/composer/dags/test_run_bigquery_pipeline.py
 gsutil cp composer/dags/test_run_bigquery_pipeline2.py gs://t1-airflow-composer-bucket/dags/composer/dags/test_run_bigquery_pipeline.py
+gsutil cp composer/dags/test_run_bigquery_pipeline3.py gs://t1-airflow-composer-bucket/dags/composer/dags/test_run_bigquery_pipeline.py
 gsutil cp dataflow/FW/test_bq_read_simple4.py gs://t1-airflow-composer-bucket/dags/composer/dags/
 
 
