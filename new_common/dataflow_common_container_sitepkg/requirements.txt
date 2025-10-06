@@ -1,0 +1,5 @@
+# Dependencies for dataflow_common package
+google-cloud-bigquery>=3.25.0
+pyarrow>=14.0.0
+# Optionally include boto3 if writing to S3
+boto3>=1.34.0

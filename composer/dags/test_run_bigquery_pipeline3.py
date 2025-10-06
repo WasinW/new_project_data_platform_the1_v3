@@ -184,7 +184,7 @@ dataflow_job = BeamRunPythonPipelineOperator(
         #     # "gs://t1-airflow-composer-bucket/dags/packages/offline_wheels/numpy-2.2.6-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
         #     "gs://t1-airflow-composer-bucket/dags/packages/offline_wheels/pyarrow-14.0.2-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
         # ],
-        'sdk_container_image': 'asia-southeast1-docker.pkg.dev/the1-insight-dev/dataflow-images/dataflow-common:v1.1',
+        'sdk_container_image': 'asia-southeast1-docker.pkg.dev/the1-insight-dev/dataflow-images/dataflow-common:v1.2',
         'sdk_location': 'container',
         'config_path': 'gs://t1-airflow-composer-bucket/dags/composer/config/ms_member/batch/ms_member_short.yaml',
 
