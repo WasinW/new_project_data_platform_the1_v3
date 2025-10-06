@@ -144,7 +144,7 @@ dataflow_job = BeamRunPythonPipelineOperator(
         'temp_location': 'gs://t1-insight-audit-bucket/audit_log/dataflow/temp',
         'staging_location': 'gs://t1-insight-audit-bucket/audit_log/dataflow/staging',
         'service_account_email': 't1-ins-dev-sa-data@the1-insight-dev.iam.gserviceaccount.com',
-        'no_use_public_ips': False,  # Critical for VPC SC and False when install external libs
+        'use_public_ips': True,  # Critical for VPC SC and False when install external libs
         'save_main_session': True,
         # 'subnetwork': 'regions/asia-southeast1/subnetworks/dataflow-private',  # Short form
         # 'network':'projects/the1-network-stg/global/networks/the1-vpc-net-share-stg',

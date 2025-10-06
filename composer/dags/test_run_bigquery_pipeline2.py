@@ -180,7 +180,7 @@ dataflow_job = BeamRunPythonPipelineOperator(
             # "gs://t1-airflow-composer-bucket/dags/packages/offline_wheels/python_dateutil-2.9.0.post0-py2.py3-none-any.whl",
             # "gs://t1-airflow-composer-bucket/dags/packages/offline_wheels/six-1.16.0-py2.py3-none-any.whl",
             # "gs://t1-airflow-composer-bucket/dags/packages/offline_wheels/numpy-2.2.6-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
-            # "gs://t1-airflow-composer-bucket/dags/packages/offline_wheels/pyarrow-14.0.2-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+            "gs://t1-airflow-composer-bucket/dags/packages/offline_wheels/pyarrow-14.0.2-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
         ],
         # 'sdk_container_image': 'asia-southeast1-docker.pkg.dev/the1-insight-dev/dataflow-images/beam-aws-pipeline:v1.0',
         # 'sdk_location': 'container',
