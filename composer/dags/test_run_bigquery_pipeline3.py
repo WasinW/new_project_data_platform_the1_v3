@@ -151,7 +151,7 @@ dataflow_job = BeamRunPythonPipelineOperator(
         'temp_location': 'gs://t1-insight-audit-bucket/audit_log/dataflow/temp',
         'staging_location': 'gs://t1-insight-audit-bucket/audit_log/dataflow/staging',
         'service_account_email': 't1-ins-dev-sa-data@the1-insight-dev.iam.gserviceaccount.com',
-        'use_public_ips': True,  # Critical for VPC SC and False when install external libs
+        'use_public_ips': False,  # Critical for VPC SC and False when install external libs
         'save_main_session': True,
         # 'subnetwork': 'regions/asia-southeast1/subnetworks/dataflow-private',  # Short form
         'subnetwork':'https://www.googleapis.com/compute/v1/projects/the1-network-stg/regions/asia-southeast1/subnetworks/the1-subnet-dataflow-stg',
@@ -196,9 +196,9 @@ dataflow_job = BeamRunPythonPipelineOperator(
     py_requirements=[
         'apache-beam[gcp]==2.59.0',
         'google-cloud-bigquery==3.25.0',
-        'apache-beam[aws]==2.59.0',
+        # 'apache-beam[aws]==2.59.0',
         'pyarrow>=12.0.0',
-        'boto3>=1.28.0',
+        # 'boto3>=1.28.0',
     ],
     py_system_site_packages=False,
     dataflow_config=DataflowConfiguration(

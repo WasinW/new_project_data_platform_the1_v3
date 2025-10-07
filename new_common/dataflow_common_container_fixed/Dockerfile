@@ -38,8 +38,16 @@ RUN pip install --no-cache-dir --upgrade pip \
 # COPY dist/dataflow_common-*.whl /tmp/
 # RUN pip install --no-cache-dir /tmp/dataflow_common-*.whl
 
-# หรือถ้าเป็นซอร์สโค้ด
-COPY src/dataflow_common /opt/dataflow_common
-RUN pip install --no-cache-dir /opt/dataflow_common
+# ------------------------------------------------------------------------------
+# # หรือถ้าเป็นซอร์สโค้ด
+# COPY src/dataflow_common /opt/dataflow_common
+# RUN pip install --no-cache-dir /opt/dataflow_common
+# ------------------------------------------------------------------------------
+# Copy the entire package structure with setup files
+COPY pyproject.toml setup.cfg setup.py /opt/dataflow_common/
+COPY src /opt/dataflow_common/src/
 
+# Install the package
+RUN pip install --no-cache-dir /opt/dataflow_common/
+# ------------------------------------------------------------------------------
 ENV PYTHONPATH=/root/.local/lib/python3.11/site-packages:${PYTHONPATH}

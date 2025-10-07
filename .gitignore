@@ -8,9 +8,9 @@ __pycache__/
 *whl*
 *.whl
 *.zip
-# *bundle_build*
-# *.log
-# *build*
-# *dist*
-# *.pytest_cache
-# .idea/
+*bundle_build*
+*.log
+*build*
+*dist*
+*.pytest_cache
+.idea/
