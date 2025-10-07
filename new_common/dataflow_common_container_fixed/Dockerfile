@@ -37,6 +37,8 @@ RUN pip install --no-cache-dir --upgrade pip \
 # (ถ้าคุณ build dataflow_common เป็น wheel ไว้แล้ว)
 # COPY dist/dataflow_common-*.whl /tmp/
 # RUN pip install --no-cache-dir /tmp/dataflow_common-*.whl
+# Create a temporary directory for package installation
+WORKDIR /tmp/dataflow_common_install
 
 # ------------------------------------------------------------------------------
 # # หรือถ้าเป็นซอร์สโค้ด
@@ -44,10 +46,13 @@ RUN pip install --no-cache-dir --upgrade pip \
 # RUN pip install --no-cache-dir /opt/dataflow_common
 # ------------------------------------------------------------------------------
 # Copy the entire package structure with setup files
-COPY pyproject.toml setup.cfg setup.py /opt/dataflow_common/
-COPY src /opt/dataflow_common/src/
+COPY pyproject.toml setup.cfg setup.py ./
+COPY src ./src/
 
-# Install the package
-RUN pip install --no-cache-dir /opt/dataflow_common/
+# Install the package globally (this will install to site-packages)
+RUN pip install --no-cache-dir .
 # ------------------------------------------------------------------------------
-ENV PYTHONPATH=/root/.local/lib/python3.11/site-packages:${PYTHONPATH}
+# ENV PYTHONPATH=/root/.local/lib/python3.11/site-packages:${PYTHONPATH}
+# Clean up and reset working directory
+WORKDIR /
+RUN rm -rf /tmp/dataflow_common_install

@@ -89,7 +89,7 @@ deactivate
 gcloud auth login
 gcloud auth application-default login
 gcloud config set project the1-insight-dev  
-
+gcloud config set project the1-insight-stg
 
 rm -rf .venv
 pip install --upgrade pip setuptools wheel
