@@ -1,29 +1,12 @@
 [build-system]
-requires = ["setuptools>=61"]
+requires = ["setuptools>=61", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "dataflow_common"
 version = "1.0.0"
-description = "Generic, configuration-driven helpers for Apache Beam pipelines"
-readme = "README.md"
-authors = [
-  {name = "Data Platform Team", email = "noreply@example.com"},
-]
-license = { text = "Apache-2.0" }
 requires-python = ">=3.8"
-classifiers = [
-  "Development Status :: 4 - Beta",
-  "Intended Audience :: Developers",
-  "License :: OSI Approved :: Apache Software License",
-  "Programming Language :: Python",
-  "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3 :: Only",
-]
-
-[project.urls]
-"Homepage" = "https://example.com/dataflow_common"
 
 [tool.setuptools]
+packages = ["dataflow_common", "dataflow_common.transforms", "dataflow_common.connectors", "dataflow_common.steps"]
 package-dir = {"" = "src"}
-include-package-data = true
