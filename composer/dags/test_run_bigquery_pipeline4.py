@@ -189,7 +189,7 @@ dataflow_job = BeamRunPythonPipelineOperator(
         #     'gs://t1-dataflow-framework-bucket/packages/dataflow_common-1.0.0-py3-none-any.whl',
         # ],
         # ---------------------------------------------------------------
-        'sdk_container_image': 'asia-southeast1-docker.pkg.dev/the1-insight-dev/dataflow-images/dataflow-common:v1.7',
+        'sdk_container_image': 'asia-southeast1-docker.pkg.dev/the1-insight-dev/dataflow-images/dataflow-common:v1.9',
         'sdk_location': 'container',
         'config_path': 'gs://t1-airflow-composer-bucket/dags/composer/config/ms_member/batch/ms_member_short.yaml',
 
@@ -203,9 +203,11 @@ dataflow_job = BeamRunPythonPipelineOperator(
         'google-cloud-bigquery==3.25.0',
         # 'apache-beam[aws]==2.59.0',
         'pyarrow>=12.0.0',
+        'pyyaml>=6.0',
         # 'boto3>=1.28.0',
-        # 'gs://t1-dataflow-framework-bucket/packages/dataflow_common-1.0.0-py3-none-any.whl',
-        # 'gs://t1-dataflow-framework-bucket/packages/dataflow_common-1.0.0-py3-none-any.whl',
+        # 'gs://t1-airflow-composer-bucket/dags/packages/dataflow_common-1.0.0-py3-none-any.whl',
+        '/home/airflow/gcs/dags/packages/dataflow_common-1.0.0-py3-none-any.whl',
+
     ],
     py_system_site_packages=False,
     dataflow_config=DataflowConfiguration(

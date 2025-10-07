@@ -10,3 +10,6 @@ requires-python = ">=3.8"
 [tool.setuptools]
 packages = ["dataflow_common", "dataflow_common.transforms", "dataflow_common.connectors", "dataflow_common.steps"]
 package-dir = {"" = "src"}
+
+[tool.setuptools.package-data]
+"*" = ["*.py"]

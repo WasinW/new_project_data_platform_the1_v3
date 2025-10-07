@@ -21,7 +21,9 @@ from dataflow_common.config import load_config
 from dataflow_common.orchestrator import Orchestrator
 
 
-def parse_args() -> argparse.Namespace:
+# def parse_args() -> argparse.Namespace:
+def parse_args():
+    """Parse arguments แยกระหว่าง custom args กับ Beam args"""
     parser = argparse.ArgumentParser(description="Run ms_member_short pipeline")
     parser.add_argument(
         "--config_path",
@@ -33,21 +35,35 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Run date (YYYY-MM-DD) to embed in output paths and params",
     )
-    return parser.parse_args()
+    # Parse only known arguments, ignore Beam arguments
+    known_args, pipeline_args = parser.parse_known_args()
+    # return parser.parse_args()
+    return known_args, pipeline_args
 
 
-def main() -> None:
+# def main() -> None:
+def main():
     logging.basicConfig(level=logging.INFO)
-    args = parse_args()
+    # args = parse_args()
+    # Parse arguments แยกกัน
+    args, pipeline_args = parse_args()
+
     # Load config from YAML
     cfg = load_config(args.config_path)
     # Override run_dt if supplied
     if args.run_dt:
         cfg.params.run_dt = args.run_dt
     # Save main session so that Beam can serialize global context on Dataflow
-    pipeline_options = PipelineOptions()
-    setup_opts = pipeline_options.view_as(SetupOptions)
-    setup_opts.save_main_session = True
+    # pipeline_options = PipelineOptions()
+    # setup_opts = pipeline_options.view_as(SetupOptions)
+    # setup_opts.save_main_session = True
+    # # Run pipeline
+    # orchestrator = Orchestrator(cfg)
+    # orchestrator.run(pipeline_options)
+    
+    # Create PipelineOptions จาก pipeline_args ที่เหลือ
+    pipeline_options = PipelineOptions(pipeline_args)
+    
     # Run pipeline
     orchestrator = Orchestrator(cfg)
     orchestrator.run(pipeline_options)

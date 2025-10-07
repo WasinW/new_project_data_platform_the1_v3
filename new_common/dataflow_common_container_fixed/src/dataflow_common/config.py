@@ -217,16 +217,45 @@ def load_config(path: str, overrides: Optional[Dict[str, Any]] = None) -> Pipeli
     references of the form ``${VAR_NAME}`` are expanded in both
     documents.
     """
-    with open(path, "r", encoding="utf-8") as f:
-        data = yaml.safe_load(f) or {}
+    if path.startswith("gs://"):
+        # Use Apache Beam's FileSystems to read from GCS
+        from apache_beam.io.filesystems import FileSystems
+        
+        with FileSystems.open(path) as f:
+            content = f.read()
+            # Decode bytes to string if needed
+            if isinstance(content, bytes):
+                content = content.decode('utf-8')
+            data = yaml.safe_load(content) or {}
+    else:
+        # Local file
+        with open(path, "r", encoding="utf-8") as f:
+            data = yaml.safe_load(f) or {}
+    
     defaults_path = data.get("defaults_file")
     base_data: Dict[str, Any] = {}
     if defaults_path:
         # Resolve relative defaults file
-        if not os.path.isabs(defaults_path):
-            defaults_path = os.path.join(os.path.dirname(path), defaults_path)
-        with open(defaults_path, "r", encoding="utf-8") as f:
-            base_data = yaml.safe_load(f) or {}
+        if not os.path.isabs(defaults_path) and not defaults_path.startswith("gs://"):
+            # For GCS paths, construct the full path
+            if path.startswith("gs://"):
+                base_dir = "/".join(path.split("/")[:-1])
+                defaults_path = f"{base_dir}/{defaults_path}"
+            else:
+                defaults_path = os.path.join(os.path.dirname(path), defaults_path)
+        
+        # Read defaults file
+        if defaults_path.startswith("gs://"):
+            from apache_beam.io.filesystems import FileSystems
+            with FileSystems.open(defaults_path) as f:
+                content = f.read()
+                if isinstance(content, bytes):
+                    content = content.decode('utf-8')
+                base_data = yaml.safe_load(content) or {}
+        else:
+            with open(defaults_path, "r", encoding="utf-8") as f:
+                base_data = yaml.safe_load(f) or {}
+    
     merged = _merge_dicts(base_data, data)
     if overrides:
         merged = _merge_dicts(merged, overrides)
