@@ -53,6 +53,10 @@ def main():
     # Override run_dt if supplied
     if args.run_dt:
         cfg.params.run_dt = args.run_dt
+    elif not cfg.params.run_dt:
+        from datetime import datetime
+        cfg.params.run_dt = datetime.now().strftime('%Y%m%d%H')
+
     # Save main session so that Beam can serialize global context on Dataflow
     # pipeline_options = PipelineOptions()
     # setup_opts = pipeline_options.view_as(SetupOptions)

@@ -95,6 +95,18 @@ class Orchestrator:
         """
         cfg = self.config
         plan = cfg.plan or []
+    
+        # Format schema fields if they exist
+        if cfg.schema and cfg.schema.bq:
+            if cfg.schema.bq.project:
+                cfg.schema.bq.project = _format_value(cfg.schema.bq.project, cfg)
+            if cfg.schema.bq.dataset:
+                cfg.schema.bq.dataset = _format_value(cfg.schema.bq.dataset, cfg)
+            if cfg.schema.bq.table:
+                cfg.schema.bq.table = _format_value(cfg.schema.bq.table, cfg)
+            if cfg.schema.bq.query:
+                cfg.schema.bq.query = _format_value(cfg.schema.bq.query, cfg)
+        
         # Format string fields in the plan prior to execution
         for spec in plan:
             for key, val in list(spec.items()):

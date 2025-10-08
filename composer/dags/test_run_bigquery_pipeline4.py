@@ -2,7 +2,7 @@
 Airflow DAG for testing BigQuery read with VPC Service Controls
 ใช้ BeamRunPythonPipelineOperator แทน subprocess
 """
-import datetime
+import datetime 
 import time
 from airflow import DAG
 from airflow.providers.apache.beam.operators.beam import BeamRunPythonPipelineOperator
@@ -17,6 +17,7 @@ from airflow.providers.google.cloud.sensors.bigquery_dts import (
 from airflow.providers.google.cloud.sensors.dataflow import DataflowJobStatusSensor
 
 import logging
+from datetime import datetime as dt
 
 # เพิ่มก่อน DAG definition
 logging.basicConfig(level=logging.INFO)
@@ -151,7 +152,7 @@ dataflow_job = BeamRunPythonPipelineOperator(
         'temp_location': 'gs://t1-insight-audit-bucket/audit_log/dataflow/temp',
         'staging_location': 'gs://t1-insight-audit-bucket/audit_log/dataflow/staging',
         'service_account_email': 't1-ins-dev-sa-data@the1-insight-dev.iam.gserviceaccount.com',
-        'use_public_ips': False,  # Critical for VPC SC and False when install external libs
+        'use_public_ips': True,  # Critical for VPC SC and False when install external libs
         'save_main_session': True,
         # 'subnetwork': 'regions/asia-southeast1/subnetworks/dataflow-private',  # Short form
         'subnetwork':'https://www.googleapis.com/compute/v1/projects/the1-network-stg/regions/asia-southeast1/subnetworks/the1-subnet-dataflow-stg',
@@ -189,9 +190,10 @@ dataflow_job = BeamRunPythonPipelineOperator(
         #     'gs://t1-dataflow-framework-bucket/packages/dataflow_common-1.0.0-py3-none-any.whl',
         # ],
         # ---------------------------------------------------------------
-        'sdk_container_image': 'asia-southeast1-docker.pkg.dev/the1-insight-dev/dataflow-images/dataflow-common:v1.10',
+        'sdk_container_image': 'asia-southeast1-docker.pkg.dev/the1-insight-dev/dataflow-images/dataflow-common:v1.12',  # custom container
         'sdk_location': 'container',
         'config_path': 'gs://t1-airflow-composer-bucket/dags/composer/config/ms_member/batch/ms_member_short.yaml',
+        'run_dt': dt.now().strftime('%Y%m%d%H'),  # หรือใช้ค่าจาก Airflow context
 
     },
     # ----------------------------

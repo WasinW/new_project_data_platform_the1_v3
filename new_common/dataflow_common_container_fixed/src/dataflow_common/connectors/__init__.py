@@ -78,7 +78,8 @@ class ParquetConnector:
     """
 
     @staticmethod
-    def write(pcoll: beam.PCollection, prefix: str, cfg: PipelineConfig) -> None:
+    # def write(pcoll: beam.PCollection, prefix: str, cfg: PipelineConfig) -> None:
+    def write(pcoll: beam.PCollection, prefix: str, cfg: PipelineConfig, label: str = "WriteParquet") -> None:
         """Write the given PCollection of dictionaries to Parquet.
 
         Parameters

@@ -211,13 +211,23 @@ class WriteParquetStep(BaseStep):
         # Build prefix from template and global config
         refined_prefix = self.config.io.s3.get("refined_prefix")
         run_dt = self.config.params.run_dt
+
+        # Create format dict without duplicates
+        format_dict = {}
+        format_dict.update(self.config.io.s3)
+        format_dict.update(self.config.params.__dict__)
+        # Override run_dt if provided
+        if run_dt:
+            format_dict['run_dt'] = run_dt
+
         try:
-            prefix = prefix_template.format(
-                refined_prefix=refined_prefix,
-                run_dt=run_dt,
-                **self.config.io.s3,
-                **self.config.params.__dict__,
-            )
+            # prefix = prefix_template.format(
+            #     refined_prefix=refined_prefix,
+            #     run_dt=run_dt,
+            #     **self.config.io.s3,
+            #     **self.config.params.__dict__,
+            # )
+            prefix = prefix_template.format(**format_dict)
         except Exception as exc:
             raise RuntimeError(f"Failed to format prefix '{prefix_template}': {exc}")
         # Use the ParquetConnector to write files.  This delegates
