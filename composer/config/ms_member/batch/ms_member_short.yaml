@@ -80,7 +80,7 @@ plan:
         PARTITION BY JSON_VALUE(profiles, '$.memberId')
         ORDER BY TIMESTAMP DESC
       ) AS RN_PK
-      FROM `{io.bq.project}.{io.bq.dataset}.personas_test`
+      FROM `the1-insight-stg.insight.personas`
     ) WHERE RN_PK = 1
 - step: ReadBQQuery
   id: origin_rows
@@ -88,7 +88,7 @@ plan:
   query: |
     SELECT DISTINCT origin.*
     FROM `{io.bq.project}.{io.bq.dataset}.stg_ms_member` origin
-    INNER JOIN `{io.bq.project}.{io.bq.dataset}.personas_test` src
+    INNER JOIN `the1-insight-stg.insight.personas` src
     ON origin.MEMBER_NUMBER = JSON_VALUE(src.profiles, '$.memberId')
 - step: MapRecord
   in: source_rows

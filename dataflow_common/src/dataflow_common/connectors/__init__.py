@@ -30,7 +30,7 @@ LOGGER = logging.getLogger(__name__)
 class BigQueryConnector:
     """Connector for reading data from BigQuery.
 
-    This connector exposes static methods that wrap Beam's built‑in
+    This connector exposes static methods that wrap Beam's built-in
     BigQuery I/O transforms.  It accepts a SQL query or table
     reference and passes through configuration parameters from the
     pipeline config (e.g. project, temp GCS location).  Additional
