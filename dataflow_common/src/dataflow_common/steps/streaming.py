@@ -75,7 +75,7 @@ class ExtractKeysStep(BaseStep):
         #         | f"{self.step_id}_FilterNone" >> beam.Filter(lambda x: x is not None))
         return (
             messages 
-            | f"{self.step_id}_Extract" >> beam.Map(extract_member_id)
+            | f"{self.step_id}_Extract" >> beam.Map(extract_key)  # ✅ แก้จาก extract_member_id
             | f"{self.step_id}_FilterNone" >> beam.Filter(lambda x: x is not None)
         )
 
@@ -262,3 +262,47 @@ class WindowStep(BaseStep):
             return trigger
         
         return beam.transforms.trigger.Default()
+
+class CreateFixedMappingStep(BaseStep):
+    """Create fixed mapping dict for streaming pipeline"""
+    
+    def execute(self, pipeline: beam.Pipeline) -> beam.PCollection:
+        # Fixed mapping for MS Member streaming
+        mapping_dict = {
+            "member_id": {
+                "src_path": ["memberId"],
+                "reconcile": True,
+                "original": True
+            },
+            "email": {
+                "src_path": ["email"],
+                "reconcile": True,
+                "original": True
+            },
+            "phone": {
+                "src_path": ["phone"],
+                "reconcile": True,
+                "original": True
+            },
+            "first_name": {
+                "src_path": ["firstName"],
+                "reconcile": True,
+                "original": True
+            },
+            "last_name": {
+                "src_path": ["lastName"],
+                "reconcile": True,
+                "original": True
+            },
+            # Add more mappings as needed
+        }
+        
+        # Override with spec if provided
+        if "mapping" in self.spec:
+            mapping_dict.update(self.spec["mapping"])
+        
+        # Return as single element PCollection
+        return (
+            pipeline
+            | f"{self.step_id}_Create" >> beam.Create([mapping_dict])
+        )

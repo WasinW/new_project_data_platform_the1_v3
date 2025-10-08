@@ -26,6 +26,7 @@ from .steps import (
     ReadBigTableStep,
     ProcessWithDLQStep,
     WindowStep,
+    WriteToBigQueryStep,  # เพิ่มนี้
 )
 
 # Import BigTable steps
@@ -60,6 +61,7 @@ STEP_REGISTRY: Dict[str, Type] = {
     # BigTable Real-time Steps (Option D)
     "ReadBigTableRealtime": ReadBigTableRealtimeStep,
     "WriteBigTableRealtime": WriteBigTableRealtimeStep,
+    "WriteToBigQuery": WriteToBigQueryStep,  # เพิ่มนี้
 }
 
 __all__ = ["STEP_REGISTRY"]

@@ -8,6 +8,7 @@ and the current state dictionary.  Steps should not directly
 reference table‑specific information; such details must be supplied
 via the configuration.
 """
+from apache_beam.io.gcp.bigquery import WriteToBigQuery
 
 from __future__ import annotations
 
@@ -245,7 +246,37 @@ class WriteParquetStep(BaseStep):
         ParquetConnector.write(pcoll, prefix, self.config, label)
         return None
 
-
+class WriteToBigQueryStep(BaseStep):
+    """Write to BigQuery table"""
+    
+    def execute(self, pipeline: beam.Pipeline) -> None:
+        input_key = self.spec.get("in")
+        if not input_key or input_key not in self.state:
+            raise KeyError(f"Step {self.step_id}: missing input '{input_key}'")
+        
+        pcoll = self.state[input_key]
+        
+        # Get table reference
+        table = self.spec.get("table")
+        if not table:
+            raise ValueError(f"Step {self.step_id}: 'table' must be provided")
+        
+        # BQ write options
+        write_disposition = self.spec.get("write_disposition", "WRITE_APPEND")
+        create_disposition = self.spec.get("create_disposition", "CREATE_IF_NEEDED")
+        
+        # Schema can be auto-detected or provided
+        schema = self.spec.get("schema", "SCHEMA_AUTODETECT")
+        
+        pcoll | f"{self.step_id}_WriteBQ" >> WriteToBigQuery(
+            table=table,
+            write_disposition=write_disposition,
+            create_disposition=create_disposition,
+            schema=schema
+        )
+        
+        return None
+    
 __all__ = [
     "BaseStep",
     "ReadBQQueryStep",
@@ -261,4 +292,5 @@ __all__ = [
     "ReadBigTableStep",
     "ProcessWithDLQStep",
     "WindowStep",
+    "WriteToBigQueryStep",
 ]

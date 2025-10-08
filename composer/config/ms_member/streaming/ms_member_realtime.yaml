@@ -1,4 +1,4 @@
-# ms_member_streaming_realtime.yaml - Option D (Real-time)
+# ms_member_streaming_realtime.yaml
 
 pipeline:
   name: ms_member_streaming_realtime
@@ -18,6 +18,24 @@ io:
   bq:
     project: the1-insight-dev
     dataset: insight_dev
+  s3:
+    refined_prefix: s3://the1-data-refined
+
+# Schema definitions
+schemas:
+  reconcile:
+    gcs_uri: gs://the1-schemas/reconcile_schema.json
+  member:
+    gcs_uri: gs://the1-schemas/member_schema.json
+  ms_personas:
+    bq:
+      project: the1-insight-dev
+      dataset: insight_dev
+      table: ms_personas
+
+params:
+  pk: member_id
+  run_dt: null # Will be set at runtime
 
 plan:
 # 1. Consume from Pub/Sub
@@ -25,13 +43,20 @@ plan:
   id: messages
   subscription: "{io.pubsub.subscription}"
 
-# 2. Extract member IDs
-- step: ExtractAvroField
+# 2. Window (optional - for batching)
+- step: Window
   in: messages
-  out: member_ids
-  field_path: "payload.profiles.memberId"
+  out: windowed_messages
+  type: fixed
+  size: 60 # 1 minute windows
 
-# 3. REAL-TIME BigTable lookup with advanced caching
+# 3. Extract member IDs
+- step: ExtractKeys
+  in: windowed_messages
+  out: member_ids
+  key_field: "profiles.Profile.memberId"
+
+# 4. Read from BigTable with Real-time connector
 - step: ReadBigTableRealtime
   in: member_ids
   out: bigtable_data
@@ -40,31 +65,85 @@ plan:
   table: "{io.bigtable.table}"
   column_families: "{io.bigtable.column_families}"
   cache_config:
-    hot_cache_size: 1000 # L1 cache size
-    hot_cache_ttl: 60 # L1 TTL (seconds)
-    warm_cache_size: 10000 # L2 cache size  
-    warm_cache_ttl: 300 # L2 TTL (seconds)
-  enable_prefetch: true # Predictive prefetching
-  circuit_breaker_threshold: 5 # Error threshold
+    hot_cache_size: 1000
+    hot_cache_ttl: 60
+    warm_cache_size: 10000
+    warm_cache_ttl: 300
+  enable_prefetch: true
+  circuit_breaker_threshold: 5
 
-# 4. Parse if needed
-- step: ParseBigTableData
-  in: bigtable_data
-  out: parsed_data
+# 5. Create Fixed Mapping (for streaming, no need dynamic mapping)
+- step: CreateFixedMapping
+  id: mapping_dict
+  mapping:
+    member_id:
+      src_path: [ "member_id" ]
+      reconcile: true
+      original: true
+    email:
+      src_path: [ "profiles", "email" ]
+      reconcile: true
+      original: true
+    phone:
+      src_path: [ "profiles", "phone" ]
+      reconcile: true
+      original: true
 
-# 5. Transform/Map fields
+# 6. Map records
 - step: MapRecord
-  in: parsed_data
+  in: bigtable_data
   side: mapping_dict
   out: mapped_data
   mode: full
 
-# 6. Write back to BigTable (real-time)
-- step: WriteParquet
+# 7. Create KV pairs for grouping
+- step: KVPairs
   in: mapped_data
-  prefix: "{io.s3.refined_prefix}/ms_member_temp_dev_test/run_dt={params.run_dt}"
+  out: new_kvs
+  key_field: "{params.pk}"
 
-# 7. Also write to BigQuery for analytics
-- step: WriteToBigQuery
+# 8. Create empty old records (for streaming no reconciliation)
+- step: CreateEmpty
+  id: old_kvs
+
+# 9. Group by key (prepare for reconciliation format)
+- step: CoGroupByKey
+  out: grouped
+  as:
+    new: new_kvs
+    old: old_kvs
+
+# 10. Normalize for reconcile schema
+- step: NormalizeToSchema
+  in: grouped
+  out: reconcile_normalized
+  schema: "{schemas.reconcile}"
+
+# 11. Normalize for member schema
+- step: NormalizeToSchema
   in: mapped_data
-  table: "{io.bq.project}.{io.bq.dataset}.ms_member_stream"
+  out: member_normalized
+  schema: "{schemas.member}"
+
+# 12. Normalize for ms_personas (direct from bigtable)
+- step: NormalizeToSchema
+  in: bigtable_data
+  out: ms_personas_normalized
+  schema: "{schemas.ms_personas}"
+
+# 13. Write reconcile to S3
+- step: WriteParquet
+  in: reconcile_normalized
+  prefix: "{io.s3.refined_prefix}/reconcile/run_dt={params.run_dt}"
+
+# 14. Write member to S3
+- step: WriteParquet
+  in: member_normalized
+  prefix: "{io.s3.refined_prefix}/member/run_dt={params.run_dt}"
+
+# 15. Write to BigQuery ms_personas
+- step: WriteToBigQuery
+  in: ms_personas_normalized
+  table: "{io.bq.project}.{io.bq.dataset}.ms_personas"
+  write_disposition: WRITE_APPEND
+  create_disposition: CREATE_IF_NEEDED
