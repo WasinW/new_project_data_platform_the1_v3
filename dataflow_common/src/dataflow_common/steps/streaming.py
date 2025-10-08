@@ -5,6 +5,9 @@ from ..core import BaseStep
 from ..connectors.pubsub import PubSubConnector
 from ..connectors.bigtable import BigTableConnector
 import json
+import logging
+
+LOGGER = logging.getLogger(__name__)
 
 class ConsumePubSubStep(BaseStep):
     """Consume messages from Pub/Sub subscription or topic"""
@@ -36,7 +39,7 @@ class ExtractKeysStep(BaseStep):
             raise KeyError(f"Step {self.step_id}: missing or unknown input '{input_key}'")
         
         messages = self.state[input_key]
-        key_field = self.spec.get("key_field", "member_number")
+        key_field = self.spec.get("key_field", "profiles.Profile.memberId")
         
         def extract_key(message):
             """Extract key from Pub/Sub message"""
@@ -44,18 +47,37 @@ class ExtractKeysStep(BaseStep):
                 # Handle PubsubMessage with attributes
                 if hasattr(message, 'data'):
                     data = json.loads(message.data.decode('utf-8'))
-                else:
+                elif isinstance(message, bytes):
+                    data = json.loads(message.decode('utf-8'))
+                elif isinstance(message, str):
                     data = json.loads(message)
+                else:
+                    data = message
+
                 
-                # Extract the key field
-                return data.get(key_field)
+                # Navigate path: profiles.Profile.memberId
+                parts = key_field.split('.')
+                value = data
+                for part in parts:
+                    if isinstance(value, dict):
+                        value = value.get(part)
+                    else:
+                        return None
+                
+                return value
+
             except Exception as e:
-                logging.error(f"Failed to extract key: {e}")
+                LOGGER.warning(f"Failed to extract key: {e}")
                 return None
         
-        return (messages 
-                | f"{self.step_id}_Extract" >> beam.Map(extract_key)
-                | f"{self.step_id}_FilterNone" >> beam.Filter(lambda x: x is not None))
+        # return (messages 
+        #         | f"{self.step_id}_Extract" >> beam.Map(extract_key)
+        #         | f"{self.step_id}_FilterNone" >> beam.Filter(lambda x: x is not None))
+        return (
+            messages 
+            | f"{self.step_id}_Extract" >> beam.Map(extract_member_id)
+            | f"{self.step_id}_FilterNone" >> beam.Filter(lambda x: x is not None)
+        )
 
 
 class ReadBigTableStep(BaseStep):
@@ -73,20 +95,73 @@ class ReadBigTableStep(BaseStep):
         project = self.spec.get("project") or bt_config.get("project")
         instance = self.spec.get("instance") or bt_config.get("instance")
         table = self.spec.get("table") or bt_config.get("table")
-        column_family = self.spec.get("column_family")
+        # column_family = self.spec.get("column_family")
         
-        if not all([project, instance, table]):
-            raise ValueError(f"Step {self.step_id}: project, instance, and table must be provided")
+        # if not all([project, instance, table]):
+        #     raise ValueError(f"Step {self.step_id}: project, instance, and table must be provided")
+        class ReadFromBigTable(beam.DoFn):
+            def __init__(self, project, instance, table):
+                self.project = project
+                self.instance = instance
+                self.table_name = table
+                self._table = None
+            
+            def setup(self):
+                from google.cloud import bigtable
+                client = bigtable.Client(project=self.project)
+                instance = client.instance(self.instance)
+                self._table = instance.table(self.table_name)
+            
+            def process(self, member_id):
+                # Lookup in BigTable
+                row_prefix = f"#1-{member_id}#"
+                
+                try:
+                    rows = self._table.read_rows(
+                        row_key_prefix=row_prefix.encode(),
+                        limit=1
+                    )
+                    
+                    for row in rows:
+                        result = {'member_id': member_id}
+                        
+                        # Get all columns from profiles family
+                        if b'profiles' in row.cells:
+                            for col, cells in row.cells[b'profiles'].items():
+                                col_name = col.decode('utf-8')
+                                value = cells[0].value.decode('utf-8')
+                                
+                                # Try parse JSON if it looks like JSON
+                                if value.startswith('{'):
+                                    try:
+                                        value = json.loads(value)
+                                    except:
+                                        pass
+                                
+                                result[col_name] = value
+                        
+                        yield result
+                        return
+                    
+                    # Not found
+                    yield {'member_id': member_id, 'found': False}
+                    
+                except Exception as e:
+                    LOGGER.error(f"Failed to read {member_id}: {e}")
+                    yield {'member_id': member_id, 'error': str(e)}
         
-        return BigTableConnector.read_by_keys(
-            pipeline=keys,  # Pass the keys PCollection
-            keys=keys,
-            project_id=project,
-            instance_id=instance,
-            table_id=table,
-            column_family=column_family,
-            label=self.step_id
-        )
+        return keys | f"{self.step_id}_Read" >> beam.ParDo(
+            ReadFromBigTable(project, instance, table)
+        )        
+        # return BigTableConnector.read_by_keys(
+        #     pipeline=keys,  # Pass the keys PCollection
+        #     keys=keys,
+        #     project_id=project,
+        #     instance_id=instance,
+        #     table_id=table,
+        #     column_family=column_family,
+        #     label=self.step_id
+        # )
 
 
 class ProcessWithDLQStep(BaseStep):

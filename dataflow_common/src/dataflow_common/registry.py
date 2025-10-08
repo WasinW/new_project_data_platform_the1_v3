@@ -28,6 +28,16 @@ from .steps import (
     WindowStep,
 )
 
+# Import BigTable steps
+from .steps.bigtable_batch_steps import (
+    ReadBigTableBatchStep,
+    WriteBigTableBatchStep
+)
+from .steps.bigtable_realtime_steps import (
+    ReadBigTableRealtimeStep,
+    WriteBigTableRealtimeStep
+)
+
 # Mapping from step type string in a plan to the corresponding class
 STEP_REGISTRY: Dict[str, Type] = {
     "ReadBQQuery": ReadBQQueryStep,
@@ -43,7 +53,13 @@ STEP_REGISTRY: Dict[str, Type] = {
     "ProcessWithDLQ": ProcessWithDLQStep,
     "ExtractKeys": ExtractKeysStep,
     "Window": WindowStep,
-
+    # BigTable Batch Steps (Option C)
+    "ReadBigTableBatch": ReadBigTableBatchStep,
+    "WriteBigTableBatch": WriteBigTableBatchStep,
+    
+    # BigTable Real-time Steps (Option D)
+    "ReadBigTableRealtime": ReadBigTableRealtimeStep,
+    "WriteBigTableRealtime": WriteBigTableRealtimeStep,
 }
 
 __all__ = ["STEP_REGISTRY"]

@@ -1,8 +1,9 @@
-# ms_member_realtime.yaml
+# ms_member_streaming_realtime.yaml - Option D (Real-time)
+
 pipeline:
-  name: ms_member_realtime
+  name: ms_member_streaming_realtime
   mode: streaming
-  term: mid
+  term: realtime
 
 io:
   pubsub:
@@ -12,28 +13,58 @@ io:
     project: the1-insight-dev
     instance: member-data
     table: ms_member
+    column_families:
+    - profiles
+  bq:
+    project: the1-insight-dev
+    dataset: insight_dev
 
 plan:
+# 1. Consume from Pub/Sub
 - step: ConsumePubSub
   id: messages
   subscription: "{io.pubsub.subscription}"
 
-- step: ExtractKeys
+# 2. Extract member IDs
+- step: ExtractAvroField
   in: messages
-  out: member_keys
-  # Custom step to extract PKs from messages
+  out: member_ids
+  field_path: "payload.profiles.memberId"
 
-- step: ReadBigTable
-  in: member_keys
-  out: member_data
+# 3. REAL-TIME BigTable lookup with advanced caching
+- step: ReadBigTableRealtime
+  in: member_ids
+  out: bigtable_data
+  project: "{io.bigtable.project}"
   instance: "{io.bigtable.instance}"
   table: "{io.bigtable.table}"
+  column_families: "{io.bigtable.column_families}"
+  cache_config:
+    hot_cache_size: 1000 # L1 cache size
+    hot_cache_ttl: 60 # L1 TTL (seconds)
+    warm_cache_size: 10000 # L2 cache size  
+    warm_cache_ttl: 300 # L2 TTL (seconds)
+  enable_prefetch: true # Predictive prefetching
+  circuit_breaker_threshold: 5 # Error threshold
 
-- step: Window
-  in: member_data
-  out: windowed
-  size: 300 # 5 minutes
+# 4. Parse if needed
+- step: ParseBigTableData
+  in: bigtable_data
+  out: parsed_data
 
+# 5. Transform/Map fields
 - step: MapRecord
-  in: windowed
-  # ... rest of processing
+  in: parsed_data
+  side: mapping_dict
+  out: mapped_data
+  mode: full
+
+# 6. Write back to BigTable (real-time)
+- step: WriteParquet
+  in: mapped_data
+  prefix: "{io.s3.refined_prefix}/ms_member_temp_dev_test/run_dt={params.run_dt}"
+
+# 7. Also write to BigQuery for analytics
+- step: WriteToBigQuery
+  in: mapped_data
+  table: "{io.bq.project}.{io.bq.dataset}.ms_member_stream"
