@@ -1,0 +1,39 @@
+# ms_member_realtime.yaml
+pipeline:
+  name: ms_member_realtime
+  mode: streaming
+  term: mid
+
+io:
+  pubsub:
+    subscription: projects/the1-insight-dev/subscriptions/ms-member-changes
+    dlq_topic: projects/the1-insight-dev/topics/ms-member-dlq
+  bigtable:
+    project: the1-insight-dev
+    instance: member-data
+    table: ms_member
+
+plan:
+- step: ConsumePubSub
+  id: messages
+  subscription: "{io.pubsub.subscription}"
+
+- step: ExtractKeys
+  in: messages
+  out: member_keys
+  # Custom step to extract PKs from messages
+
+- step: ReadBigTable
+  in: member_keys
+  out: member_data
+  instance: "{io.bigtable.instance}"
+  table: "{io.bigtable.table}"
+
+- step: Window
+  in: member_data
+  out: windowed
+  size: 300 # 5 minutes
+
+- step: MapRecord
+  in: windowed
+  # ... rest of processing

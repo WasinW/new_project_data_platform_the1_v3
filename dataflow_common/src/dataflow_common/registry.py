@@ -21,6 +21,11 @@ from .steps import (
     CoalesceByMappingStep,
     NormalizeToSchemaStep,
     WriteParquetStep,
+    ConsumePubSubStep,
+    ExtractKeysStep,
+    ReadBigTableStep,
+    ProcessWithDLQStep,
+    WindowStep,
 )
 
 # Mapping from step type string in a plan to the corresponding class
@@ -33,6 +38,12 @@ STEP_REGISTRY: Dict[str, Type] = {
     "CoalesceByMapping": CoalesceByMappingStep,
     "NormalizeToSchema": NormalizeToSchemaStep,
     "WriteParquet": WriteParquetStep,
+    "ConsumePubSub": ConsumePubSubStep,
+    "ReadBigTable": ReadBigTableStep,
+    "ProcessWithDLQ": ProcessWithDLQStep,
+    "ExtractKeys": ExtractKeysStep,
+    "Window": WindowStep,
+
 }
 
 __all__ = ["STEP_REGISTRY"]

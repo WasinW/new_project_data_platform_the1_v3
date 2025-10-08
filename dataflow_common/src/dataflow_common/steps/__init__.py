@@ -29,6 +29,13 @@ from ..transforms import (
     normalize_row_to_schema,
     load_schema_from_spec,
 )
+from .streaming import (
+    ConsumePubSubStep,
+    ExtractKeysStep,
+    ReadBigTableStep, 
+    ProcessWithDLQStep,
+    WindowStep
+)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -112,6 +119,7 @@ class MapRecordStep(BaseStep):
 
 
 class KVPairsStep(BaseStep):
+    # check key ที่ join เจอ 
     """Convert records into key/value pairs keyed by the specified field."""
 
     def execute(self, pipeline: beam.Pipeline) -> beam.PCollection:
@@ -248,4 +256,9 @@ __all__ = [
     "CoalesceByMappingStep",
     "NormalizeToSchemaStep",
     "WriteParquetStep",
+    "ConsumePubSubStep",
+    "ExtractKeysStep", 
+    "ReadBigTableStep",
+    "ProcessWithDLQStep",
+    "WindowStep",
 ]
