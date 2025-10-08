@@ -1,4 +1,0 @@
-# Dockerfile.test
-FROM apache/beam_python3.11_sdk:2.59.0
-RUN python -c "print('Container works')"
-CMD ["python", "-c", "print('Test successful')"]

@@ -21,6 +21,9 @@ from apache_beam.io.parquetio import WriteToParquet
 from ..config import PipelineConfig
 from ..transforms.schema import load_schema_from_spec
 
+from .bigtable import BigTableConnector
+from .pubsub import PubSubConnector
+
 LOGGER = logging.getLogger(__name__)
 
 
@@ -104,4 +107,4 @@ class ParquetConnector:
         )
 
 
-__all__ = ["BigQueryConnector", "ParquetConnector"]
+__all__ = ["BigQueryConnector", "ParquetConnector" , "PubSubConnector", "BigTableConnector"]
