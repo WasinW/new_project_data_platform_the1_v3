@@ -36,7 +36,7 @@ class BigQueryConnector:
     """
 
     @staticmethod
-    def read_query(pipeline: beam.Pipeline, query: str, cfg: PipelineConfig) -> beam.PCollection:
+    def read_query(pipeline: beam.Pipeline, query: str, cfg: PipelineConfig, label: str = "ReadBQQuery") -> beam.PCollection:
         """Read a BigQuery SQL query and return a :class:`PCollection`.
 
         Parameters
@@ -59,8 +59,9 @@ class BigQueryConnector:
         bq_cfg = cfg.io.bq or {}
         project = bq_cfg.get("project")
         temp_gcs = bq_cfg.get("temp_gcs")
-        LOGGER.info("Reading BigQuery query: %s", query)
-        return pipeline | "ReadBQQuery" >> ReadFromBigQuery(
+        LOGGER.info("Reading BigQuery query with label %s: %s", label, query)
+        # LOGGER.info("Reading BigQuery query: %s", query)
+        return pipeline | label >> ReadFromBigQuery(
             query=query,
             use_standard_sql=True,
             project=project,
@@ -92,8 +93,9 @@ class ParquetConnector:
             The pipeline configuration used to load the schema.
         """
         schema = load_schema_from_spec(cfg.schema)
-        LOGGER.info("Writing Parquet files to prefix: %s", prefix)
-        pcoll | "WriteParquet" >> WriteToParquet(
+        LOGGER.info("Writing Parquet files with label %s to prefix: %s", label, prefix)
+        # LOGGER.info("Writing Parquet files to prefix: %s", prefix)
+        pcoll | label >> WriteToParquet(
             file_path_prefix=prefix,
             schema=schema,
             file_name_suffix=".snappy.parquet",

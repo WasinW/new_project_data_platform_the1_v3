@@ -60,7 +60,10 @@ class BaseStep(ABC):
         self.config = config
         self.state = state
         # Use a descriptive identifier for logging if provided
-        self.step_id = spec.get("id") or spec.get("out") or spec.get("step")
+        # self.step_id = spec.get("id") or spec.get("out") or spec.get("step")
+        step_type = spec.get("step", "Step")
+        identifier = spec.get("id") or spec.get("out") or spec.get("in") or "unnamed"
+        self.step_id = f"{step_type}_{identifier}"
 
     @abstractmethod
     def execute(self, pipeline: beam.Pipeline) -> Any:

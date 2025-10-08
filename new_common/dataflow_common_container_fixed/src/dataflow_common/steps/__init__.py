@@ -50,8 +50,7 @@ class ReadBQQueryStep(BaseStep):
         # Delegate to the BigQuery connector to perform the read.  The
         # connector handles project and temp GCS options from the
         # config.
-        return BigQueryConnector.read_query(pipeline, query, self.config)
-
+        return BigQueryConnector.read_query(pipeline, query, self.config, self.step_id)
 
 class BuildMappingDictStep(BaseStep):
     """Build a mapping dictionary from mapping rows.
@@ -223,7 +222,9 @@ class WriteParquetStep(BaseStep):
             raise RuntimeError(f"Failed to format prefix '{prefix_template}': {exc}")
         # Use the ParquetConnector to write files.  This delegates
         # schema loading and other options to a single place.
-        ParquetConnector.write(pcoll, prefix, self.config)
+        output_key = self.spec.get("out") or self.spec.get("in")
+        label = f"WriteParquet_{output_key}"
+        ParquetConnector.write(pcoll, prefix, self.config, label)
         return None
 
 

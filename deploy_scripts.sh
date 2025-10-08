@@ -63,3 +63,28 @@ gcloud builds submit \
     --project="${PROJECT_ID}" \
     --region="${REGION}" \
     --timeout=20m
+
+# -------------------------------------------------------------------------------------------------------------------
+
+cd new_common/dataflow_common_container_fixed
+
+# Build wheel ใหม่
+python setup.py bdist_wheel
+
+# Upload
+gsutil cp dist/dataflow_common-1.0.0-py3-none-any.whl \
+    gs://t1-dataflow-framework-bucket/packages/
+
+gsutil cp dist/dataflow_common-1.0.0-py3-none-any.whl \
+    gs://t1-airflow-composer-bucket/dags/packages/
+
+# Build Docker image ใหม่
+docker build -t dataflow-test:v1.10 .
+
+# Push
+docker tag dataflow-test:v1.10 \
+    asia-southeast1-docker.pkg.dev/the1-insight-dev/dataflow-images/dataflow-common:v1.10
+
+docker push asia-southeast1-docker.pkg.dev/the1-insight-dev/dataflow-images/dataflow-common:v1.10
+
+gsutil cp composer/dags/test_run_bigquery_pipeline4.py gs://t1-airflow-composer-bucket/dags/composer/dags/test_run_bigquery_pipeline.py
