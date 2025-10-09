@@ -115,21 +115,23 @@ plan:
   out: reconcile_rows
   flag_field: RECONCILE_RETRIEVED
   dest_field: RECONCILE_COLUMN_NAME
-- step: CoalesceByMapping
-  in: grouped
-  side: mapping_rows
-  out: patch_origin_rows
-  flag_field: RECONCILE_CONFIRMED
-  dest_field: RECONCILE_COLUMN_NAME
+# - step: CoalesceByMapping
+#   in: grouped
+#   side: mapping_rows
+#   out: patch_origin_rows
+#   flag_field: RECONCILE_CONFIRMED
+#   dest_field: RECONCILE_COLUMN_NAME
 - step: NormalizeToSchema
   in: reconcile_rows
   out: reconcile_casted
-- step: NormalizeToSchema
-  in: patch_origin_rows
-  out: member_casted
+# - step: NormalizeToSchema
+#   in: patch_origin_rows
+#   out: member_casted
 - step: WriteParquet
   in: reconcile_casted
   prefix: "{io.s3.refined_prefix}/ms_personas_dev/run_dt={params.run_dt}"
+
+# =f'gs://t1-insight-data-bucket/staging/stg_ms_persosnas_test/run_dt={params.run_dt}/reconcile',
 
 # - step: WriteParquet
 #   in: member_casted

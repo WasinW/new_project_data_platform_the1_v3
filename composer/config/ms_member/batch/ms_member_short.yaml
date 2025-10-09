@@ -33,6 +33,7 @@ formats:
 params:
   pk: member_number
   run_dt: null
+  max_date: null
 
 # I/O configuration.  Values can be referenced in the plan via
 # placeholders like ``{io.bq.project}``.
@@ -48,6 +49,12 @@ io:
 # field becomes a key in the orchestration state.  The order of
 # steps matters.  See README for more details.
 plan:
+- step: ReadGCS
+  id: max_date
+  out: max_date
+  path: gs://t1-insight-audit-bucket/cache/ms_member_max_date.txt
+  format: text
+
 - step: ReadBQQuery
   id: mapping_rows
   out: mapping_rows
@@ -81,7 +88,9 @@ plan:
         ORDER BY TIMESTAMP DESC
       ) AS RN_PK
       FROM `the1-insight-stg.insight.personas`
+      WHERE TIMESTAMP >= TIMESTAMP('{params.max_date}')
     ) WHERE RN_PK = 1
+
 - step: ReadBQQuery
   id: origin_rows
   out: origin_rows
@@ -115,21 +124,39 @@ plan:
   out: reconcile_rows
   flag_field: RECONCILE_RETRIEVED
   dest_field: RECONCILE_COLUMN_NAME
-- step: CoalesceByMapping
-  in: grouped
-  side: mapping_rows
-  out: patch_origin_rows
-  flag_field: RECONCILE_CONFIRMED
-  dest_field: RECONCILE_COLUMN_NAME
+- step: GetNewMaxDate
+  in: reconcile_rows
+  out: new_max_date
+  field: UPDATED_DATE
+- step: WriteGCS
+  in: new_max_date
+  path: gs://t1-insight-audit-bucket/cache/ms_member_max_date.txt
+  format: text
+# - step: CoalesceByMapping
+#   in: grouped
+#   side: mapping_rows
+#   out: patch_origin_rows
+#   flag_field: RECONCILE_CONFIRMED
+#   dest_field: RECONCILE_COLUMN_NAME
 - step: NormalizeToSchema
   in: reconcile_rows
   out: reconcile_casted
-- step: NormalizeToSchema
-  in: patch_origin_rows
-  out: member_casted
+# - step: NormalizeToSchema
+#   in: patch_origin_rows
+#   out: member_casted
 - step: WriteParquet
   in: reconcile_casted
-  prefix: "{io.s3.refined_prefix}/ms_personas_dev/run_dt={params.run_dt}"
-- step: WriteParquet
-  in: member_casted
-  prefix: "{io.s3.refined_prefix}/ms_member_temp_dev_test/run_dt={params.run_dt}"
+  prefix: "{io.s3.refined_prefix}/ms_personas_dev/par_month={params.run_par_month}/par_day={params.run_par_day}/par_hour={params.run_par_hour}/run_dt={params.run_dt}"
+- step: GetNewMaxDate
+  in: reconcile_rows
+  out: new_max_date
+  field: UPDATED_DATE
+
+- step: WriteGCS
+  in: new_max_date
+  path: gs://t1-insight-audit-bucket/cache/ms_member_max_date.txt
+  format: text
+
+# - step: WriteParquet
+#   in: member_casted
+#   prefix: "{io.s3.refined_prefix}/ms_member_temp_dev_test/run_dt={params.run_dt}"

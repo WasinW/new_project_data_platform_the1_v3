@@ -12,6 +12,7 @@ via the configuration.
 from __future__ import annotations  # ต้องมาก่อน
 
 import logging
+import json
 from typing import Any, Dict, Iterable, List, Optional
 
 import apache_beam as beam
@@ -280,7 +281,74 @@ class WriteToBigQueryStep(BaseStep):
         )
         
         return None
-    
+
+class ReadGCSStep(BaseStep):
+    def execute(self, pipeline: beam.Pipeline) -> beam.PCollection:
+        # Determine the path and format from the step specification.
+        path = self.spec.get("path") or self.spec.get("gcs_path")
+        if not path:
+            raise ValueError(f"ReadGCS step '{self.step_id}' requires a 'path' parameter")
+        fmt = (self.spec.get("format") or "text").lower()
+        if fmt not in {"text", "json"}:
+            raise ValueError(f"Unsupported format '{fmt}' in ReadGCS step '{self.step_id}'")
+
+        # Read the file as text lines.
+        pcoll = pipeline | self.step_id >> beam.io.ReadFromText(path)
+
+        # Optionally parse JSON lines.
+        if fmt == "json":
+            pcoll = pcoll | f"{self.step_id}_ParseJson" >> beam.Map(json.loads)
+        return pcoll
+
+
+class WriteGCSStep(BaseStep):
+
+    def execute(self, pipeline: beam.Pipeline) -> None:
+        # Fetch required parameters from the spec.
+        input_key: Optional[str] = self.spec.get("in") or self.spec.get("id")
+        if not input_key:
+            raise ValueError(f"WriteGCS step '{self.step_id}' requires an 'in' parameter")
+        path = self.spec.get("path") or self.spec.get("gcs_path")
+        if not path:
+            raise ValueError(f"WriteGCS step '{self.step_id}' requires a 'path' parameter")
+        fmt = (self.spec.get("format") or "text").lower()
+        if fmt not in {"text", "json"}:
+            raise ValueError(f"Unsupported format '{fmt}' in WriteGCS step '{self.step_id}'")
+
+        # Retrieve the input PCollection from the orchestrator state.
+        if input_key not in self.state:
+            raise KeyError(f"WriteGCS step '{self.step_id}' could not find input key '{input_key}' in state")
+        pcoll = self.state[input_key]
+        if pcoll is None:
+            # If no data, simply return without writing anything.
+            return None
+        # Serialize elements as required.
+        if fmt == "json":
+            pcoll = pcoll | f"{self.step_id}_SerializeJson" >> beam.Map(json.dumps)
+        else:
+            pcoll = pcoll | f"{self.step_id}_ToString" >> beam.Map(lambda x: str(x))
+        # Write to GCS using WriteToText with no sharding.
+        pcoll | self.step_id >> beam.io.WriteToText(path, shard_name_template="")
+        return None
+
+
+class GetNewMaxDateStep(BaseStep):
+
+    def execute(self, pipeline: beam.Pipeline) -> beam.PCollection:
+        input_key: Optional[str] = self.spec.get("in")
+        if not input_key:
+            raise ValueError(f"GetNewMaxDate step '{self.step_id}' requires an 'in' parameter")
+        field_name = self.spec.get("field", "UPDATED_DATE")
+        if input_key not in self.state:
+            raise KeyError(f"GetNewMaxDate step '{self.step_id}' could not find input key '{input_key}' in state")
+        pcoll = self.state[input_key]
+        # Extract the date field from each record.
+        dates = pcoll | f"{self.step_id}_ExtractField" >> beam.Map(lambda rec: rec.get(field_name))
+        # Compute the maximum date globally.
+        max_date = dates | f"{self.step_id}_Max" >> beam.CombineGlobally(lambda vals: max(vals) if vals else None)
+        return max_date
+
+
 __all__ = [
     "BaseStep",
     "ReadBQQueryStep",
@@ -299,4 +367,7 @@ __all__ = [
     "WriteToBigQueryStep",
     "CreateFixedMappingStep",
     "CreateEmptyStep",
+    "WriteGCSStep",
+    "GetNewMaxDateStep",
+    "ReadGCSStep",
 ]

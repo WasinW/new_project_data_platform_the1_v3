@@ -106,5 +106,59 @@ class ParquetConnector:
             num_shards=2,
         )
 
+# ---------------------------------------------------------------------------
+# New simple GCS file storage connector
+#
+# Some pipelines need to store small pieces of state outside of BigQuery,
+# for example caching a ``max_updated_date`` string.  The following
+# connector wraps Beam's file I/O transforms to read and write small
+# text or JSON documents to Google Cloud Storage.  It intentionally
+# overwrites the destination file rather than appending, making it
+# suitable for simple cache semantics.
 
-__all__ = ["BigQueryConnector", "ParquetConnector" , "PubSubConnector", "BigTableConnector"]
+class GCSFilesStorage:
+    """Utility for reading and writing small text/JSON files on GCS."""
+
+    @staticmethod
+    def write_text(pcoll: beam.PCollection, path: str,
+                   label: str = "WriteGCSText") -> None:
+        """
+        Write a PCollection of strings to a single text file on GCS.
+        The file is overwritten each run.
+        """
+        pcoll | label >> beam.io.WriteToText(path, shard_name_template="")
+
+    @staticmethod
+    def write_json(pcoll: beam.PCollection, path: str,
+                   label: str = "WriteGCSJson") -> None:
+        """
+        Write a PCollection of dictionaries to a JSON file on GCS.
+        Each element is serialized to a JSON line.
+        """
+        import json
+        (pcoll
+         | f"{label}_Serialize" >> beam.Map(json.dumps)
+         | label >> beam.io.WriteToText(path, shard_name_template=""))
+
+    @staticmethod
+    def read_text(pipeline: beam.Pipeline, path: str,
+                  label: str = "ReadGCSText") -> beam.PCollection:
+        """
+        Read a text file from GCS into a PCollection of strings.
+        """
+        return pipeline | label >> beam.io.ReadFromText(path)
+
+    @staticmethod
+    def read_json(pipeline: beam.Pipeline, path: str,
+                  label: str = "ReadGCSJson") -> beam.PCollection:
+        """
+        Read a JSON file from GCS into a PCollection of Python objects.
+        """
+        import json
+        return (pipeline
+                | label >> beam.io.ReadFromText(path)
+                | f"{label}_ParseJSON" >> beam.Map(json.loads))
+
+
+
+__all__ = ["BigQueryConnector", "ParquetConnector" , "PubSubConnector", "BigTableConnector", "GCSFilesStorage"]
