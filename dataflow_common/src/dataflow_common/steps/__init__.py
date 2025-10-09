@@ -37,7 +37,9 @@ from .streaming import (
     ExtractKeysStep,
     ReadBigTableStep, 
     ProcessWithDLQStep,
-    WindowStep
+    WindowStep,
+    CreateFixedMappingStep,  # ✅ เพิ่ม
+    CreateEmptyStep,  # ✅ เพิ่ม
 )
 
 LOGGER = logging.getLogger(__name__)
@@ -295,4 +297,6 @@ __all__ = [
     "ProcessWithDLQStep",
     "WindowStep",
     "WriteToBigQueryStep",
+    "CreateFixedMappingStep",
+    "CreateEmptyStep",
 ]

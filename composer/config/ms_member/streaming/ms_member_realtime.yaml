@@ -53,13 +53,21 @@ streaming:
 # Schema definitions
 schemas:
   reconcile:
-    gcs_uri: gs://the1-schemas/reconcile_schema.json
+    bq:
+      project: "{io.bq.project}"
+      dataset: "{io.bq.dataset}"
+      table: stg_ms_member_reconcile
+    # gcs_uri: gs://the1-schemas/reconcile_schema.json
   member:
-    gcs_uri: gs://the1-schemas/member_schema.json
+    bq:
+      project: "{io.bq.project}"
+      dataset: "{io.bq.dataset}"
+      table: stg_ms_member
+    # gcs_uri: gs://the1-schemas/member_schema.json
   ms_personas:
     bq:
-      project: the1-insight-dev
-      dataset: insight_dev
+      project: "{io.bq.project}"
+      dataset: "{io.bq.dataset}"
       table: ms_personas
 
 params:

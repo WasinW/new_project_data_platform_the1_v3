@@ -41,6 +41,22 @@ from .steps.bigtable_realtime_steps import (
     WriteBigTableRealtimeStep
 )
 
+# Import streaming steps only if available (safe import)
+try:
+    from .steps.streaming import (
+        ConsumePubSubStep,
+        ExtractKeysStep,
+        ReadBigTableRealtimeStep,
+        ProcessWithDLQStep,
+        WindowStep,
+        WriteToBigQueryStep,
+        CreateFixedMappingStep,
+        CreateEmptyStep,
+    )
+    STREAMING_AVAILABLE = True
+except ImportError:
+    STREAMING_AVAILABLE = False
+
 # Mapping from step type string in a plan to the corresponding class
 STEP_REGISTRY: Dict[str, Type] = {
     "ReadBQQuery": ReadBQQueryStep,
@@ -52,20 +68,32 @@ STEP_REGISTRY: Dict[str, Type] = {
     "NormalizeToSchema": NormalizeToSchemaStep,
     "WriteParquet": WriteParquetStep,
     "ConsumePubSub": ConsumePubSubStep,
-    "ReadBigTable": ReadBigTableStep,
-    "ProcessWithDLQ": ProcessWithDLQStep,
-    "ExtractKeys": ExtractKeysStep,
-    "Window": WindowStep,
-    # BigTable Batch Steps (Option C)
-    "ReadBigTableBatch": ReadBigTableBatchStep,
-    "WriteBigTableBatch": WriteBigTableBatchStep,
+    # "ReadBigTable": ReadBigTableStep,
+    # "ProcessWithDLQ": ProcessWithDLQStep,
+    # "ExtractKeys": ExtractKeysStep,
+    # "Window": WindowStep,
+    # # BigTable Batch Steps (Option C)
+    # "ReadBigTableBatch": ReadBigTableBatchStep,
+    # "WriteBigTableBatch": WriteBigTableBatchStep,
     
-    # BigTable Real-time Steps (Option D)
-    "ReadBigTableRealtime": ReadBigTableRealtimeStep,
-    "WriteBigTableRealtime": WriteBigTableRealtimeStep,
-    "WriteToBigQuery": WriteToBigQueryStep,  # เพิ่มนี้
-    "CreateFixedMapping": CreateFixedMappingStep,  # เพิ่ม
-    "CreateEmpty": CreateEmptyStep,  # เพิ่ม
+    # # BigTable Real-time Steps (Option D)
+    # "ReadBigTableRealtime": ReadBigTableRealtimeStep,
+    # "WriteBigTableRealtime": WriteBigTableRealtimeStep,
+    # "WriteToBigQuery": WriteToBigQueryStep,  # เพิ่มนี้
+    # "CreateFixedMapping": CreateFixedMappingStep,  # เพิ่ม
+    # "CreateEmpty": CreateEmptyStep,  # เพิ่ม
 }
-
+# Add streaming steps only if available
+if STREAMING_AVAILABLE:
+    STEP_REGISTRY.update({
+        "ConsumePubSub": ConsumePubSubStep,
+        "ExtractKeys": ExtractKeysStep,
+        "ReadBigTableRealtime": ReadBigTableRealtimeStep,
+        "ProcessWithDLQ": ProcessWithDLQStep,
+        "Window": WindowStep,
+        "WriteToBigQuery": WriteToBigQueryStep,
+        "CreateFixedMapping": CreateFixedMappingStep,
+        "CreateEmpty": CreateEmptyStep,
+    })
+    
 __all__ = ["STEP_REGISTRY"]
