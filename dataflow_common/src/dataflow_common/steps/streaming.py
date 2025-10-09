@@ -306,3 +306,14 @@ class CreateFixedMappingStep(BaseStep):
             pipeline
             | f"{self.step_id}_Create" >> beam.Create([mapping_dict])
         )
+    
+class CreateEmptyStep(BaseStep):
+    """Create empty PCollection for streaming when no reconciliation needed"""
+    
+    def execute(self, pipeline: beam.Pipeline) -> beam.PCollection:
+        # Return empty PCollection with correct KV format
+        return (
+            pipeline
+            | f"{self.step_id}_Empty" >> beam.Create([])
+            | f"{self.step_id}_KV" >> beam.Map(lambda x: (None, x))
+        )
