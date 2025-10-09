@@ -3,6 +3,7 @@ from typing import List, Dict, Any
 import apache_beam as beam
 from google.cloud import bigtable
 from google.cloud.bigtable import row_filters
+from ..config import PipelineConfig  # ✅ เพิ่มบรรทัดนี้
 
 class BigTableConnector:
     """Connector for Cloud Bigtable operations"""

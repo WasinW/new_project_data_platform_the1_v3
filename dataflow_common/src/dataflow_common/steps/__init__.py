@@ -36,7 +36,7 @@ from ..transforms import (
 from .streaming import (
     ConsumePubSubStep,
     ExtractKeysStep,
-    ReadBigTableStep, 
+    ReadBigTableRealtimeStep, 
     ProcessWithDLQStep,
     WindowStep,
     CreateFixedMappingStep,  # ✅ เพิ่ม
@@ -361,7 +361,7 @@ __all__ = [
     "WriteParquetStep",
     "ConsumePubSubStep",
     "ExtractKeysStep", 
-    "ReadBigTableStep",
+    "ReadBigTableRealtimeStep",
     "ProcessWithDLQStep",
     "WindowStep",
     "WriteToBigQueryStep",

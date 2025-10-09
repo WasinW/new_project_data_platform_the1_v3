@@ -1,5 +1,6 @@
 # connectors/pubsub.py
 import json
+from typing import Dict  # ✅ เพิ่มบรรทัดนี้
 import apache_beam as beam
 from apache_beam.io import ReadFromPubSub, WriteToPubSub
 from apache_beam.transforms.window import FixedWindows

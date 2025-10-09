@@ -23,7 +23,7 @@ from .steps import (
     WriteParquetStep,
     ConsumePubSubStep,
     ExtractKeysStep,
-    ReadBigTableStep,
+    # ReadBigTableStep,
     ProcessWithDLQStep,
     WindowStep,
     WriteToBigQueryStep,  # เพิ่มนี้
@@ -52,6 +52,9 @@ try:
         WriteToBigQueryStep,
         CreateFixedMappingStep,
         CreateEmptyStep,
+        ReadGCSStep,  # ✅ เพิ่ม import
+        WriteGCSStep,  # ✅ เพิ่ม import  
+        GetNewMaxDateStep,  # ✅ เพิ่ม import
     )
     STREAMING_AVAILABLE = True
 except ImportError:
@@ -82,6 +85,10 @@ STEP_REGISTRY: Dict[str, Type] = {
     # "WriteToBigQuery": WriteToBigQueryStep,  # เพิ่มนี้
     # "CreateFixedMapping": CreateFixedMappingStep,  # เพิ่ม
     # "CreateEmpty": CreateEmptyStep,  # เพิ่ม
+    "ReadGCS": ReadGCSStep,  # ✅ เพิ่มใน registry
+    "WriteGCS": WriteGCSStep,  # ✅ เพิ่มใน registry
+    "GetNewMaxDate": GetNewMaxDateStep,  # ✅ เพิ่มใน registry
+
 }
 # Add streaming steps only if available
 if STREAMING_AVAILABLE:

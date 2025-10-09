@@ -127,6 +127,20 @@ class PipelineParams:
 
     pk: str = "member_number"
     run_dt: Optional[str] = None
+    max_date: Optional[str] = None
+    run_par_month: Optional[str] = None
+    run_par_day: Optional[str] = None
+    run_par_hour: Optional[str] = None
+    
+    # Allow any additional fields
+    def __init__(self, pk: str = "member_number", run_dt: Optional[str] = None, 
+                 max_date: Optional[str] = None, **kwargs):
+        self.pk = pk
+        self.run_dt = run_dt
+        self.max_date = max_date
+        # Store any additional params as attributes
+        for key, value in kwargs.items():
+            setattr(self, key, value)
 
 
 @dataclass
