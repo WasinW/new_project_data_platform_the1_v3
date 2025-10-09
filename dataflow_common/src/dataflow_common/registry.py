@@ -27,6 +27,8 @@ from .steps import (
     ProcessWithDLQStep,
     WindowStep,
     WriteToBigQueryStep,  # เพิ่มนี้
+    CreateFixedMappingStep,  # เพิ่ม
+    CreateEmptyStep,  # เพิ่ม
 )
 
 # Import BigTable steps
@@ -62,6 +64,8 @@ STEP_REGISTRY: Dict[str, Type] = {
     "ReadBigTableRealtime": ReadBigTableRealtimeStep,
     "WriteBigTableRealtime": WriteBigTableRealtimeStep,
     "WriteToBigQuery": WriteToBigQueryStep,  # เพิ่มนี้
+    "CreateFixedMapping": CreateFixedMappingStep,  # เพิ่ม
+    "CreateEmpty": CreateEmptyStep,  # เพิ่ม
 }
 
 __all__ = ["STEP_REGISTRY"]

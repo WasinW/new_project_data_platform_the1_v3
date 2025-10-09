@@ -144,6 +144,11 @@ class IOConfig:
     s3: Dict[str, Any] = field(default_factory=dict)
     bq: Dict[str, Any] = field(default_factory=dict)
 
+@dataclass
+class StreamingConfig:
+    """Configuration specific to streaming pipelines"""
+    extract_key: Dict[str, Any] = field(default_factory=dict)
+    fixed_mapping: Dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class PipelineConfig:
@@ -162,6 +167,7 @@ class PipelineConfig:
     formats: FormatSpec = field(default_factory=FormatSpec)
     params: PipelineParams = field(default_factory=PipelineParams)
     io: IOConfig = field(default_factory=IOConfig)
+    streaming: Optional[StreamingConfig] = None  # เพิ่มนี้
     plan: List[Dict[str, Any]] = field(default_factory=list)
     defaults_file: Optional[str] = None
 
@@ -193,6 +199,12 @@ class PipelineConfig:
         # Build io config
         io_spec = IOConfig(**data.get("io", {}))
         plan = data.get("plan", [])
+        # Build streaming config if present
+
+        streaming_spec = None
+        if "streaming" in data:
+            streaming_spec = StreamingConfig(**data["streaming"])
+
         return PipelineConfig(
             name=data["pipeline"].get("name"),
             mode=data["pipeline"].get("mode"),
@@ -203,6 +215,7 @@ class PipelineConfig:
             io=io_spec,
             plan=plan,
             defaults_file=data.get("defaults_file"),
+            streaming=streaming_spec,  # เพิ่มนี้
         )
 
 

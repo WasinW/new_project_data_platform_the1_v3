@@ -21,6 +21,35 @@ io:
   s3:
     refined_prefix: s3://the1-data-refined
 
+# Streaming-specific configuration
+streaming:
+  # Key extraction config
+  extract_key:
+    field_path: "profiles.Profile.memberId" # ย้ายมาจาก hardcode
+
+  # Fixed mapping for streaming (ย้ายมาจาก hardcode)
+  fixed_mapping:
+    member_id:
+      src_path: [ "member_id" ]
+      reconcile: true
+      original: true
+    email:
+      src_path: [ "profiles", "email" ]
+      reconcile: true
+      original: true
+    phone:
+      src_path: [ "profiles", "phone" ]
+      reconcile: true
+      original: true
+    first_name:
+      src_path: [ "profiles", "firstName" ]
+      reconcile: true
+      original: true
+    last_name:
+      src_path: [ "profiles", "lastName" ]
+      reconcile: true
+      original: true
+
 # Schema definitions
 schemas:
   reconcile:
@@ -54,9 +83,9 @@ plan:
 - step: ExtractKeys
   in: windowed_messages
   out: member_ids
-  key_field: "profiles.Profile.memberId"
+  # key_field: "profiles.Profile.memberId"
 
-# 4. Read from BigTable with Real-time connector
+  # 4. Read from BigTable with Real-time connector
 - step: ReadBigTableRealtime
   in: member_ids
   out: bigtable_data
@@ -75,21 +104,21 @@ plan:
 # 5. Create Fixed Mapping (for streaming, no need dynamic mapping)
 - step: CreateFixedMapping
   id: mapping_dict
-  mapping:
-    member_id:
-      src_path: [ "member_id" ]
-      reconcile: true
-      original: true
-    email:
-      src_path: [ "profiles", "email" ]
-      reconcile: true
-      original: true
-    phone:
-      src_path: [ "profiles", "phone" ]
-      reconcile: true
-      original: true
+  # mapping:
+  #   member_id:
+  #     src_path: [ "member_id" ]
+  #     reconcile: true
+  #     original: true
+  #   email:
+  #     src_path: [ "profiles", "email" ]
+  #     reconcile: true
+  #     original: true
+  #   phone:
+  #     src_path: [ "profiles", "phone" ]
+  #     reconcile: true
+  #     original: true
 
-# 6. Map records
+  # 6. Map records
 - step: MapRecord
   in: bigtable_data
   side: mapping_dict

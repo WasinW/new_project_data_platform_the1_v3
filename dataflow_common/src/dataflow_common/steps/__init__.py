@@ -8,14 +8,16 @@ and the current state dictionary.  Steps should not directly
 reference table‑specific information; such details must be supplied
 via the configuration.
 """
-from apache_beam.io.gcp.bigquery import WriteToBigQuery
-
-from __future__ import annotations
+# dataflow_common/src/dataflow_common/steps/__init__.py
+from __future__ import annotations  # ต้องมาก่อน
 
 import logging
 from typing import Any, Dict, Iterable, List, Optional
 
 import apache_beam as beam
+from apache_beam.io.gcp.bigquery import WriteToBigQuery  # ย้ายมาหลัง __future__
+
+# ... rest of imports ...
 # Note: BigQuery and Parquet I/O are accessed via connectors rather
 # than imported directly here.  This avoids duplicating project
 # configuration logic in each step.

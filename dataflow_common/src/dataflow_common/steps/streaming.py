@@ -39,8 +39,13 @@ class ExtractKeysStep(BaseStep):
             raise KeyError(f"Step {self.step_id}: missing or unknown input '{input_key}'")
         
         messages = self.state[input_key]
-        key_field = self.spec.get("key_field", "profiles.Profile.memberId")
+        # key_field = self.spec.get("key_field", "profiles.Profile.memberId")
+        default_path = "profiles.Profile.memberId"
+        if hasattr(self.config, 'streaming') and self.config.streaming:
+            default_path = self.config.streaming.get('extract_key', {}).get('field_path', default_path)
         
+        key_field = self.spec.get("key_field", default_path)
+
         def extract_key(message):
             """Extract key from Pub/Sub message"""
             try:
@@ -267,40 +272,56 @@ class CreateFixedMappingStep(BaseStep):
     """Create fixed mapping dict for streaming pipeline"""
     
     def execute(self, pipeline: beam.Pipeline) -> beam.PCollection:
-        # Fixed mapping for MS Member streaming
-        mapping_dict = {
-            "member_id": {
-                "src_path": ["memberId"],
-                "reconcile": True,
-                "original": True
-            },
-            "email": {
-                "src_path": ["email"],
-                "reconcile": True,
-                "original": True
-            },
-            "phone": {
-                "src_path": ["phone"],
-                "reconcile": True,
-                "original": True
-            },
-            "first_name": {
-                "src_path": ["firstName"],
-                "reconcile": True,
-                "original": True
-            },
-            "last_name": {
-                "src_path": ["lastName"],
-                "reconcile": True,
-                "original": True
-            },
-            # Add more mappings as needed
-        }
+        # # Fixed mapping for MS Member streaming
+        # mapping_dict = {
+        #     "member_id": {
+        #         "src_path": ["memberId"],
+        #         "reconcile": True,
+        #         "original": True
+        #     },
+        #     "email": {
+        #         "src_path": ["email"],
+        #         "reconcile": True,
+        #         "original": True
+        #     },
+        #     "phone": {
+        #         "src_path": ["phone"],
+        #         "reconcile": True,
+        #         "original": True
+        #     },
+        #     "first_name": {
+        #         "src_path": ["firstName"],
+        #         "reconcile": True,
+        #         "original": True
+        #     },
+        #     "last_name": {
+        #         "src_path": ["lastName"],
+        #         "reconcile": True,
+        #         "original": True
+        #     },
+        #     # Add more mappings as needed
+        # }
+        # ดึง mapping จาก config แทน hardcode
+        mapping_dict = {}
+        
+        # Check config first
+        if hasattr(self.config, 'streaming') and self.config.streaming:
+            mapping_dict = self.config.streaming.get('fixed_mapping', {})
         
         # Override with spec if provided
         if "mapping" in self.spec:
             mapping_dict.update(self.spec["mapping"])
-        
+
+        # Fallback to basic mapping if empty
+        if not mapping_dict:
+            LOGGER.warning(f"[{self.step_id}] No mapping found in config, using minimal defaults")
+            mapping_dict = {
+                "member_id": {
+                    "src_path": ["member_id"],
+                    "reconcile": True,
+                    "original": True
+                }
+            }
         # Return as single element PCollection
         return (
             pipeline
