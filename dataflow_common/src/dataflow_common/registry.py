@@ -23,12 +23,14 @@ from .steps import (
     WriteParquetStep,
     ConsumePubSubStep,
     ExtractKeysStep,
-    # ReadBigTableStep,
     ProcessWithDLQStep,
     WindowStep,
     WriteToBigQueryStep,  # เพิ่มนี้
     CreateFixedMappingStep,  # เพิ่ม
     CreateEmptyStep,  # เพิ่ม
+    ReadGCSStep,  # ✅ เพิ่ม import นี้
+    WriteGCSStep,  # ✅ เพิ่ม import นี้  
+    GetNewMaxDateStep,  # ✅ เพิ่ม import นี้
 )
 
 # Import BigTable steps

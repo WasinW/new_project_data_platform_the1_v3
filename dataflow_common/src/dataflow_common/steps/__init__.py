@@ -339,13 +339,36 @@ class GetNewMaxDateStep(BaseStep):
         if not input_key:
             raise ValueError(f"GetNewMaxDate step '{self.step_id}' requires an 'in' parameter")
         field_name = self.spec.get("field", "UPDATED_DATE")
+        max_date_step = self.spec.get("max_date_step", "")  # ✅ ดึงจาก spec
         if input_key not in self.state:
             raise KeyError(f"GetNewMaxDate step '{self.step_id}' could not find input key '{input_key}' in state")
         pcoll = self.state[input_key]
         # Extract the date field from each record.
-        dates = pcoll | f"{self.step_id}_ExtractField" >> beam.Map(lambda rec: rec.get(field_name))
-        # Compute the maximum date globally.
-        max_date = dates | f"{self.step_id}_Max" >> beam.CombineGlobally(lambda vals: max(vals) if vals else None)
+        # dates = pcoll | f"{self.step_id}_{self.max_date_step}_ExtractField" >> beam.Map(lambda rec: rec.get(field_name))
+        
+        # สร้าง unique label
+        if max_date_step:
+            extract_label = f"{self.step_id}_{max_date_step}_ExtractField"
+            filter_label = f"{self.step_id}_{max_date_step}_FilterNone"
+            max_label = f"{self.step_id}_{max_date_step}_Max"
+        else:
+            extract_label = f"{self.step_id}_ExtractField"
+            max_label = f"{self.step_id}_Max"
+        
+        # Extract the date field from each record
+        dates = pcoll | extract_label >> beam.Map(lambda rec: rec.get(field_name))
+        # ✅ กรอง None values ออกก่อน
+        dates_filtered = dates | filter_label >> beam.Filter(lambda x: x is not None)
+
+        # ✅ ใช้ custom combiner ที่ handle empty collection
+        def safe_max(vals):
+            # กรอง None อีกครั้งเพื่อความแน่ใจ
+            filtered = [v for v in vals if v is not None]
+            return max(filtered) if filtered else None
+        
+        # Compute the maximum date globally
+        max_date = dates_filtered | max_label >> beam.CombineGlobally(safe_max)
+        
         return max_date
 
 
