@@ -28,9 +28,10 @@ from .steps import (
     WriteToBigQueryStep,  # เพิ่มนี้
     CreateFixedMappingStep,  # เพิ่ม
     CreateEmptyStep,  # เพิ่ม
-    ReadGCSStep,  # ✅ เพิ่ม import นี้
+    # ReadGCSStep,  # ✅ เพิ่ม import นี้
     WriteGCSStep,  # ✅ เพิ่ม import นี้  
     GetNewMaxDateStep,  # ✅ เพิ่ม import นี้
+    SetMaxDateParamStep,  # ✅ เพิ่ม import นี้
 )
 
 # Import BigTable steps
@@ -54,9 +55,10 @@ try:
         WriteToBigQueryStep,
         CreateFixedMappingStep,
         CreateEmptyStep,
-        ReadGCSStep,  # ✅ เพิ่ม import
+        # ReadGCSStep,  # ✅ เพิ่ม import
         WriteGCSStep,  # ✅ เพิ่ม import  
         GetNewMaxDateStep,  # ✅ เพิ่ม import
+        SetMaxDateParamStep,
     )
     STREAMING_AVAILABLE = True
 except ImportError:
@@ -87,9 +89,10 @@ STEP_REGISTRY: Dict[str, Type] = {
     # "WriteToBigQuery": WriteToBigQueryStep,  # เพิ่มนี้
     # "CreateFixedMapping": CreateFixedMappingStep,  # เพิ่ม
     # "CreateEmpty": CreateEmptyStep,  # เพิ่ม
-    "ReadGCS": ReadGCSStep,  # ✅ เพิ่มใน registry
+    # # "ReadGCS": ReadGCSStep,  # ✅ เพิ่มใน registry
     "WriteGCS": WriteGCSStep,  # ✅ เพิ่มใน registry
     "GetNewMaxDate": GetNewMaxDateStep,  # ✅ เพิ่มใน registry
+    "SetMaxDateParam": SetMaxDateParamStep,  # ✅ เพิ่มใน registry
 
 }
 # Add streaming steps only if available

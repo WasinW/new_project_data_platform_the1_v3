@@ -94,5 +94,6 @@ gsutil cp composer/dags/dag_ms_member_short_term2.py gs://t1-airflow-composer-bu
 gsutil cp dataflow_common/ms_member_short_pipeline.py gs://t1-dataflow-framework-bucket/jobs/
 
 gsutil cp composer/config/ms_member/batch/ms_member_short_init.yaml gs://t1-airflow-composer-bucket/dags/composer/config/ms_member/batch/
+gsutil cp composer/config/ms_member/batch/ms_member_short.yaml gs://t1-airflow-composer-bucket/dags/composer/config/ms_member/batch/
 gsutil cp composer/dags/dag_ms_member_short_term_init.py gs://t1-airflow-composer-bucket/dags/composer/dags/
 

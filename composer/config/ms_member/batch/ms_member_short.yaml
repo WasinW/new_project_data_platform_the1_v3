@@ -49,11 +49,14 @@ io:
 # field becomes a key in the orchestration state.  The order of
 # steps matters.  See README for more details.
 plan:
-- step: ReadGCS
-  id: max_date
-  out: max_date
-  path: gs://t1-insight-audit-bucket/cache/ms_member_max_date.txt
-  format: text
+# - step: ReadGCS
+#   id: max_date
+#   out: max_date
+#   path: gs://t1-insight-audit-bucket/cache/ms_member_max_date.txt
+#   format: text
+# - step: SetMaxDateParam # เพิ่ม step นี้
+#   in: max_date
+#   out: max_date_set
 
 - step: ReadBQQuery
   id: mapping_rows
@@ -125,9 +128,10 @@ plan:
   flag_field: RECONCILE_RETRIEVED
   dest_field: RECONCILE_COLUMN_NAME
 - step: GetNewMaxDate
+  max_date_step: new
+  field: updated_date
   in: reconcile_rows
   out: new_max_date
-  field: UPDATED_DATE
 - step: WriteGCS
   in: new_max_date
   path: gs://t1-insight-audit-bucket/cache/ms_member_max_date.txt

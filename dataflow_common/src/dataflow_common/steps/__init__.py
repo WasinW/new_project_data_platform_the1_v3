@@ -282,23 +282,23 @@ class WriteToBigQueryStep(BaseStep):
         
         return None
 
-class ReadGCSStep(BaseStep):
-    def execute(self, pipeline: beam.Pipeline) -> beam.PCollection:
-        # Determine the path and format from the step specification.
-        path = self.spec.get("path") or self.spec.get("gcs_path")
-        if not path:
-            raise ValueError(f"ReadGCS step '{self.step_id}' requires a 'path' parameter")
-        fmt = (self.spec.get("format") or "text").lower()
-        if fmt not in {"text", "json"}:
-            raise ValueError(f"Unsupported format '{fmt}' in ReadGCS step '{self.step_id}'")
+# class ReadGCSStep(BaseStep):
+#     def execute(self, pipeline: beam.Pipeline) -> beam.PCollection:
+#         # Determine the path and format from the step specification.
+#         path = self.spec.get("path") or self.spec.get("gcs_path")
+#         if not path:
+#             raise ValueError(f"ReadGCS step '{self.step_id}' requires a 'path' parameter")
+#         fmt = (self.spec.get("format") or "text").lower()
+#         if fmt not in {"text", "json"}:
+#             raise ValueError(f"Unsupported format '{fmt}' in ReadGCS step '{self.step_id}'")
 
-        # Read the file as text lines.
-        pcoll = pipeline | self.step_id >> beam.io.ReadFromText(path)
+#         # Read the file as text lines.
+#         pcoll = pipeline | self.step_id >> beam.io.ReadFromText(path)
 
-        # Optionally parse JSON lines.
-        if fmt == "json":
-            pcoll = pcoll | f"{self.step_id}_ParseJson" >> beam.Map(json.loads)
-        return pcoll
+#         # Optionally parse JSON lines.
+#         if fmt == "json":
+#             pcoll = pcoll | f"{self.step_id}_ParseJson" >> beam.Map(json.loads)
+#         return pcoll
 
 
 class WriteGCSStep(BaseStep):
@@ -353,10 +353,18 @@ class GetNewMaxDateStep(BaseStep):
             max_label = f"{self.step_id}_{max_date_step}_Max"
         else:
             extract_label = f"{self.step_id}_ExtractField"
+            filter_label = f"{self.step_id}_FilterNone"  # ✅ เพิ่มบรรทัดนี้
             max_label = f"{self.step_id}_Max"
-        
+        # Debug: ดูว่ามี field อะไรบ้าง
+        def debug_fields(rec):
+            if rec:
+                LOGGER.info(f"Available fields: {list(rec.keys())}")
+                LOGGER.info(f"UPDATED_DATE value: {rec.get('UPDATED_DATE')}")
+            return rec.get(field_name)
+
         # Extract the date field from each record
-        dates = pcoll | extract_label >> beam.Map(lambda rec: rec.get(field_name))
+        dates = pcoll | f"{extract_label}" >> beam.Map(debug_fields) \
+                | extract_label >> beam.Map(lambda rec: rec.get(field_name))
         # ✅ กรอง None values ออกก่อน
         dates_filtered = dates | filter_label >> beam.Filter(lambda x: x is not None)
 
@@ -370,7 +378,23 @@ class GetNewMaxDateStep(BaseStep):
         max_date = dates_filtered | max_label >> beam.CombineGlobally(safe_max)
         
         return max_date
-
+class SetMaxDateParamStep(BaseStep):
+    """Set max_date from PCollection to params"""
+    
+    def execute(self, pipeline: beam.Pipeline) -> beam.PCollection:
+        input_key = self.spec.get("in")
+        if not input_key or input_key not in self.state:
+            raise KeyError(f"Step {self.step_id}: missing input '{input_key}'")
+        
+        pcoll = self.state[input_key]
+        
+        # Extract single value and set to params
+        def set_param(value):
+            if value:
+                self.config.params.max_date = str(value).strip()
+            return value
+        
+        return pcoll | f"{self.step_id}_SetParam" >> beam.Map(set_param)
 
 __all__ = [
     "BaseStep",
@@ -393,4 +417,5 @@ __all__ = [
     "WriteGCSStep",
     "GetNewMaxDateStep",
     "ReadGCSStep",
+    "SetMaxDateParamStep",
 ]

@@ -127,7 +127,7 @@ plan:
   dest_field: RECONCILE_COLUMN_NAME
 - step: GetNewMaxDate
   max_date_step: new
-  field: UPDATED_DATE
+  field: updated_date
   in: reconcile_rows
   out: new_max_date
 - step: WriteGCS
