@@ -125,7 +125,7 @@ class MapRecordStep(BaseStep):
 
 
 class KVPairsStep(BaseStep):
-    # check key ที่ join เจอ 
+    # map key with id , map value with record
     """Convert records into key/value pairs keyed by the specified field."""
 
     def execute(self, pipeline: beam.Pipeline) -> beam.PCollection:
@@ -176,17 +176,17 @@ class CoalesceByMappingStep(BaseStep):
             raise KeyError(f"Step {self.step_id}: missing or unknown side input '{side_key}'")
         if not flag_field:
             raise ValueError(f"Step {self.step_id}: 'flag_field' must be provided for CoalesceByMapping")
-        pcoll = self.state[input_key]
-        mapping_rows_pcoll = self.state[side_key]
-        columns_side = beam.pvalue.AsList(mapping_rows_pcoll)
+        pcoll = self.state[input_key] # grouped
+        mapping_rows_pcoll = self.state[side_key] # mapping df : mapping_rows
+        columns_side = beam.pvalue.AsList(mapping_rows_pcoll) # as list of dict
         pk_field = self.config.params.pk
-        dest_field = self.spec.get("dest_field") or "dest_column_name"
+        dest_field = self.spec.get("dest_field") or "dest_column_name" # RECONCILE_COLUMN_NAME
         return pcoll | f"{self.step_id}_Coalesce" >> beam.Map(
             coalesce_by_mapping,
-            columns=columns_side,
-            flag_field=flag_field,
-            pk_field=pk_field,
-            dest_field=dest_field,
+            columns=columns_side, # mapping as list
+            flag_field=flag_field, # RECONCILE_RETRIEVED flag
+            pk_field=pk_field, # member_number
+            dest_field=dest_field, # RECONCILE_COLUMN_NAME
         )
 
 

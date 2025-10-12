@@ -119,8 +119,8 @@ plan:
   id: grouped
   out: grouped
   as:
-    new: kv_new
     old: kv_old
+    new: kv_new
 - step: CoalesceByMapping
   in: grouped
   side: mapping_rows
@@ -151,15 +151,6 @@ plan:
 - step: WriteParquet
   in: reconcile_casted
   prefix: "{io.s3.refined_prefix}/ms_personas_dev/par_month={params.run_par_month}/par_day={params.run_par_day}/par_hour={params.run_par_hour}/run_dt={params.run_dt}"
-- step: GetNewMaxDate
-  in: reconcile_rows
-  out: new_max_date
-  field: UPDATED_DATE
-
-- step: WriteGCS
-  in: new_max_date
-  path: gs://t1-insight-audit-bucket/cache/ms_member_max_date.txt
-  format: text
 
 # - step: WriteParquet
 #   in: member_casted

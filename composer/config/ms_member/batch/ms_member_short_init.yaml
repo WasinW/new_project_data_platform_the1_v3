@@ -88,8 +88,7 @@ plan:
         ORDER BY TIMESTAMP DESC
       ) AS RN_PK
       FROM `the1-insight-stg.insight.personas`
-      -- mock for test 
-      WHERE TIMESTAMP < TIMESTAMP('2025-10-01 00:00:00')
+      WHERE TIMESTAMP <= TIMESTAMP('2025-10-08 00:00:00')
     ) WHERE RN_PK = 1
 
 - step: ReadBQQuery
@@ -106,19 +105,19 @@ plan:
   out: mapped_new
   mode: reconcile
 - step: KVPairs
-  in: mapped_new
-  out: kv_new
-  key_field: "{params.pk}"
-- step: KVPairs
   in: origin_rows
   out: kv_old
+  key_field: "{params.pk}"
+- step: KVPairs
+  in: mapped_new
+  out: kv_new
   key_field: "{params.pk}"
 - step: CoGroupByKey
   id: grouped
   out: grouped
   as:
-    new: kv_new
     old: kv_old
+    new: kv_new
 - step: CoalesceByMapping
   in: grouped
   side: mapping_rows

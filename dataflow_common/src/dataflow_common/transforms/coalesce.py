@@ -73,6 +73,7 @@ def coalesce_by_mapping(
             out[tgt] = fallback
         else:
             out[tgt] = preferred
+            # out["org_column_name"] = values by old or new 
     # ensure PK always present
     if pk_field in new_row:
         out.setdefault(pk_field, new_row.get(pk_field))
