@@ -79,7 +79,7 @@ plan:
     confirmed_flag_field: RECONCILE_CONFIRMED
 - step: ReadBQQuery
   id: source_rows
-  out: source_rows
+  out: source_rows_raw
   query: |
     SELECT * EXCEPT(RN_PK)
     FROM (
@@ -90,6 +90,12 @@ plan:
       FROM `the1-insight-stg.insight.personas`
       WHERE TIMESTAMP <= TIMESTAMP('2025-10-08 00:00:00')
     ) WHERE RN_PK = 1
+
+# เพิ่ม step parse JSON
+- step: ParseProfiles
+  in: source_rows_raw
+  out: source_rows
+  json_fields: [ "profiles" ]
 
 - step: ReadBQQuery
   id: origin_rows

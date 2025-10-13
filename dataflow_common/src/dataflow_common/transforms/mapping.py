@@ -76,10 +76,19 @@ def extract_by_path(record: Dict[str, Any], path: List[str]) -> Any:
     Returns ``None`` if any intermediate key is missing.  If ``path``
     is empty the original record is returned.
     """
+    import json
     cur: Any = record
-    for part in path:
+    for i, part in enumerate(path):
         if cur is None:
             return None
+            
+        # ถ้า cur เป็น string และยังมี path เหลือ = น่าจะเป็น JSON
+        if isinstance(cur, str) and i < len(path):
+            try:
+                cur = json.loads(cur)
+            except:
+                return None
+                
         if isinstance(cur, dict):
             cur = cur.get(part)
         else:

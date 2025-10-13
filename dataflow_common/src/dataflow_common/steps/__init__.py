@@ -101,7 +101,24 @@ class BuildMappingDictStep(BaseStep):
             )
         )
 
-
+class ParseProfilesStep(BaseStep):
+    def execute(self, pipeline):
+        input_key = self.spec.get("in")
+        json_fields = self.spec.get("json_fields", ["profiles"])
+        pcoll = self.state[input_key]
+        
+        def parse_json_fields(record):
+            rec = dict(record)
+            for field in json_fields:
+                if field in rec and isinstance(rec[field], str):
+                    try:
+                        rec[field] = json.loads(rec[field])
+                    except:
+                        pass
+            return rec
+        
+        return pcoll | f"{self.step_id}_Parse" >> beam.Map(parse_json_fields)
+    
 class MapRecordStep(BaseStep):
     """Apply a mapping dictionary to each record in the input PCollection."""
 
@@ -355,16 +372,18 @@ class GetNewMaxDateStep(BaseStep):
             extract_label = f"{self.step_id}_ExtractField"
             filter_label = f"{self.step_id}_FilterNone"  # ✅ เพิ่มบรรทัดนี้
             max_label = f"{self.step_id}_Max"
-        # Debug: ดูว่ามี field อะไรบ้าง
-        def debug_fields(rec):
+        def extract_with_debug(rec):
             if rec:
                 LOGGER.info(f"Available fields: {list(rec.keys())}")
-                LOGGER.info(f"UPDATED_DATE value: {rec.get('UPDATED_DATE')}")
-            return rec.get(field_name)
+                value = rec.get(field_name)
+                LOGGER.info(f"{field_name} value: {value}")
+                return value
+            return None
 
         # Extract the date field from each record
-        dates = pcoll | f"{extract_label}" >> beam.Map(debug_fields) \
-                | extract_label >> beam.Map(lambda rec: rec.get(field_name))
+        dates = pcoll | extract_label >> beam.Map(extract_with_debug)
+        # dates = pcoll | f"{extract_label}" >> beam.Map(debug_fields) \
+                # | extract_label >> beam.Map(lambda rec: rec.get(field_name))
         # ✅ กรอง None values ออกก่อน
         dates_filtered = dates | filter_label >> beam.Filter(lambda x: x is not None)
 
@@ -400,6 +419,7 @@ __all__ = [
     "BaseStep",
     "ReadBQQueryStep",
     "BuildMappingDictStep",
+    "ParseProfilesStep",
     "MapRecordStep",
     "KVPairsStep",
     "CoGroupByKeyStep",

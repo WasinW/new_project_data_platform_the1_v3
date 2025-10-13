@@ -82,7 +82,7 @@ plan:
     confirmed_flag_field: RECONCILE_CONFIRMED
 - step: ReadBQQuery
   id: source_rows
-  out: source_rows
+  out: source_rows_raw
   query: |
     SELECT * EXCEPT(RN_PK)
     FROM (
@@ -93,6 +93,12 @@ plan:
       FROM `the1-insight-stg.insight.personas`
       WHERE TIMESTAMP >= TIMESTAMP('{params.max_date}')
     ) WHERE RN_PK = 1
+
+# เพิ่ม step parse JSON
+- step: ParseProfiles
+  in: source_rows_raw
+  out: source_rows
+  json_fields: [ "profiles" ]
 
 - step: ReadBQQuery
   id: origin_rows
@@ -108,12 +114,12 @@ plan:
   out: mapped_new
   mode: reconcile
 - step: KVPairs
-  in: mapped_new
-  out: kv_new
-  key_field: "{params.pk}"
-- step: KVPairs
   in: origin_rows
   out: kv_old
+  key_field: "{params.pk}"
+- step: KVPairs
+  in: mapped_new
+  out: kv_new
   key_field: "{params.pk}"
 - step: CoGroupByKey
   id: grouped
