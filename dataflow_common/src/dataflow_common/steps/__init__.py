@@ -193,18 +193,25 @@ class CoalesceByMappingStep(BaseStep):
             raise KeyError(f"Step {self.step_id}: missing or unknown side input '{side_key}'")
         if not flag_field:
             raise ValueError(f"Step {self.step_id}: 'flag_field' must be provided for CoalesceByMapping")
+        
         pcoll = self.state[input_key] # grouped
-        mapping_rows_pcoll = self.state[side_key] # mapping df : mapping_rows
-        columns_side = beam.pvalue.AsList(mapping_rows_pcoll) # as list of dict
+        mapping_rows_pcoll = self.state[side_key]
+        columns_side = beam.pvalue.AsList(mapping_rows_pcoll)
         pk_field = self.config.params.pk
-        dest_field = self.spec.get("dest_field") or "dest_column_name" # RECONCILE_COLUMN_NAME
+        dest_field = self.spec.get("dest_field") or "dest_column_name"
+
+        # mapping_rows_pcoll = self.state[side_key] # mapping df : mapping_rows
+        # columns_side = beam.pvalue.AsList(mapping_rows_pcoll) # as list of dict
+        # pk_field = self.config.params.pk
+        # dest_field = self.spec.get("dest_field") or "dest_column_name" # RECONCILE_COLUMN_NAME
         return pcoll | f"{self.step_id}_Coalesce" >> beam.Map(
             coalesce_by_mapping,
             columns=columns_side, # mapping as list
             flag_field=flag_field, # RECONCILE_RETRIEVED flag
             pk_field=pk_field, # member_number
             dest_field=dest_field, # RECONCILE_COLUMN_NAME
-        )
+            )\
+            | f"{self.step_id}_FilterNone" >> beam.Filter(lambda x: x is not None)
 
 
 class NormalizeToSchemaStep(BaseStep):

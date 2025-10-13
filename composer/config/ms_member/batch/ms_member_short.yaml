@@ -106,8 +106,12 @@ plan:
   query: |
     SELECT DISTINCT origin.*
     FROM `{io.bq.project}.{io.bq.dataset}.stg_ms_member` origin
-    INNER JOIN `the1-insight-stg.insight.personas` src
-    ON origin.MEMBER_NUMBER = JSON_VALUE(src.profiles, '$.memberId')
+    INNER JOIN (
+      SELECT DISTINCT JSON_VALUE(profiles, '$.memberId') as member_id
+      FROM `the1-insight-stg.insight.personas`
+      WHERE TIMESTAMP >= TIMESTAMP('{params.max_date}')
+    ) new_members
+    ON origin.MEMBER_NUMBER = new_members.member_id
 - step: MapRecord
   in: source_rows
   side: mapping_dict
