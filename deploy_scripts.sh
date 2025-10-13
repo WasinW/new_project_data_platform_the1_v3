@@ -80,13 +80,13 @@ gsutil cp dist/dataflow_common-1.0.0-py3-none-any.whl \
     gs://t1-airflow-composer-bucket/dags/packages/
 
 # Build Docker image ใหม่
-docker build -t dataflow-test:v1.20 .
+docker build -t dataflow-test:v1.21 .
 
 # Push
-docker tag dataflow-test:v1.20 \
-    asia-southeast1-docker.pkg.dev/the1-insight-dev/dataflow-images/dataflow-common:v1.20
+docker tag dataflow-test:v1.21 \
+    asia-southeast1-docker.pkg.dev/the1-insight-dev/dataflow-images/dataflow-common:v1.21
 
-docker push asia-southeast1-docker.pkg.dev/the1-insight-dev/dataflow-images/dataflow-common:v1.20
+docker push asia-southeast1-docker.pkg.dev/the1-insight-dev/dataflow-images/dataflow-common:v1.21
 
 gsutil cp composer/dags/test_run_bigquery_pipeline2.py gs://t1-airflow-composer-bucket/dags/composer/dags/test_run_bigquery_pipeline.py
 gsutil cp composer/dags/dag_ms_member_short_term.py gs://t1-airflow-composer-bucket/dags/composer/dags/
@@ -100,3 +100,6 @@ gsutil cp composer/dags/dag_ms_member_short_term2.py gs://t1-airflow-composer-bu
 
 gsutil cp composer/dags/dag_ms_member_short_term2.py gs://t1-airflow-composer-bucket/dags/composer/dags/
 gsutil cp composer/config/ms_member/batch/ms_member_short.yaml gs://t1-airflow-composer-bucket/dags/composer/config/ms_member/batch/
+
+gsutil cp dataflow/job/ms_member_short_bootstrap.py gs://t1-dataflow-framework-bucket/jobs/
+gsutil cp composer/dags/dag_ms_member_short_term_bs.py gs://t1-airflow-composer-bucket/dags/composer/dags/
