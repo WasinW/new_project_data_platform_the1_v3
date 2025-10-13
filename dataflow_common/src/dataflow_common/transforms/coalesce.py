@@ -116,12 +116,13 @@ def coalesce_by_mapping(
             out[tgt] = new_row[tgt]
         # If neither has the column, skip it
     
+    # Add PK only if we have new data
     # Ensure PK is always present
-    if pk_field:
-        pk_value = new_row.get(pk_field) or old_row.get(pk_field)
-        if pk_value is not None:
-            out[pk_field] = pk_value
+    if pk_field and new_row.get(pk_field):
+        out[pk_field] = new_row.get(pk_field)
+    elif pk_field and old_row.get(pk_field):
+        out[pk_field] = old_row.get(pk_field)
     
-    return out if out else None  # ✅ Return None if empty
+    return out
 
 __all__ = ["coalesce_by_mapping"]

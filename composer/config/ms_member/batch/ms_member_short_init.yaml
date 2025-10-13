@@ -139,18 +139,9 @@ plan:
   in: new_max_date
   path: gs://t1-insight-audit-bucket/cache/ms_member_max_date.txt
   format: text
-# - step: CoalesceByMapping
-#   in: grouped
-#   side: mapping_rows
-#   out: patch_origin_rows
-#   flag_field: RECONCILE_CONFIRMED
-#   dest_field: RECONCILE_COLUMN_NAME
 - step: NormalizeToSchema
   in: reconcile_rows
   out: reconcile_casted
-# - step: NormalizeToSchema
-#   in: patch_origin_rows
-#   out: member_casted
 - step: WriteParquet
   in: reconcile_casted
   prefix: "{io.s3.refined_prefix}/ms_personas_dev/par_month={params.run_par_month}/par_day={params.run_par_day}/par_hour={params.run_par_hour}/run_dt={params.run_dt}"

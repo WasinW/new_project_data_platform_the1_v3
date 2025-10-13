@@ -137,6 +137,7 @@ plan:
   out: reconcile_rows
   flag_field: RECONCILE_RETRIEVED
   dest_field: RECONCILE_COLUMN_NAME
+# ----------- max date -------------- 
 - step: GetNewMaxDate
   max_date_step: new
   field: updated_date
@@ -146,12 +147,7 @@ plan:
   in: new_max_date
   path: gs://t1-insight-audit-bucket/cache/ms_member_max_date.txt
   format: text
-# - step: CoalesceByMapping
-#   in: grouped
-#   side: mapping_rows
-#   out: patch_origin_rows
-#   flag_field: RECONCILE_CONFIRMED
-#   dest_field: RECONCILE_COLUMN_NAME
+# ----------- max date -------------- 
 - step: NormalizeToSchema
   in: reconcile_rows
   out: reconcile_casted

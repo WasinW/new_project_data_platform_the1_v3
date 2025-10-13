@@ -200,10 +200,6 @@ class CoalesceByMappingStep(BaseStep):
         pk_field = self.config.params.pk
         dest_field = self.spec.get("dest_field") or "dest_column_name"
 
-        # mapping_rows_pcoll = self.state[side_key] # mapping df : mapping_rows
-        # columns_side = beam.pvalue.AsList(mapping_rows_pcoll) # as list of dict
-        # pk_field = self.config.params.pk
-        # dest_field = self.spec.get("dest_field") or "dest_column_name" # RECONCILE_COLUMN_NAME
         return pcoll | f"{self.step_id}_Coalesce" >> beam.Map(
             coalesce_by_mapping,
             columns=columns_side, # mapping as list
