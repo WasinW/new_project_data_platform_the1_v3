@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 """
 Script to split dataflow_common into dataflow_builder and dataflow_worker packages
+Fixed for Windows encoding issues
 Usage: python refactor_split_packages.py
 """
 
@@ -19,7 +20,7 @@ class DataflowRefactorer:
         
     def run(self):
         """Execute the refactoring process"""
-        print("🚀 Starting Dataflow Refactoring...")
+        print("Starting Dataflow Refactoring...")
         
         # Step 1: Create directory structure
         self.create_directory_structure()
@@ -36,12 +37,12 @@ class DataflowRefactorer:
         # Step 5: Create modified files
         self.create_modified_files()
         
-        print("✅ Refactoring completed successfully!")
-        print(f"📁 New packages created in: {self.target_dir}")
+        print("Refactoring completed successfully!")
+        print(f"New packages created in: {self.target_dir}")
         
     def create_directory_structure(self):
         """Create the new package structure"""
-        print("📁 Creating directory structure...")
+        print("Creating directory structure...")
         
         # Builder package
         (self.builder_dir / "src" / "dataflow_builder").mkdir(parents=True, exist_ok=True)
@@ -54,7 +55,7 @@ class DataflowRefactorer:
         
     def copy_files(self):
         """Copy files to appropriate packages"""
-        print("📋 Copying files...")
+        print("Copying files...")
         
         source_base = self.source_dir / "src" / "dataflow_common"
         
@@ -70,7 +71,7 @@ class DataflowRefactorer:
             if src.exists():
                 dst = self.builder_dir / "src" / "dataflow_builder" / file
                 shutil.copy2(src, dst)
-                print(f"  ✓ Copied {file} to builder")
+                print(f"  Copied {file} to builder")
         
         # Files for dataflow_worker (Worker side)
         worker_files = [
@@ -83,7 +84,7 @@ class DataflowRefactorer:
             if src.exists():
                 dst = self.worker_dir / "src" / "dataflow_worker" / file
                 shutil.copy2(src, dst)
-                print(f"  ✓ Copied {file} to worker")
+                print(f"  Copied {file} to worker")
         
         # Copy entire directories
         for subdir in ["steps", "transforms", "connectors"]:
@@ -91,11 +92,11 @@ class DataflowRefactorer:
             if src_dir.exists():
                 dst_dir = self.worker_dir / "src" / "dataflow_worker" / subdir
                 shutil.copytree(src_dir, dst_dir, dirs_exist_ok=True)
-                print(f"  ✓ Copied {subdir}/ to worker")
+                print(f"  Copied {subdir}/ to worker")
                 
     def update_imports(self):
         """Update import statements in copied files"""
-        print("🔧 Updating imports...")
+        print("Updating imports...")
         
         # Update worker files
         worker_base = self.worker_dir / "src" / "dataflow_worker"
@@ -116,7 +117,8 @@ class DataflowRefactorer:
     def _update_file_imports(self, file_path: Path, replacements: List[Tuple[str, str]]):
         """Update imports in a single file"""
         try:
-            with open(file_path, 'r') as f:
+            # Use UTF-8 encoding explicitly
+            with open(file_path, 'r', encoding='utf-8') as f:
                 content = f.read()
             
             original = content
@@ -124,15 +126,15 @@ class DataflowRefactorer:
                 content = re.sub(pattern, replacement, content)
             
             if content != original:
-                with open(file_path, 'w') as f:
+                with open(file_path, 'w', encoding='utf-8') as f:
                     f.write(content)
-                print(f"  ✓ Updated imports in {file_path.name}")
+                print(f"  Updated imports in {file_path.name}")
         except Exception as e:
-            print(f"  ⚠ Error updating {file_path.name}: {e}")
+            print(f"  Error updating {file_path.name}: {e}")
             
     def create_setup_files(self):
         """Create setup.py and pyproject.toml for each package"""
-        print("📝 Creating setup files...")
+        print("Creating setup files...")
         
         # Builder setup.py
         builder_setup = '''from setuptools import setup, find_packages
@@ -150,7 +152,7 @@ setup(
     description="Dataflow pipeline builder (driver side)",
 )
 '''
-        (self.builder_dir / "setup.py").write_text(builder_setup)
+        (self.builder_dir / "setup.py").write_text(builder_setup, encoding='utf-8')
         
         # Worker setup.py
         worker_setup = '''from setuptools import setup, find_packages
@@ -172,13 +174,13 @@ setup(
     description="Dataflow pipeline worker (execution side)",
 )
 '''
-        (self.worker_dir / "setup.py").write_text(worker_setup)
+        (self.worker_dir / "setup.py").write_text(worker_setup, encoding='utf-8')
         
-        print("  ✓ Created setup.py files")
+        print("  Created setup.py files")
         
     def create_modified_files(self):
         """Create modified registry.py and orchestrator.py"""
-        print("🔨 Creating modified core files...")
+        print("Creating modified core files...")
         
         # Modified registry.py for builder
         registry_content = '''"""
@@ -218,13 +220,15 @@ STEP_REGISTRY = {
 
 __all__ = ["STEP_REGISTRY"]
 '''
-        (self.builder_dir / "src" / "dataflow_builder" / "registry.py").write_text(registry_content)
+        (self.builder_dir / "src" / "dataflow_builder" / "registry.py").write_text(
+            registry_content, encoding='utf-8'
+        )
         
         # Create orchestrator patch
         self._create_orchestrator_patch()
         
-        print("  ✓ Created registry.py with string references")
-        print("  ✓ Created orchestrator_patch.py")
+        print("  Created registry.py with string references")
+        print("  Created orchestrator_patch.py")
         
     def _create_orchestrator_patch(self):
         """Create a patch file for orchestrator.py modifications"""
@@ -321,40 +325,48 @@ class DeferredStepDoFn(beam.DoFn):
         yield from self.step_instance.process(element)
 '''
         
-        (self.builder_dir / "orchestrator_patch.py").write_text(patch_content)
+        (self.builder_dir / "orchestrator_patch.py").write_text(
+            patch_content, encoding='utf-8'
+        )
 
 def create_build_scripts():
     """Create build and deployment scripts"""
     
-    # Build script
-    build_script = '''#!/bin/bash
-# Build script for dataflow packages
+    # Build script for Windows
+    build_script_bat = '''@echo off
+REM Build script for dataflow packages (Windows)
 
-set -e
+echo Building dataflow packages...
 
-echo "🔨 Building dataflow packages..."
-
-# Build dataflow-builder wheel
-echo "📦 Building dataflow-builder..."
-cd dataflow_framework_v2/dataflow_builder
+REM Build dataflow-builder wheel
+echo Building dataflow-builder...
+cd dataflow_framework_v2\\dataflow_builder
 python -m pip install build
 python -m build
-echo "✓ Built dataflow-builder"
+echo Built dataflow-builder
 
-# Build dataflow-worker for Docker
-echo "📦 Preparing dataflow-worker..."
-cd ../dataflow_worker
+REM Build dataflow-worker
+echo Preparing dataflow-worker...
+cd ..\\dataflow_worker
 python -m build
-echo "✓ Built dataflow-worker"
+echo Built dataflow-worker
 
-# Create Docker image
-echo "🐳 Building Docker image..."
-cat > Dockerfile << 'EOF'
-FROM apache/beam_python3.11_sdk:2.59.0
+cd ..\\..
+echo Build completed!
+echo.
+echo Next steps:
+echo 1. Upload wheel: gsutil cp dataflow_framework_v2\\dataflow_builder\\dist\\*.whl gs://t1-airflow-composer-bucket/dags/packages/
+echo 2. Build Docker image with Dockerfile
+'''
+    
+    Path("build_packages.bat").write_text(build_script_bat, encoding='utf-8')
+    
+    # Dockerfile
+    dockerfile = '''FROM apache/beam_python3.11_sdk:2.59.0
 
 # Copy wheels
-COPY dataflow_builder/dist/*.whl /tmp/
-COPY dataflow_worker/dist/*.whl /tmp/
+COPY dataflow_framework_v2/dataflow_builder/dist/*.whl /tmp/
+COPY dataflow_framework_v2/dataflow_worker/dist/*.whl /tmp/
 
 # Install packages
 RUN pip install /tmp/dataflow-builder-*.whl && \\
@@ -368,21 +380,9 @@ RUN pip install --no-cache-dir \\
     google-cloud-bigquery==3.25.0
 
 WORKDIR /
-EOF
-
-cd ..
-docker build -t dataflow-worker:v2.0 .
-
-echo "✅ Build completed!"
-echo ""
-echo "📋 Next steps:"
-echo "1. Upload wheel: gsutil cp dataflow_builder/dist/*.whl gs://t1-airflow-composer-bucket/dags/packages/"
-echo "2. Push Docker: docker tag dataflow-worker:v2.0 asia-southeast1-docker.pkg.dev/the1-insight-dev/dataflow-images/dataflow-worker:v2.0"
-echo "3. Push Docker: docker push asia-southeast1-docker.pkg.dev/the1-insight-dev/dataflow-images/dataflow-worker:v2.0"
 '''
     
-    Path("build_packages.sh").write_text(build_script)
-    os.chmod("build_packages.sh", 0o755)
+    Path("Dockerfile").write_text(dockerfile, encoding='utf-8')
     
     # Test script
     test_script = '''#!/usr/bin/env python
@@ -402,17 +402,17 @@ def test_basic_import():
     # Test builder imports
     try:
         from dataflow_builder import config, orchestrator, registry
-        print("✓ dataflow_builder imports OK")
+        print("  OK: dataflow_builder imports")
     except ImportError as e:
-        print(f"✗ dataflow_builder import failed: {e}")
+        print(f"  FAIL: dataflow_builder import failed: {e}")
         return False
     
     # Test worker imports  
     try:
         from dataflow_worker import core, steps, transforms, connectors
-        print("✓ dataflow_worker imports OK")
+        print("  OK: dataflow_worker imports")
     except ImportError as e:
-        print(f"✗ dataflow_worker import failed: {e}")
+        print(f"  FAIL: dataflow_worker import failed: {e}")
         return False
         
     return True
@@ -423,13 +423,13 @@ def test_registry():
     
     for step_name, step_path in STEP_REGISTRY.items():
         if not isinstance(step_path, str):
-            print(f"✗ {step_name} is not a string reference!")
+            print(f"  FAIL: {step_name} is not a string reference!")
             return False
         if not step_path.startswith("dataflow_worker."):
-            print(f"✗ {step_name} doesn't reference dataflow_worker!")
+            print(f"  FAIL: {step_name} doesn't reference dataflow_worker!")
             return False
     
-    print(f"✓ Registry has {len(STEP_REGISTRY)} string references")
+    print(f"  OK: Registry has {len(STEP_REGISTRY)} string references")
     return True
 
 def test_dynamic_import():
@@ -445,16 +445,16 @@ def test_dynamic_import():
             module_path, class_name = step_path.rsplit('.', 1)
             module = importlib.import_module(module_path)
             step_class = getattr(module, class_name)
-            print(f"✓ Successfully imported {class_name}")
+            print(f"  OK: Successfully imported {class_name}")
             return True
         except Exception as e:
-            print(f"✗ Failed to import: {e}")
+            print(f"  FAIL: Failed to import: {e}")
             return False
     
     return False
 
 if __name__ == "__main__":
-    print("🧪 Testing refactored packages...\\n")
+    print("Testing refactored packages...\\n")
     
     results = []
     results.append(test_basic_import())
@@ -462,14 +462,13 @@ if __name__ == "__main__":
     results.append(test_dynamic_import())
     
     if all(results):
-        print("\\n✅ All tests passed!")
+        print("\\n=== All tests passed! ===")
     else:
-        print("\\n❌ Some tests failed")
+        print("\\n=== Some tests failed ===")
         sys.exit(1)
 '''
     
-    Path("test_refactor.py").write_text(test_script)
-    os.chmod("test_refactor.py", 0o755)
+    Path("test_refactor.py").write_text(test_script, encoding='utf-8')
 
 if __name__ == "__main__":
     # Run the refactoring
@@ -479,8 +478,9 @@ if __name__ == "__main__":
     # Create additional scripts
     create_build_scripts()
     
-    print("\n📋 Additional files created:")
-    print("  • build_packages.sh - Build script")
-    print("  • test_refactor.py - Test script")
-    print("\n🎯 Run './test_refactor.py' to test the refactoring")
-    print("🚀 Run './build_packages.sh' to build packages")
+    print("\nAdditional files created:")
+    print("  - build_packages.bat - Build script for Windows")
+    print("  - Dockerfile - Docker build file")
+    print("  - test_refactor.py - Test script")
+    print("\nRun 'python test_refactor.py' to test the refactoring")
+    print("Run 'build_packages.bat' to build packages")
