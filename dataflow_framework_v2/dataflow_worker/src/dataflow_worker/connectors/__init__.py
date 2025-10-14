@@ -19,7 +19,7 @@ from apache_beam.io.gcp.bigquery import ReadFromBigQuery
 from apache_beam.io.parquetio import WriteToParquet
 
 from dataflow_builder.config import PipelineConfig
-from ..transforms.schema import load_schema_from_spec
+from dataflow_worker.transforms.schema import load_schema_from_spec
 
 from .bigtable import BigTableConnector
 from .pubsub import PubSubConnector

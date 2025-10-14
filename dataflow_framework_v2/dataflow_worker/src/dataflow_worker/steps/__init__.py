@@ -24,9 +24,9 @@ from apache_beam.io.gcp.bigquery import WriteToBigQuery  # ย้ายมาห
 # configuration logic in each step.
 
 from dataflow_builder.config import PipelineConfig
-from ..core import BaseStep
-from ..connectors import BigQueryConnector, ParquetConnector
-from ..transforms import (
+from dataflow_worker.core import BaseStep
+from dataflow_worker.connectors import BigQueryConnector, ParquetConnector
+from dataflow_worker.transforms import (
     create_mapping_dict,
     map_record,
     coalesce_by_mapping,

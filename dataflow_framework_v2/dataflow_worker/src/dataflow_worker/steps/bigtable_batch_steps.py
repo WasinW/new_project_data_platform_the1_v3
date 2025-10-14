@@ -7,8 +7,8 @@ Cost-optimized batch operations
 
 from typing import Dict, Any
 import apache_beam as beam
-from ..core import BaseStep
-from ..connectors.bigtable_batch import BigTableBatchConnector
+from dataflow_worker.core import BaseStep
+from dataflow_worker.connectors.bigtable_batch import BigTableBatchConnector
 import logging
 
 LOGGER = logging.getLogger(__name__)

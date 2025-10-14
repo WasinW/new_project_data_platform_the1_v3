@@ -7,8 +7,8 @@ Low-latency per-message operations
 
 from typing import Dict, Any
 import apache_beam as beam
-from ..core import BaseStep
-from ..connectors.bigtable_realtime import BigTableRealtimeConnector
+from dataflow_worker.core import BaseStep
+from dataflow_worker.connectors.bigtable_realtime import BigTableRealtimeConnector
 import logging
 
 LOGGER = logging.getLogger(__name__)
