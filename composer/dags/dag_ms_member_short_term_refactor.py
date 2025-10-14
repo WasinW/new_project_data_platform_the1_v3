@@ -206,6 +206,7 @@ dataflow_job = BeamRunPythonPipelineOperator(
         'pyyaml>=6.0',
         # '/home/airflow/gcs/dags/packages/dataflow_common-1.0.0-py3-none-any.whl',
         '/home/airflow/gcs/dags/packages/dataflow_builder-2.0.0-py3-none-any.whl',
+        '/home/airflow/gcs/dags/packages/dataflow_worker-2.0.0-py3-none-any.whl',
         # dataflow_builder-2.0.0-py3-none-any.whl
 
     ],

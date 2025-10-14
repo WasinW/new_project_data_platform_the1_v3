@@ -106,3 +106,35 @@ gsutil cp composer/dags/dag_ms_member_short_term_bs.py gs://t1-airflow-composer-
 
 gsutil cp composer/dags/dag_ms_member_short_term_refactor.py gs://t1-airflow-composer-bucket/dags/composer/dags/
 gsutil cp dataflow/job/ms_member_pipeline_v2.py gs://t1-dataflow-framework-bucket/jobs/
+
+# ----------------------------------------------------------------------------------------------------------------
+# 1. Build wheels
+cd dataflow_framework_v2/dataflow_builder
+python setup.py bdist_wheel
+cd ../..
+
+cd dataflow_framework_v2/dataflow_worker
+python setup.py bdist_wheel
+cd ../..
+
+# 2. Upload wheels to GCS
+gsutil cp dataflow_framework_v2/dataflow_builder/dist/dataflow_builder-2.0.0-py3-none-any.whl \
+    gs://t1-airflow-composer-bucket/dags/packages/
+
+gsutil cp dataflow_framework_v2/dataflow_worker/dist/dataflow_worker-2.0.0-py3-none-any.whl \
+    gs://t1-airflow-composer-bucket/dags/packages/
+
+# 3. Build Docker (ถ้า network OK)
+docker build -t dataflow-worker:v2.0 .
+
+# 4. Tag
+docker tag dataflow-worker:v2.0 \
+    asia-southeast1-docker.pkg.dev/the1-insight-dev/dataflow-images/dataflow-worker:v2.0
+
+# 5. Push (ถ้า network OK)
+docker push \
+    asia-southeast1-docker.pkg.dev/the1-insight-dev/dataflow-images/dataflow-worker:v2.0
+
+
+gsutil cp dist/dataflow-builder-2.0.0-py3-none-any.whl \
+    gs://t1-airflow-composer-bucket/dags/packages/
