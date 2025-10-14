@@ -10,7 +10,8 @@ __pycache__/
 *.zip
 *bundle_build*
 *.log
-*build*
+build*/
+build/
 *dist*
 *.pytest_cache
 .idea/
