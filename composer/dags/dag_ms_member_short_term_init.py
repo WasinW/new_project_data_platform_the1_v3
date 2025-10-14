@@ -188,7 +188,7 @@ dataflow_job = BeamRunPythonPipelineOperator(
         #     'gs://t1-dataflow-framework-bucket/packages/dataflow_common-1.0.0-py3-none-any.whl',
         # ],
         # ---------------------------------------------------------------
-        'sdk_container_image': 'asia-southeast1-docker.pkg.dev/the1-insight-dev/dataflow-images/dataflow-common:v1.19',  # custom container
+        'sdk_container_image': 'asia-southeast1-docker.pkg.dev/the1-insight-dev/dataflow-images/dataflow-common:v1.21',  # custom container
         'sdk_location': 'container',
         'config_path': 'gs://t1-airflow-composer-bucket/dags/composer/config/ms_member/batch/ms_member_short_init.yaml',
         # 'run_dt': dt.now().strftime('%Y%m%d%H'),  # หรือใช้ค่าจาก Airflow context
