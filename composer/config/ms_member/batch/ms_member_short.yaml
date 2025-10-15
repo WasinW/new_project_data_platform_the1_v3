@@ -134,14 +134,14 @@ plan:
 - step: CoalesceByMapping
   in: grouped
   side: mapping_rows
-  out: reconcile_rows
+  out: ms_personas_rows
   flag_field: RECONCILE_RETRIEVED
   dest_field: RECONCILE_COLUMN_NAME
 # ----------- max date -------------- 
 # - step: GetNewMaxDate
 #   max_date_step: new
 #   field: updated_date
-#   in: reconcile_rows
+#   in: ms_personas_rows
 #   out: new_max_date
 # - step: WriteGCS
 #   in: new_max_date
@@ -149,13 +149,13 @@ plan:
 #   format: text
 # ----------- max date -------------- 
 - step: NormalizeToSchema
-  in: reconcile_rows
-  out: reconcile_casted
+  in: ms_personas_rows
+  out: ms_personas_casted
 # - step: NormalizeToSchema
 #   in: patch_ms_member_rows
 #   out: member_casted
 - step: WriteParquet
-  in: reconcile_casted
+  in: ms_personas_casted
   prefix: "{io.s3.refined_prefix}/ms_personas_dev/par_month={params.run_par_month}/par_day={params.run_par_day}/par_hour={params.run_par_hour}/run_dt={params.run_dt}"
 
 # - step: WriteParquet

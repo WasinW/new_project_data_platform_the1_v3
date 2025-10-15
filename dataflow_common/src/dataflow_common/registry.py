@@ -40,10 +40,10 @@ from .steps.bigtable_batch_steps import (
     ReadBigTableBatchStep,
     WriteBigTableBatchStep
 )
-from .steps.bigtable_realtime_steps import (
-    ReadBigTableRealtimeStep,
-    WriteBigTableRealtimeStep
-)
+# from .steps.bigtable_realtime_steps import (
+#     ReadBigTableRealtimeStep,
+#     WriteBigTableRealtimeStep
+# )
 
 # Import streaming steps only if available (safe import)
 try:

@@ -34,15 +34,19 @@ from ..transforms import (
     load_schema_from_spec,
 )
 from .streaming import (
-    ConsumePubSubStep,
-    ExtractKeysStep,
-    ReadBigTableRealtimeStep, 
+    # ConsumePubSubStep,
+    # ExtractKeysStep,
+    # ReadBigTableRealtimeStep, 
     ProcessWithDLQStep,
     WindowStep,
     CreateFixedMappingStep,  # ✅ เพิ่ม
     CreateEmptyStep,  # ✅ เพิ่ม
 )
-
+from .pubsub_bigtable_steps import (
+    ConsumePubSubSubscriptionStep,
+    ExtractIdStep,
+    ReadBigTableByIdStep,
+)
 LOGGER = logging.getLogger(__name__)
 
 
@@ -429,9 +433,6 @@ __all__ = [
     "CoalesceByMappingStep",
     "NormalizeToSchemaStep",
     "WriteParquetStep",
-    "ConsumePubSubStep",
-    "ExtractKeysStep", 
-    "ReadBigTableRealtimeStep",
     "ProcessWithDLQStep",
     "WindowStep",
     "WriteToBigQueryStep",
@@ -441,4 +442,7 @@ __all__ = [
     "GetNewMaxDateStep",
     "ReadGCSStep",
     "SetMaxDateParamStep",
+    "ConsumePubSubSubscriptionStep",
+    "ExtractIdStep",
+    "ReadBigTableByIdStep",
 ]
