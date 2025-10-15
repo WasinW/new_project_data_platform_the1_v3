@@ -80,8 +80,8 @@ plan:
     retrieved_flag_field: RECONCILE_RETRIEVED
     confirmed_flag_field: RECONCILE_CONFIRMED
 - step: ReadBQQuery
-  id: source_rows
-  out: source_rows_raw
+  id: personas_rows
+  out: personas_rows_raw
   query: |
     SELECT * EXCEPT(RN_PK)
     FROM (
@@ -95,13 +95,13 @@ plan:
 
 # เพิ่ม step parse JSON
 - step: ParseProfiles
-  in: source_rows_raw
-  out: source_rows
+  in: personas_rows_raw
+  out: personas_rows
   json_fields: [ "profiles" ]
 
 - step: ReadBQQuery
-  id: origin_rows
-  out: origin_rows
+  id: ms_member_rows
+  out: ms_member_rows
   query: |
     SELECT DISTINCT origin.*
     FROM `{io.bq.project}.{io.bq.dataset}.stg_ms_member` origin
@@ -113,12 +113,12 @@ plan:
     ) new_members
     ON origin.MEMBER_NUMBER = new_members.member_id
 - step: MapRecord
-  in: source_rows
+  in: personas_rows
   side: mapping_dict
   out: mapped_new
   mode: reconcile
 - step: KVPairs
-  in: origin_rows
+  in: ms_member_rows
   out: kv_old
   key_field: "{params.pk}"
 - step: KVPairs
@@ -152,7 +152,7 @@ plan:
   in: reconcile_rows
   out: reconcile_casted
 # - step: NormalizeToSchema
-#   in: patch_origin_rows
+#   in: patch_ms_member_rows
 #   out: member_casted
 - step: WriteParquet
   in: reconcile_casted
