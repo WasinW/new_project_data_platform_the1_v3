@@ -6,8 +6,8 @@ ENV RUN_PYTHON_SDK_IN_DEFAULT_ENVIRONMENT=1
 RUN pip install --upgrade pip setuptools wheel
 
 # Copy wheel files
-COPY dataflow_framework_v2/dataflow_builder/dist/*.whl /tmp/
-COPY dataflow_framework_v2/dataflow_worker/dist/*.whl /tmp/
+COPY ../dataflow_framework_v2/dataflow_builder/dist/*.whl /tmp/
+COPY ../dataflow_framework_v2/dataflow_worker/dist/*.whl /tmp/
 
 # Install dataflow packages
 RUN pip install /tmp/dataflow_builder-*.whl
