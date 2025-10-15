@@ -22,8 +22,8 @@ from .steps import (
     CoalesceByMappingStep,
     NormalizeToSchemaStep,
     WriteParquetStep,
-    ConsumePubSubStep,
-    ExtractKeysStep,
+    # ConsumePubSubStep,
+    # ExtractKeysStep,
     ProcessWithDLQStep,
     WindowStep,
     WriteToBigQueryStep,  # เพิ่มนี้
