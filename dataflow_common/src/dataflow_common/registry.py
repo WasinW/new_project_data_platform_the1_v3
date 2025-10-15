@@ -35,16 +35,6 @@ from .steps import (
     SetMaxDateParamStep,  # ✅ เพิ่ม import นี้
 )
 
-# Import BigTable steps
-from .steps.bigtable_batch_steps import (
-    ReadBigTableBatchStep,
-    WriteBigTableBatchStep
-)
-# from .steps.bigtable_realtime_steps import (
-#     ReadBigTableRealtimeStep,
-#     WriteBigTableRealtimeStep
-# )
-
 # Import streaming steps only if available (safe import)
 try:
     from .steps.streaming import (
@@ -82,12 +72,6 @@ STEP_REGISTRY: Dict[str, Type] = {
     # "ExtractKeys": ExtractKeysStep,
     # "Window": WindowStep,
     # # BigTable Batch Steps (Option C)
-    # "ReadBigTableBatch": ReadBigTableBatchStep,
-    # "WriteBigTableBatch": WriteBigTableBatchStep,
-    
-    # # BigTable Real-time Steps (Option D)
-    # "ReadBigTableRealtime": ReadBigTableRealtimeStep,
-    # "WriteBigTableRealtime": WriteBigTableRealtimeStep,
     # "WriteToBigQuery": WriteToBigQueryStep,  # เพิ่มนี้
     # "CreateFixedMapping": CreateFixedMappingStep,  # เพิ่ม
     # "CreateEmpty": CreateEmptyStep,  # เพิ่ม
