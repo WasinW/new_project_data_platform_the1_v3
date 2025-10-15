@@ -69,32 +69,33 @@ def main():
     # Load config from YAML
     cfg = load_config(args.config_path)
     
-    # Read max_date from cache file (ถ้ามี)
-    cached_max_date = read_gcs_file(args.cache_path)
+    # # Read max_date from cache file (ถ้ามี)
+    # cached_max_date = read_gcs_file(args.cache_path)
     
-    if cached_max_date:
-        logging.info(f"Using cached max_date: {cached_max_date}")
-        cfg.params.max_date = cached_max_date
-    else:
-        # Use default if no cache
-        default_max_date = "2020-01-01 00:00:00"  # หรือค่า default ที่เหมาะสม
-        logging.info(f"No cache found, using default max_date: {default_max_date}")
-        cfg.params.max_date = default_max_date
+    # if cached_max_date:
+    #     logging.info(f"Using cached max_date: {cached_max_date}")
+    #     cfg.params.max_date = cached_max_date
+    # else:
+    #     # Use default if no cache
+    #     default_max_date = "2020-01-01 00:00:00"  # หรือค่า default ที่เหมาะสม
+    #     logging.info(f"No cache found, using default max_date: {default_max_date}")
+    #     cfg.params.max_date = default_max_date
     
     # Override run_dt if supplied
     if args.run_dt:
         cfg.params.run_dt = args.run_dt
     elif not cfg.params.run_dt:
-        from datetime import datetime
-        cfg.params.run_dt = datetime.now().strftime('%Y%m%d%H')
+        from datetime import datetime, timezone, timedelta
+        tz_th  = timezone(timedelta(hours=7))
+        now_th = datetime.now(tz_th)
+
+        cfg.params.run_dt = now_th.strftime('%Y%m%d%H')
 
         # Generate partition params
-        now = datetime.now()
-        cfg.params.run_par_month = now.strftime('%Y%m')
-        cfg.params.run_par_day = now.strftime('%d')
-        cfg.params.run_par_hour = now.strftime('%H')
-    logging.info(f"Pipeline params: run_dt={cfg.params.run_dt}, max_date={cfg.params.max_date}")
-
+        cfg.params.run_par_month = now_th.strftime('%Y%m')
+        cfg.params.run_par_day = now_th.strftime('%d')
+        cfg.params.run_par_hour = now_th.strftime('%H')
+    logging.info(f"Pipeline params: run_dt={cfg.params.run_dt}, run_par_month={cfg.params.run_par_month}, run_par_day={cfg.params.run_par_day}, run_par_hour={cfg.params.run_par_hour}")
 
     # Save main session so that Beam can serialize global context on Dataflow
     # pipeline_options = PipelineOptions()

@@ -38,9 +38,9 @@ from .steps import (
 # Import streaming steps only if available (safe import)
 try:
     from .steps.streaming import (
-        ConsumePubSubStep,
-        ExtractKeysStep,
-        ReadBigTableRealtimeStep,
+        # ConsumePubSubStep,
+        # ExtractKeysStep,
+        # ReadBigTableRealtimeStep,
         ProcessWithDLQStep,
         WindowStep,
         WriteToBigQueryStep,
@@ -66,7 +66,7 @@ STEP_REGISTRY: Dict[str, Type] = {
     "CoalesceByMapping": CoalesceByMappingStep,
     "NormalizeToSchema": NormalizeToSchemaStep,
     "WriteParquet": WriteParquetStep,
-    "ConsumePubSub": ConsumePubSubStep,
+    # "ConsumePubSub": ConsumePubSubStep,
     # "ReadBigTable": ReadBigTableStep,
     # "ProcessWithDLQ": ProcessWithDLQStep,
     # "ExtractKeys": ExtractKeysStep,
@@ -84,9 +84,9 @@ STEP_REGISTRY: Dict[str, Type] = {
 # Add streaming steps only if available
 if STREAMING_AVAILABLE:
     STEP_REGISTRY.update({
-        "ConsumePubSub": ConsumePubSubStep,
-        "ExtractKeys": ExtractKeysStep,
-        "ReadBigTableRealtime": ReadBigTableRealtimeStep,
+        # "ConsumePubSub": ConsumePubSubStep,
+        # "ExtractKeys": ExtractKeysStep,
+        # "ReadBigTableRealtime": ReadBigTableRealtimeStep,
         "ProcessWithDLQ": ProcessWithDLQStep,
         "Window": WindowStep,
         "WriteToBigQuery": WriteToBigQueryStep,

@@ -78,62 +78,62 @@ pre_check = PythonOperator(
     dag=dag
 )
 
-# Task 1: Trigger mapping_reconcile transfer from S3 to BigQuery
-trigger_mapping_transfer = BigQueryDataTransferServiceStartTransferRunsOperator(
-    task_id="trigger_mapping_reconcile_transfer",
-    project_id="the1-insight-dev",
-    location="asia-southeast1",
-    transfer_config_id="68dfd9a1-0000-2476-90c2-240588710eb4",
-    requested_run_time={"seconds": int(time.time())},
-    gcp_conn_id='google_cloud_default',
-    deferrable=True,
-    dag=dag,  # <--- สำคัญ
-)
-# Task 2: Monitor mapping transfer completion
-monitor_mapping_transfer = BigQueryDataTransferServiceTransferRunSensor(
-    task_id="monitor_mapping_transfer",
-    transfer_config_id="68dfd9a1-0000-2476-90c2-240588710eb4",
-    run_id="{{ ti.xcom_pull(task_ids='trigger_mapping_reconcile_transfer', key='run_id') }}",
-    expected_statuses={"SUCCEEDED"},
-    project_id="the1-insight-dev",
-    location="asia-southeast1",
-    # poke_interval="{{ ti.xcom_pull(task_ids='load_config', key='config')['monitoring']['poke_interval_seconds'] }}",
-    # timeout="{{ ti.xcom_pull(task_ids='load_config', key='config')['monitoring']['mapping_timeout_seconds'] }}",
-    # mode="{{ ti.xcom_pull(task_ids='load_config', key='config')['monitoring']['mode'] }}",
-    poke_interval=60,  # ใช้ค่าตัวเลขโดยตรง
-    timeout=600,       # ใช้ค่าตัวเลขโดยตรง  
-    mode="poke",       # ใช้ค่า string โดยตรง
-    gcp_conn_id='google_cloud_default',
-    dag=dag,  # <--- สำคัญ
-)
-# Task 3: Trigger ms_member transfer from S3 to BigQuery
-trigger_member_transfer = BigQueryDataTransferServiceStartTransferRunsOperator(
-    task_id="trigger_ms_member_transfer",
-    project_id="the1-insight-dev",
-    location="asia-southeast1",
-    transfer_config_id="68d4c7fd-0000-2de1-9b84-582429c5caa4",
-    requested_run_time={"seconds": int(time.time())},
-    gcp_conn_id='google_cloud_default',
-    deferrable=True,
-    dag=dag,  # <--- สำคัญ
-)
-# Task 4: Monitor member transfer completion
-monitor_member_transfer = BigQueryDataTransferServiceTransferRunSensor(
-    task_id="monitor_member_transfer",
-    transfer_config_id="68d4c7fd-0000-2de1-9b84-582429c5caa4",
-    run_id="{{ ti.xcom_pull(task_ids='trigger_ms_member_transfer', key='run_id') }}",
-    expected_statuses={"SUCCEEDED"},
-    project_id="the1-insight-dev",
-    location="asia-southeast1",
-    # poke_interval="{{ ti.xcom_pull(task_ids='load_config', key='config')['monitoring']['poke_interval_seconds'] }}",
-    # timeout="{{ ti.xcom_pull(task_ids='load_config', key='config')['monitoring']['member_timeout_seconds'] }}",
-    # mode="{{ ti.xcom_pull(task_ids='load_config', key='config')['monitoring']['mode'] }}",
-    poke_interval=60,  # ใช้ค่าตัวเลขโดยตรง
-    timeout=600,       # ใช้ค่าตัวเลขโดยตรง  
-    mode="poke",       # ใช้ค่า string โดยตรง
-    gcp_conn_id='google_cloud_default',
-    dag=dag,  # <--- สำคัญ
-)
+# # Task 1: Trigger mapping_reconcile transfer from S3 to BigQuery
+# trigger_mapping_transfer = BigQueryDataTransferServiceStartTransferRunsOperator(
+#     task_id="trigger_mapping_reconcile_transfer",
+#     project_id="the1-insight-dev",
+#     location="asia-southeast1",
+#     transfer_config_id="68dfd9a1-0000-2476-90c2-240588710eb4",
+#     requested_run_time={"seconds": int(time.time())},
+#     gcp_conn_id='google_cloud_default',
+#     deferrable=True,
+#     dag=dag,  # <--- สำคัญ
+# )
+# # Task 2: Monitor mapping transfer completion
+# monitor_mapping_transfer = BigQueryDataTransferServiceTransferRunSensor(
+#     task_id="monitor_mapping_transfer",
+#     transfer_config_id="68dfd9a1-0000-2476-90c2-240588710eb4",
+#     run_id="{{ ti.xcom_pull(task_ids='trigger_mapping_reconcile_transfer', key='run_id') }}",
+#     expected_statuses={"SUCCEEDED"},
+#     project_id="the1-insight-dev",
+#     location="asia-southeast1",
+#     # poke_interval="{{ ti.xcom_pull(task_ids='load_config', key='config')['monitoring']['poke_interval_seconds'] }}",
+#     # timeout="{{ ti.xcom_pull(task_ids='load_config', key='config')['monitoring']['mapping_timeout_seconds'] }}",
+#     # mode="{{ ti.xcom_pull(task_ids='load_config', key='config')['monitoring']['mode'] }}",
+#     poke_interval=60,  # ใช้ค่าตัวเลขโดยตรง
+#     timeout=600,       # ใช้ค่าตัวเลขโดยตรง  
+#     mode="poke",       # ใช้ค่า string โดยตรง
+#     gcp_conn_id='google_cloud_default',
+#     dag=dag,  # <--- สำคัญ
+# )
+# # Task 3: Trigger ms_member transfer from S3 to BigQuery
+# trigger_member_transfer = BigQueryDataTransferServiceStartTransferRunsOperator(
+#     task_id="trigger_ms_member_transfer",
+#     project_id="the1-insight-dev",
+#     location="asia-southeast1",
+#     transfer_config_id="68d4c7fd-0000-2de1-9b84-582429c5caa4",
+#     requested_run_time={"seconds": int(time.time())},
+#     gcp_conn_id='google_cloud_default',
+#     deferrable=True,
+#     dag=dag,  # <--- สำคัญ
+# )
+# # Task 4: Monitor member transfer completion
+# monitor_member_transfer = BigQueryDataTransferServiceTransferRunSensor(
+#     task_id="monitor_member_transfer",
+#     transfer_config_id="68d4c7fd-0000-2de1-9b84-582429c5caa4",
+#     run_id="{{ ti.xcom_pull(task_ids='trigger_ms_member_transfer', key='run_id') }}",
+#     expected_statuses={"SUCCEEDED"},
+#     project_id="the1-insight-dev",
+#     location="asia-southeast1",
+#     # poke_interval="{{ ti.xcom_pull(task_ids='load_config', key='config')['monitoring']['poke_interval_seconds'] }}",
+#     # timeout="{{ ti.xcom_pull(task_ids='load_config', key='config')['monitoring']['member_timeout_seconds'] }}",
+#     # mode="{{ ti.xcom_pull(task_ids='load_config', key='config')['monitoring']['mode'] }}",
+#     poke_interval=60,  # ใช้ค่าตัวเลขโดยตรง
+#     timeout=600,       # ใช้ค่าตัวเลขโดยตรง  
+#     mode="poke",       # ใช้ค่า string โดยตรง
+#     gcp_conn_id='google_cloud_default',
+#     dag=dag,  # <--- สำคัญ
+# )
 
 
 # BeamRunPythonPipelineOperator task
@@ -188,7 +188,7 @@ dataflow_job = BeamRunPythonPipelineOperator(
         #     'gs://t1-dataflow-framework-bucket/packages/dataflow_common-1.0.0-py3-none-any.whl',
         # ],
         # ---------------------------------------------------------------
-        'sdk_container_image': 'asia-southeast1-docker.pkg.dev/the1-insight-dev/dataflow-images/dataflow-common:v1.21',  # custom container
+        'sdk_container_image': 'asia-southeast1-docker.pkg.dev/the1-insight-dev/dataflow-images/dataflow-common:v1.24',  # custom container
         'sdk_location': 'container',
         'config_path': 'gs://t1-airflow-composer-bucket/dags/composer/config/ms_member/batch/ms_member_short_init.yaml',
         # 'run_dt': dt.now().strftime('%Y%m%d%H'),  # หรือใช้ค่าจาก Airflow context
@@ -237,8 +237,8 @@ wait_dataflow = DataflowJobStatusSensor(
     dag=dag,
 )
 
-trigger_mapping_transfer >> monitor_mapping_transfer
-trigger_member_transfer >> monitor_member_transfer
+# trigger_mapping_transfer >> monitor_mapping_transfer
+# trigger_member_transfer >> monitor_member_transfer
 
-[monitor_mapping_transfer, monitor_member_transfer] >> pre_check >> dataflow_job >> wait_dataflow
-# pre_check >> dataflow_job >> wait_dataflow
+# [monitor_mapping_transfer, monitor_member_transfer] >> pre_check >> dataflow_job >> wait_dataflow
+pre_check >> dataflow_job >> wait_dataflow
