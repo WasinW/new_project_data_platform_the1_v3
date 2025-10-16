@@ -102,7 +102,7 @@ class BuildMappingDictStep(BaseStep):
             )
         )
 
-class ParseProfilesStep(BaseStep):
+class ParseJsonStep(BaseStep):
     def execute(self, pipeline):
         input_key = self.spec.get("in")
         json_fields = self.spec.get("json_fields", ["profiles"])
@@ -423,7 +423,7 @@ __all__ = [
     "BaseStep",
     "ReadBQQueryStep",
     "BuildMappingDictStep",
-    "ParseProfilesStep",
+    "ParseJsonStep",
     "MapRecordStep",
     "KVPairsStep",
     "CoGroupByKeyStep",

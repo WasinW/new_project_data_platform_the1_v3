@@ -94,7 +94,7 @@ plan:
     ) WHERE RN_PK = 1
 
 # เพิ่ม step parse JSON
-- step: ParseProfiles
+- step: ParseJson
   in: personas_rows_raw
   out: personas_rows
   json_fields: [ "profiles" ]

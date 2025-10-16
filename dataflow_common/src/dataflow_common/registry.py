@@ -15,7 +15,7 @@ from typing import Dict, Type
 from .steps import (
     ReadBQQueryStep,
     BuildMappingDictStep,
-    ParseProfilesStep,
+    ParseJsonStep,
     MapRecordStep,
     KVPairsStep,
     CoGroupByKeyStep,
@@ -59,7 +59,7 @@ except ImportError:
 STEP_REGISTRY: Dict[str, Type] = {
     "ReadBQQuery": ReadBQQueryStep,
     "BuildMappingDict": BuildMappingDictStep,
-    "ParseProfiles": ParseProfilesStep,
+    "ParseJson": ParseJsonStep,
     "MapRecord": MapRecordStep,
     "KVPairs": KVPairsStep,
     "CoGroupByKey": CoGroupByKeyStep,
