@@ -64,7 +64,7 @@ default_args = {
 
 # DAG definition
 dag = DAG(
-    'ms_member_short_term_v2',
+    'ms_member_short_term',
     default_args=default_args,
     description='Test BigQuery read via BeamRunPythonPipelineOperator with VPC SC',
     schedule_interval=None,  # Manual trigger only
@@ -188,10 +188,10 @@ dataflow_job = BeamRunPythonPipelineOperator(
         #     'gs://t1-dataflow-framework-bucket/packages/dataflow_common-1.0.0-py3-none-any.whl',
         # ],
         # ---------------------------------------------------------------
-        'sdk_container_image': 'asia-southeast1-docker.pkg.dev/the1-insight-dev/dataflow-images/dataflow-common:v1.25',  # custom container
+        'sdk_container_image': 'asia-southeast1-docker.pkg.dev/the1-insight-dev/dataflow-images/dataflow-common:v1.14',  # custom container
         'sdk_location': 'container',
         'config_path': 'gs://t1-airflow-composer-bucket/dags/composer/config/ms_member/batch/ms_member_short.yaml',
-        # 'run_dt': dt.now().strftime('%Y%m%d%H'),  # หรือใช้ค่าจาก Airflow context
+        'run_dt': dt.now().strftime('%Y%m%d%H'),  # หรือใช้ค่าจาก Airflow context
 
     },
     # ----------------------------
@@ -201,8 +201,11 @@ dataflow_job = BeamRunPythonPipelineOperator(
     py_requirements=[
         'apache-beam[gcp]==2.59.0',
         'google-cloud-bigquery==3.25.0',
+        # 'apache-beam[aws]==2.59.0',
         'pyarrow>=12.0.0',
         'pyyaml>=6.0',
+        # 'boto3>=1.28.0',
+        # 'gs://t1-airflow-composer-bucket/dags/packages/dataflow_common-1.0.0-py3-none-any.whl',
         '/home/airflow/gcs/dags/packages/dataflow_common-1.0.0-py3-none-any.whl',
 
     ],

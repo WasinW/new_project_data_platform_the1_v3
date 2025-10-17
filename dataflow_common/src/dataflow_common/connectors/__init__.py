@@ -97,13 +97,14 @@ class ParquetConnector:
             The pipeline configuration used to load the schema.
         """
         schema = load_schema_from_spec(cfg.schema)
+        num_shards = cfg.io.s3.get("num_shards") if cfg.io and cfg.io.s3 else 2
         LOGGER.info("Writing Parquet files with label %s to prefix: %s", label, prefix)
         # LOGGER.info("Writing Parquet files to prefix: %s", prefix)
         pcoll | label >> WriteToParquet(
             file_path_prefix=prefix,
             schema=schema,
             file_name_suffix=".snappy.parquet",
-            num_shards=2,
+            num_shards=num_shards,
         )
 
 # ---------------------------------------------------------------------------

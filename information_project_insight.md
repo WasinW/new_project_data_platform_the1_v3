@@ -31,7 +31,7 @@ Scope of work
     2. Transformation analytic layer 
 2. Data Governance 
     1. Data Quality with dataplex rule 
-    2. Data Lineage : enable done
+    2. Data Lineage with dataplex
 3. Step Audit dataflow pipeline 
 4. Data Catalog : will be use iceberg table (but refined zone using native table on big query)
 <!-- ------------------------------------------------------------------------------------------------------- -->
@@ -51,8 +51,8 @@ Ingestion Data Pipeline Short Term : Batch ingestion new source incremental and 
             4. After Deploy successed. Run Dataflow 
         4. In Dataflow 
             1. ReadBQQuery_mapping_rows : get mapping 
-            2. BuildMappingDict_mapping_dict_ToList : convert mapping to list 
-            3. BuildMappingDict_mapping_dict_BuildDict : convert list mapping to dict 
+            2. BuildMappingDict_mapping_dict_ToList : convert mapping to list ( In module BuildMappingDictStep)
+            3. BuildMappingDict_mapping_dict_BuildDict : convert list mapping to dict ( In module BuildMappingDictStep)
             4. ReadBQQuery_source_rows : get new source personas -2h 
             5. ParseJson_source_rows_Parse : explode personas column (json) 
             6. MapRecord : mapping column from new source to origin column from mapping 
@@ -142,3 +142,24 @@ Ingestion Data Pipeline Long Term : Realtime ingestion new source incremental (b
         - table : ms_personas (refined)
 <!-- ตอนนี้ design dataset ยังไม่ common เลย อาจจะเป็นเพราะ ตอนนี้ ทำงานภายใต้ โปรเจ็ค insight part นี้เลยอยู่ภายใต้ insight -->
 <!-- ------------------------------------------------------------------------------------------------------- -->
+<!-- -------------------------------------------- DEPLOYMENT ------------------------------------------- -->
+<!-- SHORT TERM -->
+    1. Deploy composer service 
+    2. Deploy scripts all 
+    3. init table bq (target) : stg_ms_member , stg_mapping_reconcile , audit_log , audit_data_quality
+<!-- MID TERM -->
+    1. Deploy scripts : mid term scripts  :
+        - dags 
+        - config yaml
+        - dataflow scripts
+        - docker image (enahnce module for realtime)
+        - wheel (for airflow worker)
+    2. init table bq (target) : ms_personas
+    3. init auth view for ms_personas
+<!-- LONG TERM -->
+    1. Deploy scripts : long term scripts  :
+        - dags 
+        - config yaml
+        - dataflow scripts
+        - docker image (enahnce module for realtime)
+        - wheel (for airflow worker)

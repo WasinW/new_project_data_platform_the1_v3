@@ -44,6 +44,7 @@ io:
     temp_gcs: gs://t1-insight-audit-bucket/audit_log/dataflow/temp
   s3:
     refined_prefix: s3://t1-analytics/refined/insights
+    num_shards: 15
 
 # Plan defining the pipeline steps.  Each step's ``id`` or ``out``
 # field becomes a key in the orchestration state.  The order of
@@ -83,7 +84,12 @@ plan:
   query: |
     SELECT * EXCEPT(RN_PK)
     FROM (
-      SELECT *, ROW_NUMBER() OVER(
+      SELECT 
+      personaId
+      , profiles
+      , status
+      , timestamp
+      , ROW_NUMBER() OVER(
         PARTITION BY JSON_VALUE(profiles, '$.memberId')
         ORDER BY TIMESTAMP DESC
       ) AS RN_PK

@@ -237,6 +237,7 @@ class WriteParquetStep(BaseStep):
 
     def execute(self, pipeline: beam.Pipeline) -> None:
         input_key = self.spec.get("in")
+        # num_shards = self.config.io.s3.get("num_shards")
         prefix_template: str = self.spec.get("prefix") or ""
         if not input_key or input_key not in self.state:
             raise KeyError(f"Step {self.step_id}: missing or unknown input '{input_key}'")

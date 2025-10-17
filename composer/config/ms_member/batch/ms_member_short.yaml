@@ -85,7 +85,12 @@ plan:
   query: |
     SELECT * EXCEPT(RN_PK)
     FROM (
-      SELECT *, ROW_NUMBER() OVER(
+      SELECT 
+      personaId
+      , profiles
+      , status
+      , timestamp
+      , ROW_NUMBER() OVER(
         PARTITION BY JSON_VALUE(profiles, '$.memberId')
         ORDER BY TIMESTAMP DESC
       ) AS RN_PK

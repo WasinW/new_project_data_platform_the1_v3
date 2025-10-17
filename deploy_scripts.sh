@@ -80,13 +80,13 @@ gsutil cp dist/dataflow_common-1.0.0-py3-none-any.whl \
     gs://t1-airflow-composer-bucket/dags/packages/
 
 # Build Docker image ใหม่
-docker build -t dataflow-test:v1.21 .
+docker build -t dataflow-test:v1.27 .
 
 # Push
-docker tag dataflow-test:v1.21 \
-    asia-southeast1-docker.pkg.dev/the1-insight-dev/dataflow-images/dataflow-common:v1.21
+docker tag dataflow-test:v1.27 \
+    asia-southeast1-docker.pkg.dev/the1-insight-dev/dataflow-images/dataflow-common:v1.27
 
-docker push asia-southeast1-docker.pkg.dev/the1-insight-dev/dataflow-images/dataflow-common:v1.21
+docker push asia-southeast1-docker.pkg.dev/the1-insight-dev/dataflow-images/dataflow-common:v1.27
 
 gsutil cp composer/dags/test_run_bigquery_pipeline2.py gs://t1-airflow-composer-bucket/dags/composer/dags/test_run_bigquery_pipeline.py
 gsutil cp composer/dags/dag_ms_member_short_term.py gs://t1-airflow-composer-bucket/dags/composer/dags/
@@ -138,3 +138,6 @@ docker push \
 
 gsutil cp dist/dataflow-builder-2.0.0-py3-none-any.whl \
     gs://t1-airflow-composer-bucket/dags/packages/
+
+
+t1-ins-dev-sa-data@the1-insight-dev.iam.gserviceaccount.com

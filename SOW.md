@@ -26,8 +26,8 @@ Ingestion Data Pipeline Short Term : Batch ingestion new source incremental and 
             4. After Deploy successed. Run Dataflow 
         4. In Dataflow 
             1. ReadBQQuery_mapping_rows : get mapping 
-            2. BuildMappingDict_mapping_dict_ToList : convert mapping to list 
-            3. BuildMappingDict_mapping_dict_BuildDict : convert list mapping to dict 
+            2. BuildMappingDict_mapping_dict_ToList : convert mapping to list (In Module BuildMappingDictStep)
+            3. BuildMappingDict_mapping_dict_BuildDict : convert list mapping to dict (In Module BuildMappingDictStep)
             4. ReadBQQuery_source_rows : get new source personas -2h 
             5. ParseJson_source_rows_Parse : explode personas column (json) 
             6. MapRecord : mapping column from new source to origin column from mapping 
@@ -85,6 +85,27 @@ Ingestion Data Pipeline Long Term : Realtime ingestion new source incremental (b
             9. WriteParquet_ms_master_casted : write to target s3 
             10. XXXXX : Directed write to Big Query refined : ms_personas
         5. Done 
+<!-- -------------------------------------------- DEPLOYMENT ------------------------------------------- -->
+<!-- SHORT TERM -->
+    1. Deploy composer service 
+    2. Deploy scripts all 
+    3. init table bq (target) : stg_ms_member , stg_mapping_reconcile , audit_log , audit_data_quality
+<!-- MID TERM -->
+    1. Deploy scripts : mid term scripts  :
+        - dags 
+        - config yaml
+        - dataflow scripts
+        - docker image (enahnce module for realtime)
+        - wheel (for airflow worker)
+    2. init table bq (target) : ms_personas
+    3. init auth view for ms_personas
+<!-- LONG TERM -->
+    1. Deploy scripts : long term scripts  :
+        - dags 
+        - config yaml
+        - dataflow scripts
+        - docker image (enahnce module for realtime)
+        - wheel (for airflow worker)
 
 <!-- ------------------------------------------------------------------------------------------------------- -->
 <!-- ------------------------------------------------------------------------------------------------------- -->
