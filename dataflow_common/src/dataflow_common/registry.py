@@ -72,7 +72,7 @@ STEP_REGISTRY: Dict[str, Type] = {
     # "ExtractKeys": ExtractKeysStep,
     # "Window": WindowStep,
     # # BigTable Batch Steps (Option C)
-    # "WriteToBigQuery": WriteToBigQueryStep,  # เพิ่มนี้
+    "WriteToBigQuery": WriteToBigQueryStep,  # เพิ่มนี้
     # "CreateFixedMapping": CreateFixedMappingStep,  # เพิ่ม
     # "CreateEmpty": CreateEmptyStep,  # เพิ่ม
     # # "ReadGCS": ReadGCSStep,  # ✅ เพิ่มใน registry
