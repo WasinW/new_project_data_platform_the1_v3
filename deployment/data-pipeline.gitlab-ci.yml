@@ -1,0 +1,40 @@
+variables: # CONTAINER_BUILD_IMAGE: gcr.io/kaniko-project/executor:v1.9.0-debug
+
+.default_rules: &default_rules
+  rules:
+  - !reference [ .execute-pipeline-template, rules ]
+  - changes:
+    - pipeline/data-pipeline/**/*
+    - pipeline/data-pipeline.gitlab-ci.yml
+# -------------------------------------------------
+tools:scan-gitleaks:bigquery-emulator:
+  extends:
+  - sec:scan-secret
+  tags:
+  - cicd-nonprod
+  variables:
+    RUN_PATH: ""
+    SERVICE_NAME: "bigquery-emulator"
+  after_script:
+  - cat ${SERVICE_NAME}-gitleak-results.json
+  when: on_success
+  <<: *default_rules
+
+tools:create-image:bigquery-emulator:
+  stage: build
+  image: $CONTAINER_BUILD_IMAGE
+  tags:
+  - cicd-nonprod
+  needs:
+  - tools:scan-gitleaks:bigquery-emulator
+  variables:
+    RUN_PATH: "pipeline/bigquery-emulator"
+    GIT_SUBMODULE_STRATEGY: none
+    DEPLOYMENT_TAG: $CI_COMMIT_SHORT_SHA
+    ECR_REPOSITORY_BASE_PATH: "826128703544.dkr.ecr.ap-southeast-1.amazonaws.com/bigquery-emulator"
+  before_script:
+  - echo "{\"credsStore\":\"ecr-login\"}" > /kaniko/.docker/config.json
+  script:
+  - /kaniko/executor --context "$CI_PROJECT_DIR/$RUN_PATH" --dockerfile "$CI_PROJECT_DIR/$RUN_PATH/Dockerfile" --destination "$ECR_REPOSITORY_BASE_PATH:$DEPLOYMENT_TAG" --destination "$ECR_REPOSITORY_BASE_PATH:stable"
+  when: on_success
+  <<: *default_rules

@@ -1,4 +1,0 @@
-# Placeholder configuration for ms_member_short_term_init
-source: sample_source_init
-destination: sample_destination_init
-run_mode: short_term_init
