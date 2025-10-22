@@ -1,9 +1,9 @@
 variables:
-  GCP_PROJECT_ID: "the1-insight-dev"
+  GCP_PROJECT_ID: "the1-insight-${terraform.workspace}"
   COMPOSER_LOCATION: "asia-southeast1"
   GCS_BUCKET_NAME: "t1-airflow-composer-bucket"
-  ARTIFACT_REGISTRY: "asia-southeast1-docker.pkg.dev/the1-insight-dev/dataflow-images"
-  BQ_DATASET: "your-dataset"
+  ARTIFACT_REGISTRY: "asia-southeast1-docker.pkg.dev/the1-insight-${terraform.workspace}/dataflow-images"
+  BQ_DATASET: "insight"
   PYTHON_IMAGE: "python:3.11-slim"
   CONTAINER_BUILD_IMAGE: "gcr.io/kaniko-project/executor:v1.9.0-debug"
 

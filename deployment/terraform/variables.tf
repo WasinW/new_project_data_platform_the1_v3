@@ -25,7 +25,7 @@ variable "bigquery_dataset_id" {
 variable "dataflow_service_account" {
   description = "Existing Dataflow service account email"
   type        = string
-  default     = "t1-ins-dev-sa-data@the1-insight-dev.iam.gserviceaccount.com"
+  default     = "t1-ins-${terraform.workspace}-sa-data@the1-insight-${terraform.workspace}.iam.gserviceaccount.com"
 }
 
 # ============================================
@@ -34,13 +34,13 @@ variable "dataflow_service_account" {
 variable "composer_network" {
   description = "Network for Composer"
   type        = string
-  default     = "projects/the1-network-stg/global/networks/dataflow"
+  default     = "projects/the1-network-${terraform.workspace}/global/networks/dataflow"
 }
 
 variable "composer_subnetwork" {
   description = "Subnetwork for Composer"
   type        = string
-  default     = "projects/the1-network-stg/regions/asia-southeast1/subnetworks/dataflow-private"
+  default     = "projects/the1-network-${terraform.workspace}/regions/asia-southeast1/subnetworks/dataflow-private"
 }
 
 variable "allowed_ip_ranges" {
@@ -67,11 +67,11 @@ variable "aws_secret_access_key" {
 variable "s3_mapping_path" {
   description = "S3 path for mapping data"
   type        = string
-  default     = "s3://t1-analytics/refined/insights/mapping_reconcile_dev/ms_personas/**"
+  default     = "s3://t1-analytics/refined/insights/mapping_reconcile_${terraform.workspace}/ms_personas/**"
 }
 
 variable "s3_member_path" {
   description = "S3 path for member data"
   type        = string
-  default     = "s3://t1-analytics/refined/insights/ms_member_dev/**"
+  default     = "s3://t1-analytics/refined/insights/ms_member_${terraform.workspace}/**"
 }
