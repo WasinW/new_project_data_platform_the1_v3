@@ -1,40 +1,259 @@
-variables: # CONTAINER_BUILD_IMAGE: gcr.io/kaniko-project/executor:v1.9.0-debug
+variables:
+  GCP_PROJECT_ID: "the1-insight-dev"
+  COMPOSER_LOCATION: "asia-southeast1"
+  GCS_BUCKET_NAME: "t1-airflow-composer-bucket"
+  ARTIFACT_REGISTRY: "asia-southeast1-docker.pkg.dev/the1-insight-dev/dataflow-images"
+  BQ_DATASET: "your-dataset"
+  PYTHON_IMAGE: "python:3.11-slim"
+  CONTAINER_BUILD_IMAGE: "gcr.io/kaniko-project/executor:v1.9.0-debug"
 
-.default_rules: &default_rules
+.data_pipeline_rules: &data_pipeline_rules
   rules:
   - !reference [ .execute-pipeline-template, rules ]
   - changes:
-    - pipeline/data-pipeline/**/*
-    - pipeline/data-pipeline.gitlab-ci.yml
-# -------------------------------------------------
-tools:scan-gitleaks:bigquery-emulator:
+    - pipeline/data_pipeline/**/*
+    - pipeline/data_pipeline.gitlab-ci.yml
+    - dataflow_common/**/*
+    - scripts/**/*
+
+# Stage 1: Security Scanning
+data-pipeline:scan-gitleaks:
   extends:
   - sec:scan-secret
+  stage: build
   tags:
   - cicd-nonprod
   variables:
-    RUN_PATH: ""
-    SERVICE_NAME: "bigquery-emulator"
-  after_script:
-  - cat ${SERVICE_NAME}-gitleak-results.json
-  when: on_success
-  <<: *default_rules
+    SERVICE_NAME: "data-pipeline"
+  <<: *data_pipeline_rules
 
-tools:create-image:bigquery-emulator:
+# Stage 2: Create GCS Bucket Directories
+data-pipeline:setup-gcs-directories:
+  stage: build
+  image: google/cloud-sdk:alpine
+  tags:
+  - cicd-nonprod
+  needs:
+  - data-pipeline:scan-gitleaks
+  variables:
+    DIRECTORIES: "scripts dags/packages dataflow staging temp logs"
+  before_script:
+  - echo $GCP_SA_KEY | base64 -d > /tmp/gcp-key.json
+  - gcloud auth activate-service-account --key-file=/tmp/gcp-key.json
+  - gcloud config set project $GCP_PROJECT_ID
+  script:
+  - |
+    for dir in $DIRECTORIES; do
+      echo "Creating directory: gs://$GCS_BUCKET_NAME/$dir/"
+      echo "" | gsutil cp - gs://$GCS_BUCKET_NAME/$dir/.keep
+    done
+  after_script:
+  - rm -f /tmp/gcp-key.json
+  <<: *data_pipeline_rules
+
+# Stage 3: Copy Scripts to Bucket
+data-pipeline:copy-scripts:
+  stage: build
+  image: google/cloud-sdk:alpine
+  tags:
+  - cicd-nonprod
+  needs:
+  - data-pipeline:setup-gcs-directories
+  before_script:
+  - echo $GCP_SA_KEY | base64 -d > /tmp/gcp-key.json
+  - gcloud auth activate-service-account --key-file=/tmp/gcp-key.json
+  - gcloud config set project $GCP_PROJECT_ID
+  script:
+  - |
+    echo "Copying scripts to GCS..."
+    if [ -d "scripts" ]; then
+      gsutil -m cp -r scripts/* gs://$GCS_BUCKET_NAME/scripts/
+    fi
+    if [ -d "pipeline/data_pipeline/scripts" ]; then
+      gsutil -m cp -r pipeline/data_pipeline/scripts/* gs://$GCS_BUCKET_NAME/scripts/
+    fi
+  after_script:
+  - rm -f /tmp/gcp-key.json
+  <<: *data_pipeline_rules
+
+# Stage 4: Setup Composer Airflow Variables
+# NEW: Setup Composer Variables (after terraform completed)
+data-pipeline:setup-composer-variables:
+  stage: build
+  image: google/cloud-sdk:alpine
+  tags:
+  - cicd-nonprod
+  needs:
+  - data-pipeline:setup-gcs-directories
+  before_script:
+  - echo $GCP_SA_KEY | base64 -d > /tmp/gcp-key.json
+  - gcloud auth activate-service-account --key-file=/tmp/gcp-key.json
+  - gcloud config set project $GCP_PROJECT_ID
+  script:
+  - |
+    echo "Getting Terraform outputs..."
+    # Navigate to terraform directory
+    cd infrastructure/common
+
+    # Get terraform outputs (assuming terraform state is accessible)
+    COMPOSER_ENV=$(terraform output -raw composer_env_name 2>/dev/null || echo "t1-airflow-composer-${CI_ENVIRONMENT_NAME}")
+    MAPPING_TRANSFER_ID=$(terraform output -raw mapping_transfer_id 2>/dev/null || echo "")
+    MEMBER_TRANSFER_ID=$(terraform output -raw member_transfer_id 2>/dev/null || echo "")
+    COMPOSER_BUCKET=$(terraform output -raw composer_bucket 2>/dev/null || echo "")
+    DATAFLOW_BUCKET=$(terraform output -raw dataflow_bucket 2>/dev/null || echo "")
+
+    cd ../..
+
+    echo "Setting Composer Airflow Variables..."
+
+    # Function to set variable
+    set_var() {
+      gcloud composer environments run $COMPOSER_ENV \
+        --location $COMPOSER_LOCATION \
+        variables set -- $1 "$2" || echo "Failed to set $1"
+    }
+
+    # Set all variables
+    set_var "project_id" "$GCP_PROJECT_ID"
+    set_var "AWS_ACCESS_KEY_ID" "$AWS_ACCESS_KEY_ID"  # from CI variables
+    set_var "AWS_SECRET_ACCESS_KEY" "$AWS_SECRET_ACCESS_KEY"  # from CI variables
+    set_var "bucket_audit" "gs://t1-insight-audit-bucket"
+    set_var "bucket_config" "gs://$COMPOSER_BUCKET"
+    set_var "bucket_dataflow" "gs://$DATAFLOW_BUCKET"
+    set_var "dataflow_sa_email" "t1-ins-dev-sa-data@$GCP_PROJECT_ID.iam.gserviceaccount.com"
+    set_var "dataflow_subnetwork" "https://www.googleapis.com/compute/v1/projects/the1-network-stg/regions/asia-southeast1/subnetworks/the1-subnet-dataflow-stg"
+
+    # DTS Config IDs
+    if [ -n "$MAPPING_TRANSFER_ID" ]; then
+      set_var "mapping_transfer_config_id" "$MAPPING_TRANSFER_ID"
+    fi
+
+    if [ -n "$MEMBER_TRANSFER_ID" ]; then
+      set_var "member_transfer_config_id" "$MEMBER_TRANSFER_ID"
+    fi
+
+    echo "Composer variables setup completed!"
+  after_script:
+  - rm -f /tmp/gcp-key.json
+  when: manual # Manual trigger เพื่อ run หลัง terraform
+  <<: *data_pipeline_rules
+
+# Stage 5: Create BigQuery Tables
+data-pipeline:create-bq-tables:
+  stage: build
+  image: google/cloud-sdk:alpine
+  tags:
+  - cicd-nonprod
+  needs:
+  - data-pipeline:scan-gitleaks
+  before_script:
+  - echo $GCP_SA_KEY | base64 -d > /tmp/gcp-key.json
+  - gcloud auth activate-service-account --key-file=/tmp/gcp-key.json
+  - gcloud config set project $GCP_PROJECT_ID
+  script:
+  - |
+    echo "Creating BigQuery tables..."
+    # Create dataset if not exists
+    bq mk -f --dataset --location=asia-southeast1 $GCP_PROJECT_ID:$BQ_DATASET || true
+
+    # Create tables from schema files
+    for schema_file in pipeline/data_pipeline/schemas/*.json; do
+      if [ -f "$schema_file" ]; then
+        table_name=$(basename "$schema_file" .json)
+        echo "Creating table: $table_name"
+        bq mk -f --table \
+          $GCP_PROJECT_ID:$BQ_DATASET.$table_name \
+          $schema_file || true
+      fi
+    done
+  after_script:
+  - rm -f /tmp/gcp-key.json
+  <<: *data_pipeline_rules
+
+# Stage 6: Build Dataflow Common Wheel Package
+data-pipeline:build-dataflow-wheel:
+  stage: build
+  image: $PYTHON_IMAGE
+  tags:
+  - cicd-nonprod
+  needs:
+  - data-pipeline:scan-gitleaks
+  variables:
+    DEPLOYMENT_TAG: $CI_COMMIT_SHORT_SHA
+  before_script:
+  - apt-get update && apt-get install -y google-cloud-sdk
+  - pip install --upgrade pip setuptools wheel build
+  script:
+  - |
+    echo "Building dataflow_common wheel..."
+    cd dataflow_common
+
+    # Build wheel using setup.py
+    python setup.py bdist_wheel
+
+    echo "Uploading wheel to GCS..."
+    echo $GCP_SA_KEY | base64 -d > /tmp/gcp-key.json
+    gcloud auth activate-service-account --key-file=/tmp/gcp-key.json
+    gcloud config set project $GCP_PROJECT_ID
+
+    # Upload to composer bucket packages folder
+    gsutil cp dist/dataflow_common-*.whl gs://$GCS_BUCKET_NAME/dags/packages/
+    gsutil cp dist/dataflow_common-*.whl gs://$GCS_BUCKET_NAME/dags/packages/dataflow_common-$DEPLOYMENT_TAG.whl
+  artifacts:
+    paths:
+    - dataflow_common/dist/*.whl
+    expire_in: 1 week
+  after_script:
+  - rm -f /tmp/gcp-key.json
+  <<: *data_pipeline_rules
+
+# Stage 7: Build and Push Dataflow Docker Image
+data-pipeline:build-dataflow-image:
   stage: build
   image: $CONTAINER_BUILD_IMAGE
   tags:
   - cicd-nonprod
   needs:
-  - tools:scan-gitleaks:bigquery-emulator
+  - data-pipeline:build-dataflow-wheel
   variables:
-    RUN_PATH: "pipeline/bigquery-emulator"
-    GIT_SUBMODULE_STRATEGY: none
     DEPLOYMENT_TAG: $CI_COMMIT_SHORT_SHA
-    ECR_REPOSITORY_BASE_PATH: "826128703544.dkr.ecr.ap-southeast-1.amazonaws.com/bigquery-emulator"
+    DATAFLOW_IMAGE_PATH: "$ARTIFACT_REGISTRY/dataflow-common"
   before_script:
-  - echo "{\"credsStore\":\"ecr-login\"}" > /kaniko/.docker/config.json
+  - echo "{\"credHelpers\":{\"gcr.io\":\"gcloud\",\"asia.gcr.io\":\"gcloud\",\"pkg.dev\":\"gcloud\"}}" > /kaniko/.docker/config.json
+  - echo $GCP_SA_KEY | base64 -d > /tmp/gcp-key.json
+  - export GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcp-key.json
   script:
-  - /kaniko/executor --context "$CI_PROJECT_DIR/$RUN_PATH" --dockerfile "$CI_PROJECT_DIR/$RUN_PATH/Dockerfile" --destination "$ECR_REPOSITORY_BASE_PATH:$DEPLOYMENT_TAG" --destination "$ECR_REPOSITORY_BASE_PATH:stable"
-  when: on_success
-  <<: *default_rules
+  - |
+    # Build using existing Dockerfile in dataflow_common/
+    /kaniko/executor \
+      --context "$CI_PROJECT_DIR/dataflow_common" \
+      --dockerfile "$CI_PROJECT_DIR/dataflow_common/Dockerfile" \
+      --build-arg DEPLOYMENT_TAG=$DEPLOYMENT_TAG \
+      --destination "$DATAFLOW_IMAGE_PATH:$DEPLOYMENT_TAG" \
+      --destination "$DATAFLOW_IMAGE_PATH:latest" \
+      --cache=true
+  after_script:
+  - rm -f /tmp/gcp-key.json
+  <<: *data_pipeline_rules
+
+# Deploy to staging
+data-pipeline:deploy-stg:
+  stage: deploy-stg
+  image: google/cloud-sdk:alpine
+  tags:
+  - cicd-nonprod
+  needs:
+  - data-pipeline:build-dataflow-image
+  - data-pipeline:copy-scripts
+  - data-pipeline:create-bq-tables
+  variables:
+    ENVIRONMENT: "staging"
+    DEPLOYMENT_TAG: $CI_COMMIT_SHORT_SHA
+  script:
+  - echo "Deployment completed for staging"
+  - echo "Dataflow image: $ARTIFACT_REGISTRY/dataflow-common:$DEPLOYMENT_TAG"
+  - echo "Wheel package uploaded to: gs://$GCS_BUCKET_NAME/dags/packages/"
+  only:
+  - main
+  - develop
+  <<: *data_pipeline_rules
