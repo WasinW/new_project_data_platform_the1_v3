@@ -98,8 +98,9 @@ class ParseNestedJsonStep(BaseStep):
         
         # Fields to auto-flatten (e.g., ["profiles"])
         json_fields = self.spec.get("json_fields", [])
-        # Top-level fields to preserve (optional)
-        preserve_fields = self.spec.get("preserve_fields", ["personaId", "timestamp", "status"])
+        preserve_fields = self.spec.get("preserve_fields", [])
+        field_mappings = self.spec.get("field_mappings", {})  # รับ mapping จาก config
+        extract_from = self.spec.get("extract_from", None)  # e.g., "payload"
         
         def parse_and_flatten(record):
             """Auto-flatten specified nested fields"""
@@ -117,8 +118,8 @@ class ParseNestedJsonStep(BaseStep):
                 rec = record
             
             # Extract from payload if exists
-            if 'payload' in rec:
-                rec = rec['payload']
+            if extract_from and extract_from in rec:
+                rec = rec[extract_from]
             
             # Preserve top-level fields
             for field in preserve_fields:
@@ -140,11 +141,9 @@ class ParseNestedJsonStep(BaseStep):
                     # Flatten all fields from nested object
                     if isinstance(nested_data, dict):
                         for key, value in nested_data.items():
-                            # Handle special case for memberId -> member_number
-                            if key == "memberId":
-                                result["member_number"] = value
-                            else:
-                                result[key] = value
+                            # Apply field mappings if configured
+                            output_key = field_mappings.get(key, key)
+                            result[output_key] = value
             
             return result
         

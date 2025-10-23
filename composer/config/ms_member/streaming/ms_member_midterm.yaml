@@ -26,6 +26,7 @@ io:
   s3:
     refined_prefix: s3://t1-analytics/refined/insights
     region: ap-southeast-1
+    num_shards: 10
 
 # Parameters
 params:
@@ -47,8 +48,15 @@ plan:
 - step: ParseNestedJson
   in: message_raw
   out: message_parsed
-  json_fields: [ "profiles" ] # แค่ระบุว่าจะ flatten field ไหน
-  preserve_fields: [ "personaId", "timestamp", "status" ] # fields ระดับบนที่จะเก็บ
+  extract_from: payload
+  preserve_fields:
+  - personaId
+  - timestamp
+  - status
+  json_fields:
+  - profiles
+  field_mappings:
+    memberId: member_number
 
 # Step 3: Query mapping table periodically (every hour)
 - step: WindowedMappingQuery
@@ -58,7 +66,8 @@ plan:
     SELECT RECONCILE_COLUMN_NAME,
            PERSONAS_MAPPING_COLUMN_NAME,
            RECONCILE_RETRIEVED,
-           RECONCILE_CONFIRMED
+           RECONCILE_CONFIRMED,
+           UPDATED_DATE
     FROM `{io.bq.project}.{io.bq.dataset}.stg_mapping_reconcile`
     WHERE UPDATED_DATE = (
       SELECT MAX(UPDATED_DATE) 
@@ -92,6 +101,7 @@ plan:
   in: partitioned
   batch_size: 1000
   compression: snappy
+  file_size_mb: 128
 
 # Step 8: Write to BigQuery
 - step: EnhancedWriteToBigQuery
@@ -101,3 +111,4 @@ plan:
   triggering_frequency: 10
   write_disposition: WRITE_APPEND
   create_disposition: CREATE_IF_NEEDED
+  schema: SCHEMA_AUTODETECT
