@@ -142,57 +142,100 @@ class WindowingOpenHourlyPartitionStep(BaseStep):
         
 #         return pcoll | f"{self.step_id}_Map" >> beam.Map(apply_fixed_mapping)
 
-# # 4. WriteParquetDynamicStep - เขียน Parquet ด้วย dynamic path
-# class WriteParquetDynamicStep(BaseStep):
-#     """Write Parquet using dynamic partition paths"""
+# 4. WriteParquetDynamicStep - เขียน Parquet ด้วย dynamic path
+# dataflow_common/src/dataflow_common/steps/streaming_additions.py
+
+class WriteParquetDynamicStep(BaseStep):
+    """Write Parquet files with dynamic partitioning and batching"""
     
-#     def execute(self, pipeline: beam.Pipeline) -> None:
-#         input_key = self.spec.get("in")
-#         if not input_key or input_key not in self.state:
-#             raise KeyError(f"Step {self.step_id}: missing input '{input_key}'")
+    def execute(self, pipeline: beam.Pipeline) -> None:
+        input_key = self.spec.get("in")
+        if not input_key or input_key not in self.state:
+            raise KeyError(f"Step {self.step_id}: missing input '{input_key}'")
             
-#         pcoll = self.state[input_key]
+        pcoll = self.state[input_key]
+        batch_size = self.spec.get("batch_size", 1000)
+        compression = self.spec.get("compression", "snappy")
         
-#         class WriteDynamicParquet(beam.DoFn):
-#             def __init__(self, schema_spec):
-#                 self.schema_spec = schema_spec
-#                 self._schema = None
+        class BatchAndWriteParquet(beam.DoFn):
+            def __init__(self, schema_spec, batch_size, s3_config):
+                self.schema_spec = schema_spec
+                self.batch_size = batch_size
+                self.s3_config = s3_config
+                self._schema = None
+                self._buffer = []
                 
-#             def setup(self):
-#                 from ..transforms.schema import load_schema_from_spec
-#                 self._schema = load_schema_from_spec(self.schema_spec)
+            def setup(self):
+                from ..transforms.schema import load_schema_from_spec
+                self._schema = load_schema_from_spec(self.schema_spec)
                 
-#             def process(self, element):
-#                 import pyarrow as pa
-#                 import pyarrow.parquet as pq
-#                 from apache_beam.io.filesystems import FileSystems
-#                 import uuid
+            def process(self, element, window=beam.DoFn.WindowParam):
+                # Get partition path from element or generate
+                partition_path = element.get("_partition_path")
+                if not partition_path:
+                    from datetime import datetime
+                    window_start = window.start.to_utc_datetime()
+                    base_path = self.s3_config.get("refined_prefix")
+                    partition_path = (
+                        f"{base_path}/ms_personas_streaming/"
+                        f"par_year={window_start.year}/"
+                        f"par_month={window_start.month:02d}/"
+                        f"par_day={window_start.day:02d}/"
+                        f"par_hour={window_start.hour:02d}"
+                    )
                 
-#                 # Get partition path
-#                 partition_path = element.get("_partition_path")
-#                 if not partition_path:
-#                     LOGGER.warning("No partition path found in element")
-#                     return
+                # Clean element
+                clean_record = {
+                    k: v for k, v in element.items()
+                    if not k.startswith("_")
+                }
+                
+                self._buffer.append((partition_path, clean_record))
+                
+                # Write when buffer is full
+                if len(self._buffer) >= self.batch_size:
+                    yield from self._write_batch()
+                    self._buffer = []
                     
-#                 # Clean element (remove metadata)
-#                 clean_element = {
-#                     k: v for k, v in element.items() 
-#                     if not k.startswith("_")
-#                 }
-                
-#                 # Write file
-#                 filename = f"data_{uuid.uuid4().hex}.snappy.parquet"
-#                 full_path = f"{partition_path}/{filename}"
-                
-#                 # Create PyArrow table
-#                 table = pa.Table.from_pylist([clean_element], schema=self._schema)
-                
-#                 with FileSystems.create(full_path) as f:
-#                     pq.write_table(table, f, compression='snappy')
+            def finish_bundle(self):
+                if self._buffer:
+                    yield from self._write_batch()
                     
-#                 LOGGER.debug(f"Wrote record to {full_path}")
-#                 yield {"path": full_path, "success": True}
+            def _write_batch(self):
+                import pyarrow as pa
+                import pyarrow.parquet as pq
+                from apache_beam.io.filesystems import FileSystems
+                import uuid
+                from collections import defaultdict
+                
+                # Group by partition
+                partitions = defaultdict(list)
+                for path, record in self._buffer:
+                    partitions[path].append(record)
+                
+                # Write each partition
+                for path, records in partitions.items():
+                    filename = f"data_{uuid.uuid4().hex}.snappy.parquet"
+                    full_path = f"{path}/{filename}"
+                    
+                    try:
+                        table = pa.Table.from_pylist(records, schema=self._schema)
+                        with FileSystems.create(full_path) as f:
+                            pq.write_table(table, f, compression='snappy')
+                        
+                        LOGGER.info(f"Wrote {len(records)} records to {full_path}")
+                        yield {"status": "success", "path": full_path, "count": len(records)}
+                        
+                    except Exception as e:
+                        LOGGER.error(f"Failed to write {full_path}: {e}")
+                        yield {"status": "failed", "error": str(e)}
         
-#         return pcoll | f"{self.step_id}_Write" >> beam.ParDo(
-#             WriteDynamicParquet(self.config.schema)
-#         )
+        result = pcoll | f"{self.step_id}_Write" >> beam.ParDo(
+            BatchAndWriteParquet(
+                self.config.schema, 
+                batch_size,
+                self.config.io.s3
+            )
+        )
+        
+        return None

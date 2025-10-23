@@ -1,7 +1,41 @@
-# composer/config/ms_member/streaming/ms_member_midterm.yaml
+# composer/config/ms_member/streaming/ms_member_midterm_complete.yaml
 
+defaults_file: ../common/defaults.yaml
+
+pipeline:
+  name: ms_member_midterm_streaming
+  mode: streaming
+  term: midterm
+
+# Schema definition
+schema:
+  bq:
+    project: "{io.bq.project}"
+    dataset: "{io.bq.dataset}"
+    table: stg_ms_member
+
+# I/O Configuration
+io:
+  pubsub:
+    subscription: projects/the1-insight-dev/subscriptions/ms-member-updates
+    dlq_topic: projects/the1-insight-dev/topics/ms-member-dlq
+  bq:
+    project: the1-insight-dev
+    dataset: insight_dev
+    temp_gcs: gs://t1-insight-audit-bucket/temp
+  s3:
+    refined_prefix: s3://t1-analytics/refined/insights
+    region: ap-southeast-1
+
+# Parameters
+params:
+  pk: member_number
+  run_dt: null
+
+# Pipeline Plan
 plan:
-# 1. Consume with DLQ
+
+# Step 1: Consume from Pub/Sub with DLQ
 - step: ConsumeMessagesWithDLQ
   id: message_raw
   subscription: "{io.pubsub.subscription}"
@@ -9,21 +43,14 @@ plan:
   max_retries: 3
   with_attributes: true
 
-# 2. Parse nested JSON (duplicate จาก ParseJsonStep)
+# Step 2: Parse nested AVRO/JSON
 - step: ParseNestedJson
   in: message_raw
-  out: message_exploded
-  json_fields: [] # No string fields to parse
-  extract_paths:
-    # Extract nested paths
-    personaId: payload.personaId
-    memberId: payload.profiles.memberId
-    dateOfBirth: payload.profiles.dateOfBirth
-    gender: payload.profiles.gender
-    nationalityId: payload.profiles.nationalityId
-    languagePrefer: payload.profiles.languagePrefer
+  out: message_parsed
+  json_fields: [ "profiles" ] # แค่ระบุว่าจะ flatten field ไหน
+  preserve_fields: [ "personaId", "timestamp", "status" ] # fields ระดับบนที่จะเก็บ
 
-# 3. Query mapping periodically
+# Step 3: Query mapping table periodically (every hour)
 - step: WindowedMappingQuery
   id: mapping_dict
   window_size: 3600
@@ -42,32 +69,35 @@ plan:
   retrieved_flag_field: RECONCILE_RETRIEVED
   confirmed_flag_field: RECONCILE_CONFIRMED
 
-# 4. Map using existing MapRecordStep!
-- step: MapRecord # ใช้ตัวเดิมได้เลย!
-  in: message_exploded
+# Step 4: Map fields using existing MapRecordStep
+- step: MapRecord
+  in: message_parsed
   side: mapping_dict
   out: message_mapped
   mode: reconcile
 
-# 5. Normalize using existing
-- step: NormalizeToSchema # ใช้ตัวเดิม
+# Step 5: Normalize using existing NormalizeToSchema
+- step: NormalizeToSchema
   in: message_mapped
   out: normalized
 
-# 6. Window for partition
-- step: WindowingOpenHourlyPartition # ใช้ที่สร้างไว้แล้ว
+# Step 6: Create hourly partitions for S3
+- step: WindowingOpenHourlyPartition
   in: normalized
   out: partitioned
   size: 3600
 
-# 7. Write Parquet
-- step: WriteParquetDynamic # ใช้ที่สร้างไว้แล้ว
+# Step 7: Write to Parquet with dynamic partitioning
+- step: WriteParquetDynamic
   in: partitioned
   batch_size: 1000
+  compression: snappy
 
-# 8. Write BigQuery
+# Step 8: Write to BigQuery
 - step: EnhancedWriteToBigQuery
   in: normalized
-  table: "{io.bq.project}.{io.bq.dataset}.ms_personas_midterm"
+  table: "{io.bq.project}.{io.bq.dataset}.ms_personas_streaming"
   method: STREAMING_INSERTS
   triggering_frequency: 10
+  write_disposition: WRITE_APPEND
+  create_disposition: CREATE_IF_NEEDED

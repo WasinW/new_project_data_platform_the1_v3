@@ -25,7 +25,7 @@ from apache_beam.io.gcp.bigquery import WriteToBigQuery  # ย้ายมาห
 
 from ..config import PipelineConfig
 from ..core import BaseStep
-from ..connectors import BigQueryConnector, ParquetConnector
+from ..connectors import BigQueryConnector, ParquetConnector, GCSFilesStorage
 from ..transforms import (
     create_mapping_dict,
     map_record,
@@ -33,26 +33,40 @@ from ..transforms import (
     normalize_row_to_schema,
     load_schema_from_spec,
 )
+
+LOGGER = logging.getLogger(__name__)
+
 from .streaming import (
     ProcessWithDLQStep,
     WindowStep,
-    CreateFixedMappingStep,  # ✅ เพิ่ม
-    CreateEmptyStep,  # ✅ เพิ่ม
+    WriteToBigQueryStep as StreamingWriteToBigQueryStep,
+    CreateFixedMappingStep,
+    CreateEmptyStep,
 )
+
+# Import จาก pubsub_bigtable_steps.py
 from .pubsub_bigtable_steps import (
     ConsumePubSubSubscriptionStep,
     ExtractIdStep,
     ReadBigTableByIdStep,
 )
 
+# Import จาก streaming_additions.py (ที่ไม่ถูก comment)
 from .streaming_additions import (
     WindowingAuditStep,
     WindowingOpenHourlyPartitionStep,
+    WriteParquetDynamicStep,  # ต้อง uncomment ใน streaming_additions.py ก่อน
     # MapRecordFixedStep,
-    # WriteParquetDynamicStep,
 )
 
-LOGGER = logging.getLogger(__name__)
+# Import จาก streaming_midterm.py  
+from .streaming_midterm import (
+    ConsumeMessagesWithDLQStep,
+    ParseNestedJsonStep,
+    WindowedMappingQueryStep,
+    EnhancedWriteToBigQueryStep,
+)
+
 
 
 # BaseStep is now defined in dataflow_common.core and imported above.
@@ -439,22 +453,29 @@ __all__ = [
     "CoalesceByMappingStep",
     "NormalizeToSchemaStep",
     "WriteParquetStep",
-    "ProcessWithDLQStep",
-    "WindowStep",
     "WriteToBigQueryStep",
-    "CreateFixedMappingStep",
-    "CreateEmptyStep",
     "WriteGCSStep",
     "GetNewMaxDateStep",
-    "ReadGCSStep",
+    # Streaming steps
+    "ProcessWithDLQStep",
+    "WindowStep",
+    "CreateFixedMappingStep",
+    "CreateEmptyStep",
+    # "ReadGCSStep",
     # "SetMaxDateParamStep",
+    # Pub/Sub & BigTable steps
     "ConsumePubSubSubscriptionStep",
     "ExtractIdStep",
     "ReadBigTableByIdStep",
-
+    # Streaming additions
     "WindowingAuditStep",
     "WindowingOpenHourlyPartitionStep",
+    "WriteParquetDynamicStep",
     # "MapRecordFixedStep",
-    # "WriteParquetDynamicStep",
+    # Mid-term streaming steps
+    "ConsumeMessagesWithDLQStep",
+    "ParseNestedJsonStep",
+    "WindowedMappingQueryStep",
+    "EnhancedWriteToBigQueryStep",
 
 ]

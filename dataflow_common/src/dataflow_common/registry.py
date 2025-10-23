@@ -22,23 +22,34 @@ from .steps import (
     CoalesceByMappingStep,
     NormalizeToSchemaStep,
     WriteParquetStep,
+    WriteToBigQueryStep,
+    WriteGCSStep,
+    GetNewMaxDateStep,
+    # Streaming base steps
+
     # ConsumePubSubStep,
     # ExtractKeysStep,
     ProcessWithDLQStep,
     WindowStep,
-    WriteToBigQueryStep,  # เพิ่มนี้
-    CreateFixedMappingStep,  # เพิ่ม
-    CreateEmptyStep,  # เพิ่ม
-    # ReadGCSStep,  # ✅ เพิ่ม import นี้
-    WriteGCSStep,  # ✅ เพิ่ม import นี้  
-    GetNewMaxDateStep,  # ✅ เพิ่ม import นี้
-    # SetMaxDateParamStep,  # ✅ เพิ่ม import นี้
+    CreateFixedMappingStep,
+    CreateEmptyStep,
+    # Pub/Sub & BigTable
+    ConsumePubSubSubscriptionStep,
+    ExtractIdStep,
+    ReadBigTableByIdStep,
+    # ReadGCSStep,
+    # SetMaxDateParamStep,
 
+    # Streaming additions
     WindowingAuditStep,
     WindowingOpenHourlyPartitionStep,
+    WriteParquetDynamicStep,
     # MapRecordFixedStep,
-    # WriteParquetDynamicStep,
-
+    # Mid-term streaming
+    ConsumeMessagesWithDLQStep,
+    ParseNestedJsonStep,
+    WindowedMappingQueryStep,
+    EnhancedWriteToBigQueryStep,
 )
 
 # Import streaming steps only if available (safe import)
@@ -78,26 +89,45 @@ STEP_REGISTRY: Dict[str, Type] = {
     # "ExtractKeys": ExtractKeysStep,
     # "Window": WindowStep,
     # # BigTable Batch Steps (Option C)
-    "WriteToBigQuery": WriteToBigQueryStep,  # เพิ่มนี้
-    # "CreateFixedMapping": CreateFixedMappingStep,  # เพิ่ม
-    # "CreateEmpty": CreateEmptyStep,  # เพิ่ม
-    # # "ReadGCS": ReadGCSStep,  # ✅ เพิ่มใน registry
-    "WriteGCS": WriteGCSStep,  # ✅ เพิ่มใน registry
-    "GetNewMaxDate": GetNewMaxDateStep,  # ✅ เพิ่มใน registry
-    # "SetMaxDateParam": SetMaxDateParamStep,  # ✅ เพิ่มใน registry
-
+    "WriteToBigQuery": WriteToBigQueryStep,
+    # "CreateFixedMapping": CreateFixedMappingStep,
+    # "CreateEmpty": CreateEmptyStep,
+    # # "ReadGCS": ReadGCSStep,
+    "WriteGCS": WriteGCSStep,
+    "GetNewMaxDate": GetNewMaxDateStep,
+    # "SetMaxDateParam": SetMaxDateParamStep,
+    "ProcessWithDLQ": ProcessWithDLQStep,
+    "Window": WindowStep,
+    "CreateFixedMapping": CreateFixedMappingStep,
+    "CreateEmpty": CreateEmptyStep,
+    
+    # Pub/Sub & BigTable
+    "ConsumePubSubSubscription": ConsumePubSubSubscriptionStep,
+    "ExtractId": ExtractIdStep,
+    "ReadBigTableById": ReadBigTableByIdStep,
+    
+    # Streaming additions
+    "WindowingAudit": WindowingAuditStep,
+    "WindowingOpenHourlyPartition": WindowingOpenHourlyPartitionStep,
+    "WriteParquetDynamic": WriteParquetDynamicStep,
+    
+    # Mid-term streaming
+    "ConsumeMessagesWithDLQ": ConsumeMessagesWithDLQStep,
+    "ParseNestedJson": ParseNestedJsonStep,
+    "WindowedMappingQuery": WindowedMappingQueryStep,
+    "EnhancedWriteToBigQuery": EnhancedWriteToBigQueryStep,
 }
-# Add streaming steps only if available
-if STREAMING_AVAILABLE:
-    STEP_REGISTRY.update({
-        # "ConsumePubSub": ConsumePubSubStep,
-        # "ExtractKeys": ExtractKeysStep,
-        # "ReadBigTableRealtime": ReadBigTableRealtimeStep,
-        "ProcessWithDLQ": ProcessWithDLQStep,
-        "Window": WindowStep,
-        "WriteToBigQuery": WriteToBigQueryStep,
-        "CreateFixedMapping": CreateFixedMappingStep,
-        "CreateEmpty": CreateEmptyStep,
-    })
+# # Add streaming steps only if available
+# if STREAMING_AVAILABLE:
+#     STEP_REGISTRY.update({
+#         # "ConsumePubSub": ConsumePubSubStep,
+#         # "ExtractKeys": ExtractKeysStep,
+#         # "ReadBigTableRealtime": ReadBigTableRealtimeStep,
+#         "ProcessWithDLQ": ProcessWithDLQStep,
+#         "Window": WindowStep,
+#         "WriteToBigQuery": WriteToBigQueryStep,
+#         "CreateFixedMapping": CreateFixedMappingStep,
+#         "CreateEmpty": CreateEmptyStep,
+#     })
     
 __all__ = ["STEP_REGISTRY"]

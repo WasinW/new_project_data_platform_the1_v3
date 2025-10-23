@@ -84,8 +84,10 @@ class ConsumeMessagesWithDLQStep(BaseStep):
         return processed.success
 
 # 2. ParseNestedJsonStep - Duplicate จาก ParseJsonStep แต่ handle nested structure
+# dataflow_common/src/dataflow_common/steps/streaming_midterm.py
+
 class ParseNestedJsonStep(BaseStep):
-    """Parse JSON with nested field extraction (based on ParseJsonStep)"""
+    """Parse and auto-flatten nested JSON fields"""
     
     def execute(self, pipeline: beam.Pipeline) -> beam.PCollection:
         input_key = self.spec.get("in")
@@ -94,41 +96,59 @@ class ParseNestedJsonStep(BaseStep):
             
         pcoll = self.state[input_key]
         
-        # Fields to parse - from config
+        # Fields to auto-flatten (e.g., ["profiles"])
         json_fields = self.spec.get("json_fields", [])
-        extract_paths = self.spec.get("extract_paths", {})  # Additional paths to extract
+        # Top-level fields to preserve (optional)
+        preserve_fields = self.spec.get("preserve_fields", ["personaId", "timestamp", "status"])
         
-        def parse_and_extract(record):
-            """Parse JSON and extract nested fields"""
-            rec = dict(record)
+        def parse_and_flatten(record):
+            """Auto-flatten specified nested fields"""
+            result = {}
             
-            # Parse JSON fields (เหมือน ParseJsonStep เดิม)
-            for field in json_fields:
-                if field in rec and isinstance(rec[field], str):
-                    try:
-                        rec[field] = json.loads(rec[field])
-                    except:
-                        pass
+            # Handle both dict and Pub/Sub message
+            if hasattr(record, 'data'):
+                # It's a Pub/Sub message
+                data = record.data
+                if isinstance(data, bytes):
+                    rec = json.loads(data.decode('utf-8'))
+                else:
+                    rec = json.loads(data) if isinstance(data, str) else data
+            else:
+                rec = record
             
-            # Extract nested paths if configured
-            for dest_field, src_path in extract_paths.items():
-                # Navigate nested path
-                parts = src_path.split('.')
-                value = rec
-                for part in parts:
-                    if isinstance(value, dict):
-                        value = value.get(part)
-                    else:
-                        value = None
-                        break
-                
-                if value is not None:
-                    rec[dest_field] = value
+            # Extract from payload if exists
+            if 'payload' in rec:
+                rec = rec['payload']
             
-            return rec
+            # Preserve top-level fields
+            for field in preserve_fields:
+                if field in rec:
+                    result[field] = rec[field]
+            
+            # Auto-flatten specified nested fields
+            for field_name in json_fields:
+                if field_name in rec:
+                    nested_data = rec[field_name]
+                    
+                    # Parse if it's a JSON string
+                    if isinstance(nested_data, str):
+                        try:
+                            nested_data = json.loads(nested_data)
+                        except:
+                            pass
+                    
+                    # Flatten all fields from nested object
+                    if isinstance(nested_data, dict):
+                        for key, value in nested_data.items():
+                            # Handle special case for memberId -> member_number
+                            if key == "memberId":
+                                result["member_number"] = value
+                            else:
+                                result[key] = value
+            
+            return result
         
-        return pcoll | f"{self.step_id}_Parse" >> beam.Map(parse_and_extract)
-
+        return pcoll | f"{self.step_id}_ParseFlatten" >> beam.Map(parse_and_flatten)
 # 3. WindowedMappingQueryStep - Query mapping table periodically
 class WindowedMappingQueryStep(BaseStep):
     """Query mapping table with windowing and cache (ไม่ hardcode)"""
