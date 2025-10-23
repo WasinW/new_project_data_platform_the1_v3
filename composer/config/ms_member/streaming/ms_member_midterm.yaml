@@ -1,0 +1,73 @@
+# composer/config/ms_member/streaming/ms_member_midterm.yaml
+
+plan:
+# 1. Consume with DLQ
+- step: ConsumeMessagesWithDLQ
+  id: message_raw
+  subscription: "{io.pubsub.subscription}"
+  dlq_topic: "{io.pubsub.dlq_topic}"
+  max_retries: 3
+  with_attributes: true
+
+# 2. Parse nested JSON (duplicate จาก ParseJsonStep)
+- step: ParseNestedJson
+  in: message_raw
+  out: message_exploded
+  json_fields: [] # No string fields to parse
+  extract_paths:
+    # Extract nested paths
+    personaId: payload.personaId
+    memberId: payload.profiles.memberId
+    dateOfBirth: payload.profiles.dateOfBirth
+    gender: payload.profiles.gender
+    nationalityId: payload.profiles.nationalityId
+    languagePrefer: payload.profiles.languagePrefer
+
+# 3. Query mapping periodically
+- step: WindowedMappingQuery
+  id: mapping_dict
+  window_size: 3600
+  query: |
+    SELECT RECONCILE_COLUMN_NAME,
+           PERSONAS_MAPPING_COLUMN_NAME,
+           RECONCILE_RETRIEVED,
+           RECONCILE_CONFIRMED
+    FROM `{io.bq.project}.{io.bq.dataset}.stg_mapping_reconcile`
+    WHERE UPDATED_DATE = (
+      SELECT MAX(UPDATED_DATE) 
+      FROM `{io.bq.project}.{io.bq.dataset}.stg_mapping_reconcile`
+    )
+  src_field: PERSONAS_MAPPING_COLUMN_NAME
+  dest_field: RECONCILE_COLUMN_NAME
+  retrieved_flag_field: RECONCILE_RETRIEVED
+  confirmed_flag_field: RECONCILE_CONFIRMED
+
+# 4. Map using existing MapRecordStep!
+- step: MapRecord # ใช้ตัวเดิมได้เลย!
+  in: message_exploded
+  side: mapping_dict
+  out: message_mapped
+  mode: reconcile
+
+# 5. Normalize using existing
+- step: NormalizeToSchema # ใช้ตัวเดิม
+  in: message_mapped
+  out: normalized
+
+# 6. Window for partition
+- step: WindowingOpenHourlyPartition # ใช้ที่สร้างไว้แล้ว
+  in: normalized
+  out: partitioned
+  size: 3600
+
+# 7. Write Parquet
+- step: WriteParquetDynamic # ใช้ที่สร้างไว้แล้ว
+  in: partitioned
+  batch_size: 1000
+
+# 8. Write BigQuery
+- step: EnhancedWriteToBigQuery
+  in: normalized
+  table: "{io.bq.project}.{io.bq.dataset}.ms_personas_midterm"
+  method: STREAMING_INSERTS
+  triggering_frequency: 10

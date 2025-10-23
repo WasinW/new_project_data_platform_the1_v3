@@ -48,14 +48,6 @@ io:
 # field becomes a key in the orchestration state.  The order of
 # steps matters.  See README for more details.
 plan:
-# - step: ReadGCS
-#   id: max_date
-#   out: max_date
-#   path: gs://t1-insight-audit-bucket/cache/ms_member_max_date.txt
-#   format: text
-# - step: SetMaxDateParam # เพิ่ม step นี้
-#   in: max_date
-#   out: max_date_set
 
 - step: ReadBQQuery
   id: mapping_rows
@@ -94,7 +86,7 @@ plan:
         PARTITION BY JSON_VALUE(profiles, '$.memberId')
         ORDER BY TIMESTAMP DESC
       ) AS RN_PK
-      FROM `the1-insight-stg.insight.personas`
+      FROM `the1-insight-prod.insight.personas_snap`
       WHERE TIMESTAMP BETWEEN TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 2 HOUR) AND CURRENT_TIMESTAMP()
     ) WHERE RN_PK = 1
 

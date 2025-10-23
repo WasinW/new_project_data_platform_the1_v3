@@ -44,6 +44,14 @@ from .pubsub_bigtable_steps import (
     ExtractIdStep,
     ReadBigTableByIdStep,
 )
+
+from .streaming_additions import (
+    WindowingAuditStep,
+    WindowingOpenHourlyPartitionStep,
+    # MapRecordFixedStep,
+    # WriteParquetDynamicStep,
+)
+
 LOGGER = logging.getLogger(__name__)
 
 
@@ -402,23 +410,23 @@ class GetNewMaxDateStep(BaseStep):
         max_date = dates_filtered | max_label >> beam.CombineGlobally(safe_max)
         
         return max_date
-class SetMaxDateParamStep(BaseStep):
-    """Set max_date from PCollection to params"""
+# class SetMaxDateParamStep(BaseStep):
+#     """Set max_date from PCollection to params"""
     
-    def execute(self, pipeline: beam.Pipeline) -> beam.PCollection:
-        input_key = self.spec.get("in")
-        if not input_key or input_key not in self.state:
-            raise KeyError(f"Step {self.step_id}: missing input '{input_key}'")
+#     def execute(self, pipeline: beam.Pipeline) -> beam.PCollection:
+#         input_key = self.spec.get("in")
+#         if not input_key or input_key not in self.state:
+#             raise KeyError(f"Step {self.step_id}: missing input '{input_key}'")
         
-        pcoll = self.state[input_key]
+#         pcoll = self.state[input_key]
         
-        # Extract single value and set to params
-        def set_param(value):
-            if value:
-                self.config.params.max_date = str(value).strip()
-            return value
+#         # Extract single value and set to params
+#         def set_param(value):
+#             if value:
+#                 self.config.params.max_date = str(value).strip()
+#             return value
         
-        return pcoll | f"{self.step_id}_SetParam" >> beam.Map(set_param)
+#         return pcoll | f"{self.step_id}_SetParam" >> beam.Map(set_param)
 
 __all__ = [
     "BaseStep",
@@ -439,8 +447,14 @@ __all__ = [
     "WriteGCSStep",
     "GetNewMaxDateStep",
     "ReadGCSStep",
-    "SetMaxDateParamStep",
+    # "SetMaxDateParamStep",
     "ConsumePubSubSubscriptionStep",
     "ExtractIdStep",
     "ReadBigTableByIdStep",
+
+    "WindowingAuditStep",
+    "WindowingOpenHourlyPartitionStep",
+    # "MapRecordFixedStep",
+    # "WriteParquetDynamicStep",
+
 ]
