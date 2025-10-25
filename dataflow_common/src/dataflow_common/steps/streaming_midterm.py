@@ -8,6 +8,7 @@ from typing import Dict, Any, List
 from datetime import datetime
 import apache_beam as beam
 from apache_beam.transforms import window
+# from apache_beam.io.gcp.bigquery import WriteToBigQuery
 
 from ..core import BaseStep
 from ..connectors import BigQueryConnector
@@ -367,7 +368,6 @@ class EnhancedWriteToBigQueryStep(BaseStep):
     """Enhanced BQ write for streaming (based on WriteToBigQueryStep)"""
     
     def execute(self, pipeline: beam.Pipeline) -> None:
-        from apache_beam.io.gcp.bigquery import WriteToBigQuery
         
         input_key = self.spec.get("in")
         if not input_key or input_key not in self.state:
@@ -375,13 +375,12 @@ class EnhancedWriteToBigQueryStep(BaseStep):
             
         pcoll = self.state[input_key]
         
-        # Get config (ไม่ hardcode)
+        # Configuration
         table = self.spec.get("table")
-        write_disposition = self.spec.get("write_disposition", "WRITE_APPEND")
-        create_disposition = self.spec.get("create_disposition", "CREATE_IF_NEEDED")
-        schema = self.spec.get("schema", "SCHEMA_AUTODETECT")
         method = self.spec.get("method", "STREAMING_INSERTS")
-        triggering_frequency = self.spec.get("triggering_frequency", 10)
+        write_disposition = self.spec.get("write_disposition", "WRITE_APPEND")
+        enable_upsert = self.spec.get("enable_upsert", False)
+        primary_key = self.spec.get("primary_key", ["member_number"])
         
         if not table:
             raise ValueError(f"Step {self.step_id}: table required")
@@ -393,15 +392,44 @@ class EnhancedWriteToBigQueryStep(BaseStep):
         cleaned = pcoll | f"{self.step_id}_Clean" >> beam.Map(clean_for_bq)
         
         # Write to BQ
-        _ = cleaned | f"{self.step_id}_WriteBQ" >> WriteToBigQuery(
-            table=table,
-            schema=schema,
-            write_disposition=write_disposition,
-            create_disposition=create_disposition,
-            method=method,
-            triggering_frequency=triggering_frequency,
-            insert_retry_strategy="RETRY_ON_TRANSIENT_ERROR",
-            max_retry_duration=300
-        )
+        # สำหรับ Upsert - ใช้ Storage Write API + CDC
+        if enable_upsert:
+            # Transform to CDC format
+            def to_cdc_format(record):
+                """แปลงเป็น format สำหรับ CDC"""
+                record_with_type = dict(record)
+                record_with_type["_CHANGE_TYPE"] = "UPSERT"
+                
+                return {
+                    "record": record_with_type,
+                    "row_mutation_info": {
+                        "change_type": "UPSERT",
+                        "timestamp": beam.utils.timestamp.Timestamp.now().to_rfc3339()
+                    }
+                }
+            
+            cdc_records = cleaned | f"{self.step_id}_ToCDC" >> beam.Map(to_cdc_format)
+            
+            # Use BigQueryConnector with CDC
+            BigQueryConnector.write(
+                pcoll=cdc_records,
+                table=table,
+                cfg=self.config,
+                method="STORAGE_WRITE_API",
+                use_cdc=True,
+                primary_key=primary_key,
+                label=f"{self.step_id}_WriteCDC"
+            )
+            
+        else:
+            # Standard write (non-upsert)
+            BigQueryConnector.write(
+                pcoll=cleaned,
+                table=table,
+                cfg=self.config,
+                method=method,
+                write_disposition=write_disposition,
+                label=f"{self.step_id}_Write"
+            )
         
         return None

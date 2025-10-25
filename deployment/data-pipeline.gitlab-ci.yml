@@ -138,38 +138,6 @@ data-pipeline:setup-composer-variables:
   when: manual # Manual trigger เพื่อ run หลัง terraform
   <<: *data_pipeline_rules
 
-# Stage 5: Create BigQuery Tables
-data-pipeline:create-bq-tables:
-  stage: build
-  image: google/cloud-sdk:alpine
-  tags:
-  - cicd-nonprod
-  needs:
-  - data-pipeline:scan-gitleaks
-  before_script:
-  - echo $GCP_SA_KEY | base64 -d > /tmp/gcp-key.json
-  - gcloud auth activate-service-account --key-file=/tmp/gcp-key.json
-  - gcloud config set project $GCP_PROJECT_ID
-  script:
-  - |
-    echo "Creating BigQuery tables..."
-    # Create dataset if not exists
-    bq mk -f --dataset --location=asia-southeast1 $GCP_PROJECT_ID:$BQ_DATASET || true
-
-    # Create tables from schema files
-    for schema_file in pipeline/data_pipeline/schemas/*.json; do
-      if [ -f "$schema_file" ]; then
-        table_name=$(basename "$schema_file" .json)
-        echo "Creating table: $table_name"
-        bq mk -f --table \
-          $GCP_PROJECT_ID:$BQ_DATASET.$table_name \
-          $schema_file || true
-      fi
-    done
-  after_script:
-  - rm -f /tmp/gcp-key.json
-  <<: *data_pipeline_rules
-
 # Stage 6: Build Dataflow Common Wheel Package
 data-pipeline:build-dataflow-wheel:
   stage: build

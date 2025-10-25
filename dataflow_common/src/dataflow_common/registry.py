@@ -58,9 +58,9 @@ try:
         # ConsumePubSubStep,
         # ExtractKeysStep,
         # ReadBigTableRealtimeStep,
-        ProcessWithDLQStep,
+        # ProcessWithDLQStep,
         WindowStep,
-        WriteToBigQueryStep,
+        # WriteToBigQueryStep,
         CreateFixedMappingStep,
         CreateEmptyStep,
         # ReadGCSStep,  # ✅ เพิ่ม import
@@ -83,39 +83,33 @@ STEP_REGISTRY: Dict[str, Type] = {
     "CoalesceByMapping": CoalesceByMappingStep,
     "NormalizeToSchema": NormalizeToSchemaStep,
     "WriteParquet": WriteParquetStep,
-    # "ConsumePubSub": ConsumePubSubStep,
-    # "ReadBigTable": ReadBigTableStep,
-    # "ProcessWithDLQ": ProcessWithDLQStep,
-    # "ExtractKeys": ExtractKeysStep,
-    # "Window": WindowStep,
-    # # BigTable Batch Steps (Option C)
-    "WriteToBigQuery": WriteToBigQueryStep,
-    # "CreateFixedMapping": CreateFixedMappingStep,
-    # "CreateEmpty": CreateEmptyStep,
-    # # "ReadGCS": ReadGCSStep,
-    "WriteGCS": WriteGCSStep,
-    "GetNewMaxDate": GetNewMaxDateStep,
-    # "SetMaxDateParam": SetMaxDateParamStep,
-    "ProcessWithDLQ": ProcessWithDLQStep,
-    "Window": WindowStep,
-    "CreateFixedMapping": CreateFixedMappingStep,
-    "CreateEmpty": CreateEmptyStep,
     
-    # Pub/Sub & BigTable
-    "ConsumePubSubSubscription": ConsumePubSubSubscriptionStep,
-    "ExtractId": ExtractIdStep,
-    "ReadBigTableById": ReadBigTableByIdStep,
+    # Streaming Steps (Mid-term)
+    "ConsumeMessagesWithDLQ": ConsumeMessagesWithDLQStep,
+    "ParseNestedJson": ParseNestedJsonStep,
+    "WindowedMappingQuery": WindowedMappingQueryStep,
+    "WindowingOpenHourlyPartition": WindowingOpenHourlyPartitionStep,
+    "WriteParquetDynamic": WriteParquetDynamicStep,
+    "EnhancedWriteToBigQuery": EnhancedWriteToBigQueryStep,
+    
+    # Shared/Optional
+    # "WriteToBigQuery": WriteToBigQueryStep,      ❌ (ไม่ใช้)
+    # "ProcessWithDLQ": ProcessWithDLQStep,        ❌ (ไม่ใช้)
+    # "Window": WindowStep,                        ❌ (ไม่ใช้)
+    # "CreateFixedMapping": CreateFixedMappingStep, ❌ (ไม่ใช้)
+    # "CreateEmpty": CreateEmptyStep,              ❌ (ไม่ใช้)
+    # "WriteGCS": WriteGCSStep,                    ❌ (ไม่ใช้)
+    # "GetNewMaxDate": GetNewMaxDateStep,          ❌ (comment ไว้ใน yaml)
+    # "ConsumePubSubSubscription": ConsumePubSubSubscriptionStep, ❌ (ไม่ใช้)
+    # "ExtractId": ExtractIdStep,                  ❌ (ไม่ใช้)
+    # "ReadBigTableById": ReadBigTableByIdStep,    ❌ (ไม่ใช้)
+    # "WindowingAudit": WindowingAuditStep,        ❌ (ไม่ใช้)
     
     # Streaming additions
     "WindowingAudit": WindowingAuditStep,
     "WindowingOpenHourlyPartition": WindowingOpenHourlyPartitionStep,
     "WriteParquetDynamic": WriteParquetDynamicStep,
     
-    # Mid-term streaming
-    "ConsumeMessagesWithDLQ": ConsumeMessagesWithDLQStep,
-    "ParseNestedJson": ParseNestedJsonStep,
-    "WindowedMappingQuery": WindowedMappingQueryStep,
-    "EnhancedWriteToBigQuery": EnhancedWriteToBigQueryStep,
 }
 # # Add streaming steps only if available
 # if STREAMING_AVAILABLE:

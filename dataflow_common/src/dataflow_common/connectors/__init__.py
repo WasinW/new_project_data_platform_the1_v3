@@ -17,6 +17,7 @@ from typing import Any, Optional
 import apache_beam as beam
 from apache_beam.io.gcp.bigquery import ReadFromBigQuery
 from apache_beam.io.parquetio import WriteToParquet
+from apache_beam.io.gcp.bigquery import WriteToBigQuery
 
 from ..config import PipelineConfig
 from ..transforms.schema import load_schema_from_spec
@@ -71,6 +72,61 @@ class BigQueryConnector:
             gcs_location=temp_gcs,
         )
 
+    
+    @staticmethod
+    def write(
+        pcoll: beam.PCollection,
+        table: str,
+        cfg: PipelineConfig,
+        method: str = "STREAMING_INSERTS",
+        write_disposition: str = "WRITE_APPEND",
+        create_disposition: str = "CREATE_IF_NEEDED",
+        schema: Any = "SCHEMA_AUTODETECT",
+        use_cdc: bool = False,
+        primary_key: Optional[List[str]] = None,
+        label: str = "WriteBQ",
+        **kwargs
+    ) -> None:
+        """Write to BigQuery with optional CDC support"""
+        
+        bq_cfg = cfg.io.bq or {}
+        project = bq_cfg.get("project")
+        dataset = bq_cfg.get("dataset")
+        
+        # Build full table reference
+        if project and dataset:
+            full_table = f"{project}.{dataset}.{table}"
+        else:
+            full_table = table
+        
+        write_options = {
+            "table": full_table,
+            "write_disposition": write_disposition,
+            "create_disposition": create_disposition,
+            "schema": schema,
+        }
+        
+        # Set method
+        if method == "STORAGE_WRITE_API":
+            write_options["method"] = WriteToBigQuery.Method.STORAGE_WRITE_API
+            
+            # Enable CDC for upsert
+            if use_cdc:
+                write_options["use_cdc_writes"] = True
+                write_options["use_at_least_once"] = True  # CDC requires at-least-once
+                if primary_key:
+                    write_options["primary_key"] = primary_key
+                    
+        elif method == "STREAMING_INSERTS":
+            write_options["method"] = WriteToBigQuery.Method.STREAMING_INSERTS
+            write_options["insert_retry_strategy"] = "RETRY_ON_TRANSIENT_ERROR"
+        
+        # Add any additional kwargs
+        write_options.update(kwargs)
+        
+        LOGGER.info(f"Writing to BigQuery table {full_table} with method {method}")
+        
+        pcoll | label >> WriteToBigQuery(**write_options)
 
 class ParquetConnector:
     """Connector for writing data to Parquet files on cloud storage.
