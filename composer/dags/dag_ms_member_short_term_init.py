@@ -14,12 +14,6 @@ from airflow.utils.dates import days_ago
 from airflow.operators.python_operator import PythonOperator
 from airflow.providers.apache.beam.operators.beam import BeamRunPythonPipelineOperator
 from airflow.providers.google.cloud.operators.dataflow import DataflowConfiguration
-from airflow.providers.google.cloud.operators.bigquery_dts import (
-    BigQueryDataTransferServiceStartTransferRunsOperator
-)
-from airflow.providers.google.cloud.sensors.bigquery_dts import (
-    BigQueryDataTransferServiceTransferRunSensor
-)
 from airflow.providers.google.cloud.sensors.dataflow import DataflowJobStatusSensor
 
 # ============================================
@@ -175,9 +169,11 @@ dataflow_job = BeamRunPythonPipelineOperator(
         'worker_machine_type': 'n1-standard-2',
         'max_num_workers': 2,
         'save_main_session': True,
-        'experiments': ['use_runner_v2','enable_stackdriver_agent_metrics'],
-        'worker_log_level': 'INFO',  # หรือ DEBUG
-        'sdk_log_level': 'INFO',
+        'experiments': ['use_runner_v2','enable_stackdriver_agent_metrics','worker_log_level_debug'],
+        # Control log levels
+        # 'defaultWorkerLogLevel': 'INFO',    # Worker logs
+        # 'sdkHarnessLogLevel': 'WARNING',    # SDK logs
+        # 'worker_log_level': 'INFO',         # Your code
         # 'log_level': 'INFO',  # สำหรับ pipeline code ของเรา
 
 

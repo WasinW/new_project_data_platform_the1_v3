@@ -1,8 +1,7 @@
 """
 Generic Beam pipeline steps for dataflow_common.
 """
-# dataflow_common/src/dataflow_common/steps/__init__.py
-from __future__ import annotations  # ต้องมาก่อน
+from __future__ import annotations
 
 import logging
 import json
@@ -22,12 +21,9 @@ from dataflow_common.transforms import (
     normalize_row_to_schema,
     load_schema_from_spec,
 )
-# from dataflow_common.utils.logging import logger
-from dataflow_common.utils import get_dataflow_logger
-# import logging
-logger = get_dataflow_logger(__name__)
 
-# LOGGER = logging.getLogger(__name__)
+# ✅ แก้ไข: ใช้ standard Python logging
+LOGGER = logging.getLogger(__name__)
 
 # Import streaming steps
 from dataflow_common.steps.streaming import (
@@ -45,12 +41,11 @@ from dataflow_common.steps.pubsub_bigtable_steps import (
     ReadBigTableByIdStep,
 )
 
-# Import จาก streaming_additions.py (ที่ไม่ถูก comment)
+# Import จาก streaming_additions.py
 from dataflow_common.steps.streaming_additions import (
     WindowingAuditStep,
     WindowingOpenHourlyPartitionStep,
-    WriteParquetDynamicStep,  # ต้อง uncomment ใน streaming_additions.py ก่อน
-    # MapRecordFixedStep,
+    WriteParquetDynamicStep,
 )
 
 # Import จาก streaming_midterm.py  
@@ -61,49 +56,38 @@ from dataflow_common.steps.streaming_midterm import (
     EnhancedWriteToBigQueryStep,
 )
 
-# BaseStep is now defined in dataflow_common.core and imported above.
-
 class ReadBQQueryStep(BaseStep):
     """Read a BigQuery SQL query into a PCollection of dictionaries."""
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.logger = get_dataflow_logger(f"{__name__}.{self.step_id}")
-
+    
     def execute(self, pipeline: beam.Pipeline) -> beam.PCollection:
         try:
             query: str = self.spec.get("query", "")
             if not query:
                 raise ValueError(f"Step {self.step_id}: 'query' must be provided for ReadBQQuery")
             
-            # Log query for debugging
-            logger.info(self.step_id,f"Executing BigQuery query (first 500 chars): {query[:500]}...")
+            # ✅ แก้ไข: ใช้ format string เดียว
+            LOGGER.info(f"[{self.step_id}] Executing BigQuery query (first 500 chars): {query[:500]}...")
             
             if "{" in query:
                 raise RuntimeError(f"Unresolved template in query for {self.step_id}: {query}")
             
             result = BigQueryConnector.read_query(pipeline, query, self.config, self.step_id)
-            logger.info(self.step_id,f"Query executed successfully")
+            LOGGER.info(f"[{self.step_id}] Query executed successfully")
             return result
             
         except Exception as e:
-            logger.error(self.step_id,f"Failed to execute ReadBQQuery")
-            logger.error(self.step_id,f"Error: {str(e)}")
-            logger.error(self.step_id,f"Full query: {query if 'query' in locals() else 'Query not available'}")
-            logger.error(self.step_id,f"Stack trace: {traceback.format_exc()}")
+            LOGGER.error(f"[{self.step_id}] Failed to execute ReadBQQuery: {str(e)}")
+            LOGGER.error(f"[{self.step_id}] Full query: {query if 'query' in locals() else 'Query not available'}")
+            LOGGER.debug(f"[{self.step_id}] Stack trace: {traceback.format_exc()}")
             raise
-        # return BigQueryConnector.read_query(pipeline, query, self.config, self.step_id)
 
 class BuildMappingDictStep(BaseStep):
-    """Build a mapping dictionary from mapping rows.
-    """
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.logger = get_dataflow_logger(f"{__name__}.{self.step_id}")
-
+    """Build a mapping dictionary from mapping rows."""
+    
     def execute(self, pipeline: beam.Pipeline) -> beam.PCollection:
         try:
             input_key = self.spec.get("in")
-            logger.info(self.step_id,f"Building mapping dict from input: {input_key}")
+            LOGGER.info(f"[{self.step_id}] Building mapping dict from input: {input_key}")
             
             if not input_key or input_key not in self.state:
                 raise KeyError(f"Step {self.step_id}: missing or unknown input '{input_key}'")
@@ -116,7 +100,7 @@ class BuildMappingDictStep(BaseStep):
             retrieved_flag = fields.get("retrieved_flag_field", "retrieved_flag")
             confirmed_flag = fields.get("confirmed_flag_field", "confirmed_flag")
             
-            logger.info(self.step_id,f"Mapping fields - src: {src_field}, dest: {dest_field}")
+            LOGGER.info(f"[{self.step_id}] Mapping fields - src: {src_field}, dest: {dest_field}")
             
             result = (
                 pcoll
@@ -129,26 +113,22 @@ class BuildMappingDictStep(BaseStep):
                     confirmed_flag_field=confirmed_flag,
                 )
             )
-            logger.info(self.step_id,f"Mapping dict built successfully")
+            LOGGER.info(f"[{self.step_id}] Mapping dict built successfully")
             return result
             
         except Exception as e:
-            logger.error(self.step_id,f"Failed to build mapping dict")
-            logger.error(self.step_id,f"Error: {str(e)}")
-            logger.error(self.step_id,f"Stack trace: {traceback.format_exc()}")
+            LOGGER.error(f"[{self.step_id}] Failed to build mapping dict: {str(e)}")
+            LOGGER.debug(f"[{self.step_id}] Stack trace: {traceback.format_exc()}")
             raise
 
 class ParseJsonStep(BaseStep):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.logger = get_dataflow_logger(f"{__name__}.{self.step_id}")
-
+    
     def execute(self, pipeline):
         try:
             input_key = self.spec.get("in")
             json_fields = self.spec.get("json_fields", ["profiles"])
             
-            logger.info(self.step_id,f"Parsing JSON fields: {json_fields} from input: {input_key}")
+            LOGGER.info(f"[{self.step_id}] Parsing JSON fields: {json_fields} from input: {input_key}")
             
             pcoll = self.state[input_key]
             
@@ -159,37 +139,34 @@ class ParseJsonStep(BaseStep):
                         if field in rec and isinstance(rec[field], str):
                             try:
                                 rec[field] = json.loads(rec[field])
-                                logger.debug(self.step_id,f"Successfully parsed JSON field: {field}")
+                                # ไม่ log ในทุก record (performance issue)
+                                # LOGGER.debug(f"[{self.step_id}] Successfully parsed JSON field: {field}")
                             except json.JSONDecodeError as je:
-                                logger.warning(self.step_id,f"Failed to parse JSON field '{field}': {je}")
+                                LOGGER.warning(f"[ParseJsonStep] Failed to parse JSON field '{field}': {je}")
                     return rec
                 except Exception as e:
-                    logger.error(self.step_id,f"Error in parse_json_fields: {e}")
+                    LOGGER.error(f"[ParseJsonStep] Error in parse_json_fields: {e}")
                     raise
             
             result = pcoll | f"{self.step_id}_Parse" >> beam.Map(parse_json_fields)
-            logger.info(self.step_id,f"JSON parsing completed")
+            LOGGER.info(f"[{self.step_id}] JSON parsing completed")
             return result
             
         except Exception as e:
-            logger.error(self.step_id,f"Failed in ParseJsonStep")
-            logger.error(self.step_id,f"Error: {str(e)}")
-            logger.error(self.step_id,f"Stack trace: {traceback.format_exc()}")
+            LOGGER.error(f"[{self.step_id}] Failed in ParseJsonStep: {str(e)}")
+            LOGGER.debug(f"[{self.step_id}] Stack trace: {traceback.format_exc()}")
             raise
     
 class MapRecordStep(BaseStep):
     """Apply a mapping dictionary to each record in the input PCollection."""
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.logger = get_dataflow_logger(f"{__name__}.{self.step_id}")
-
+    
     def execute(self, pipeline: beam.Pipeline) -> beam.PCollection:
         try:
             input_key = self.spec.get("in")
             side_key = self.spec.get("side")
             mode: str = self.spec.get("mode", "reconcile")
             
-            logger.info(self.step_id,f"Mapping records - mode: {mode}, input: {input_key}, side: {side_key}")
+            LOGGER.info(f"[{self.step_id}] Mapping records - mode: {mode}, input: {input_key}, side: {side_key}")
             
             if not input_key or input_key not in self.state:
                 raise KeyError(f"Step {self.step_id}: missing or unknown input '{input_key}'")
@@ -203,28 +180,23 @@ class MapRecordStep(BaseStep):
             result = pcoll | f"{self.step_id}_MapRecord" >> beam.Map(
                 lambda rec, m: map_record(rec, m, mode), mapping_side
             )
-            logger.info(self.step_id,f"Record mapping completed")
+            LOGGER.info(f"[{self.step_id}] Record mapping completed")
             return result
             
         except Exception as e:
-            logger.error(self.step_id,f"Failed in MapRecordStep")
-            logger.error(self.step_id,f"Error: {str(e)}")
-            logger.error(self.step_id,f"Stack trace: {traceback.format_exc()}")
+            LOGGER.error(f"[{self.step_id}] Failed in MapRecordStep: {str(e)}")
+            LOGGER.debug(f"[{self.step_id}] Stack trace: {traceback.format_exc()}")
             raise
 
 class KVPairsStep(BaseStep):
-    # map key with id , map value with record
     """Convert records into key/value pairs keyed by the specified field."""
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.logger = get_dataflow_logger(f"{__name__}.{self.step_id}")
-
+    
     def execute(self, pipeline: beam.Pipeline) -> beam.PCollection:
         try:
             input_key = self.spec.get("in")
             key_field = self.spec.get("key_field") or self.config.params.pk
             
-            logger.info(self.step_id,f"Creating KV pairs - key_field: {key_field}, input: {input_key}")
+            LOGGER.info(f"[{self.step_id}] Creating KV pairs - key_field: {key_field}, input: {input_key}")
             
             if not input_key or input_key not in self.state:
                 raise KeyError(f"Step {self.step_id}: missing or unknown input '{input_key}'")
@@ -235,7 +207,7 @@ class KVPairsStep(BaseStep):
                 try:
                     return (d.get(key_field), d)
                 except Exception as e:
-                    logger.warning(self.step_id,f"Failed to get key '{key_field}' from record: {e}")
+                    LOGGER.warning(f"[{self.step_id}] Failed to get key '{key_field}' from record: {e}")
                     return (None, d)
             
             result = (
@@ -243,26 +215,22 @@ class KVPairsStep(BaseStep):
                 | f"{self.step_id}_KV" >> beam.Map(safe_get_key)
                 | f"{self.step_id}_DropNoneKey" >> beam.Filter(lambda kv: kv[0] is not None)
             )
-            logger.info(self.step_id,f"KV pairs created successfully")
+            LOGGER.info(f"[{self.step_id}] KV pairs created successfully")
             return result
             
         except Exception as e:
-            logger.error(self.step_id,f"Failed in KVPairsStep")
-            logger.error(self.step_id,f"Error: {str(e)}")
-            logger.error(self.step_id,f"Stack trace: {traceback.format_exc()}")
+            LOGGER.error(f"[{self.step_id}] Failed in KVPairsStep: {str(e)}")
+            LOGGER.debug(f"[{self.step_id}] Stack trace: {traceback.format_exc()}")
             raise
 
 class CoGroupByKeyStep(BaseStep):
     """Group multiple keyed PCollections by key."""
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.logger = get_dataflow_logger(f"{__name__}.{self.step_id}")
-
+    
     def execute(self, pipeline: beam.Pipeline) -> beam.PCollection:
         try:
             alias_mapping: Dict[str, str] = self.spec.get("as") or {}
             
-            logger.info(self.step_id,f"CoGroupByKey with aliases: {list(alias_mapping.keys())}")
+            LOGGER.info(f"[{self.step_id}] CoGroupByKey with aliases: {list(alias_mapping.keys())}")
             
             if not alias_mapping:
                 raise ValueError(f"Step {self.step_id}: 'as' mapping must be provided for CoGroupByKey")
@@ -272,31 +240,27 @@ class CoGroupByKeyStep(BaseStep):
                 if state_key not in self.state:
                     raise KeyError(f"Step {self.step_id}: unknown input '{state_key}' for alias '{alias}'")
                 inputs[alias] = self.state[state_key]
-                logger.info(self.step_id,f"Added input '{state_key}' as alias '{alias}'")
+                LOGGER.info(f"[{self.step_id}] Added input '{state_key}' as alias '{alias}'")
             
             result = inputs | f"{self.step_id}_CoGroupByKey" >> beam.CoGroupByKey()
-            logger.info(self.step_id,f"CoGroupByKey completed")
+            LOGGER.info(f"[{self.step_id}] CoGroupByKey completed")
             return result
             
         except Exception as e:
-            logger.error(self.step_id,f"Failed in CoGroupByKeyStep")
-            logger.error(self.step_id,f"Error: {str(e)}")
-            logger.error(self.step_id,f"Stack trace: {traceback.format_exc()}")
+            LOGGER.error(f"[{self.step_id}] Failed in CoGroupByKeyStep: {str(e)}")
+            LOGGER.debug(f"[{self.step_id}] Stack trace: {traceback.format_exc()}")
             raise
 
 class CoalesceByMappingStep(BaseStep):
     """Coalesce new and old records using mapping flags."""
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.logger = get_dataflow_logger(f"{__name__}.{self.step_id}")
-
+    
     def execute(self, pipeline: beam.Pipeline) -> beam.PCollection:
         try:
             input_key = self.spec.get("in")
             side_key = self.spec.get("side")
             flag_field = self.spec.get("flag_field")
             
-            logger.info(self.step_id,f"Coalescing - input: {input_key}, side: {side_key}, flag: {flag_field}")
+            LOGGER.info(f"[{self.step_id}] Coalescing - input: {input_key}, side: {side_key}, flag: {flag_field}")
             
             if not input_key or input_key not in self.state:
                 raise KeyError(f"Step {self.step_id}: missing or unknown input '{input_key}'")
@@ -321,20 +285,16 @@ class CoalesceByMappingStep(BaseStep):
                 )
                 | f"{self.step_id}_FilterNone" >> beam.Filter(lambda x: x is not None)
             )
-            logger.info(self.step_id,f"Coalescing completed")
+            LOGGER.info(f"[{self.step_id}] Coalescing completed")
             return result
             
         except Exception as e:
-            logger.error(self.step_id,f"Failed in CoalesceByMappingStep")
-            logger.error(self.step_id,f"Error: {str(e)}")
-            logger.error(self.step_id,f"Stack trace: {traceback.format_exc()}")
+            LOGGER.error(f"[{self.step_id}] Failed in CoalesceByMappingStep: {str(e)}")
+            LOGGER.debug(f"[{self.step_id}] Stack trace: {traceback.format_exc()}")
             raise
 
 class NormalizeToSchemaStep(BaseStep):
     """Normalise rows to the loaded schema using the configured formats."""
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.logger = get_dataflow_logger(f"{__name__}.{self.step_id}")
 
     _schema_cache: Optional[Any] = None
 
@@ -342,7 +302,7 @@ class NormalizeToSchemaStep(BaseStep):
         try:
             input_key = self.spec.get("in")
             
-            logger.info(self.step_id,f"Normalizing to schema - input: {input_key}")
+            LOGGER.info(f"[{self.step_id}] Normalizing to schema - input: {input_key}")
             
             if not input_key or input_key not in self.state:
                 raise KeyError(f"Step {self.step_id}: missing or unknown input '{input_key}'")
@@ -351,7 +311,7 @@ class NormalizeToSchemaStep(BaseStep):
             
             if NormalizeToSchemaStep._schema_cache is None:
                 NormalizeToSchemaStep._schema_cache = load_schema_from_spec(self.config.schema)
-                logger.info(self.step_id,f"Schema loaded with {len(NormalizeToSchemaStep._schema_cache.names)} fields")
+                LOGGER.info(f"[{self.step_id}] Schema loaded with {len(NormalizeToSchemaStep._schema_cache.names)} fields")
             
             schema = NormalizeToSchemaStep._schema_cache
             formats = self.config.formats
@@ -360,32 +320,28 @@ class NormalizeToSchemaStep(BaseStep):
                 try:
                     return normalize_row_to_schema(row, schema, formats)
                 except Exception as e:
-                    logger.error(self.step_id,f"Failed to normalize row: {e}")
-                    logger.debug(self.step_id,f"Problematic row: {row}")
+                    LOGGER.error(f"[{self.step_id}] Failed to normalize row: {e}")
+                    LOGGER.debug(f"[{self.step_id}] Problematic row: {row}")
                     raise
             
             result = pcoll | f"{self.step_id}_Normalize" >> beam.Map(safe_normalize)
-            logger.info(self.step_id,f"Normalization completed")
+            LOGGER.info(f"[{self.step_id}] Normalization completed")
             return result
             
         except Exception as e:
-            logger.error(self.step_id,f"Failed in NormalizeToSchemaStep")
-            logger.error(self.step_id,f"Error: {str(e)}")
-            logger.error(self.step_id,f"Stack trace: {traceback.format_exc()}")
+            LOGGER.error(f"[{self.step_id}] Failed in NormalizeToSchemaStep: {str(e)}")
+            LOGGER.debug(f"[{self.step_id}] Stack trace: {traceback.format_exc()}")
             raise
 
 class WriteParquetStep(BaseStep):
     """Write a PCollection of dictionaries to Parquet files."""
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.logger = get_dataflow_logger(f"{__name__}.{self.step_id}")
-
+    
     def execute(self, pipeline: beam.Pipeline) -> None:
         try:
             input_key = self.spec.get("in")
             prefix_template: str = self.spec.get("prefix") or ""
             
-            logger.info(self.step_id,f"Writing Parquet - input: {input_key}, prefix: {prefix_template[:100]}...")
+            LOGGER.info(f"[{self.step_id}] Writing Parquet - input: {input_key}, prefix: {prefix_template[:100]}...")
             
             if not input_key or input_key not in self.state:
                 raise KeyError(f"Step {self.step_id}: missing or unknown input '{input_key}'")
@@ -405,7 +361,7 @@ class WriteParquetStep(BaseStep):
 
             try:
                 prefix = prefix_template.format(**format_dict)
-                logger.info(self.step_id,f"Final Parquet path: {prefix}")
+                LOGGER.info(f"[{self.step_id}] Final Parquet path: {prefix}")
             except Exception as exc:
                 raise RuntimeError(f"Failed to format prefix '{prefix_template}': {exc}")
             
@@ -413,27 +369,23 @@ class WriteParquetStep(BaseStep):
             label = f"WriteParquet_{output_key}"
             ParquetConnector.write(pcoll, prefix, self.config, label)
             
-            logger.info(self.step_id,f"Parquet write initiated")
+            LOGGER.info(f"[{self.step_id}] Parquet write initiated")
             return None
             
         except Exception as e:
-            logger.error(self.step_id,f"Failed in WriteParquetStep")
-            logger.error(self.step_id,f"Error: {str(e)}")
-            logger.error(self.step_id,f"Stack trace: {traceback.format_exc()}")
+            LOGGER.error(f"[{self.step_id}] Failed in WriteParquetStep: {str(e)}")
+            LOGGER.debug(f"[{self.step_id}] Stack trace: {traceback.format_exc()}")
             raise
 
 class WriteToBigQueryStep(BaseStep):
     """Write to BigQuery table"""
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.logger = get_dataflow_logger(f"{__name__}.{self.step_id}")
-
+    
     def execute(self, pipeline: beam.Pipeline) -> None:
         try:
             input_key = self.spec.get("in")
             table = self.spec.get("table")
             
-            logger.info(self.step_id,f"Writing to BigQuery - input: {input_key}, table: {table}")
+            LOGGER.info(f"[{self.step_id}] Writing to BigQuery - input: {input_key}, table: {table}")
             
             if not input_key or input_key not in self.state:
                 raise KeyError(f"Step {self.step_id}: missing input '{input_key}'")
@@ -453,13 +405,12 @@ class WriteToBigQueryStep(BaseStep):
                 schema=schema
             )
             
-            logger.info(self.step_id,f"BigQuery write initiated")
+            LOGGER.info(f"[{self.step_id}] BigQuery write initiated")
             return None
             
         except Exception as e:
-            logger.error(self.step_id,f"Failed in WriteToBigQueryStep")
-            logger.error(self.step_id,f"Error: {str(e)}")
-            logger.error(self.step_id,f"Stack trace: {traceback.format_exc()}")
+            LOGGER.error(f"[{self.step_id}] Failed in WriteToBigQueryStep: {str(e)}")
+            LOGGER.debug(f"[{self.step_id}] Stack trace: {traceback.format_exc()}")
             raise
 
 # class ReadGCSStep(BaseStep):
@@ -486,17 +437,14 @@ class WriteToBigQueryStep(BaseStep):
 
 
 class WriteGCSStep(BaseStep):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.logger = get_dataflow_logger(f"{__name__}.{self.step_id}")
-
+    
     def execute(self, pipeline: beam.Pipeline) -> None:
         try:
             input_key: Optional[str] = self.spec.get("in") or self.spec.get("id")
             path = self.spec.get("path") or self.spec.get("gcs_path")
             fmt = (self.spec.get("format") or "text").lower()
             
-            logger.info(self.step_id,f"Writing to GCS - input: {input_key}, path: {path}, format: {fmt}")
+            LOGGER.info(f"[{self.step_id}] Writing to GCS - input: {input_key}, path: {path}, format: {fmt}")
             
             if not input_key:
                 raise ValueError(f"WriteGCS step '{self.step_id}' requires an 'in' parameter")
@@ -510,7 +458,7 @@ class WriteGCSStep(BaseStep):
             
             pcoll = self.state[input_key]
             if pcoll is None:
-                logger.warning(self.step_id,f"No data to write")
+                LOGGER.warning(f"[{self.step_id}] No data to write")
                 return None
             
             if fmt == "json":
@@ -520,88 +468,13 @@ class WriteGCSStep(BaseStep):
             
             pcoll | self.step_id >> beam.io.WriteToText(path, shard_name_template="")
             
-            logger.info(self.step_id,f"GCS write initiated")
+            LOGGER.info(f"[{self.step_id}] GCS write initiated")
             return None
             
         except Exception as e:
-            logger.error(self.step_id,f"Failed in WriteGCSStep")
-            logger.error(self.step_id,f"Error: {str(e)}")
-            logger.error(self.step_id,f"Stack trace: {traceback.format_exc()}")
+            LOGGER.error(f"[{self.step_id}] Failed in WriteGCSStep: {str(e)}")
+            LOGGER.debug(f"[{self.step_id}] Stack trace: {traceback.format_exc()}")
             raise
-
-# class GetNewMaxDateStep(BaseStep):
-#     def execute(self, pipeline: beam.Pipeline) -> beam.PCollection:
-#         try:
-#             input_key: Optional[str] = self.spec.get("in")
-#             field_name = self.spec.get("field", "UPDATED_DATE")
-#             max_date_step = self.spec.get("max_date_step", "")
-            
-#             logger.info(self.step_id,f"Getting max date - input: {input_key}, field: {field_name}")
-            
-#             if not input_key:
-#                 raise ValueError(f"GetNewMaxDate step '{self.step_id}' requires an 'in' parameter")
-#             if input_key not in self.state:
-#                 raise KeyError(f"GetNewMaxDate step '{self.step_id}' could not find input key '{input_key}' in state")
-            
-#             pcoll = self.state[input_key]
-            
-#             if max_date_step:
-#                 extract_label = f"{self.step_id}_{max_date_step}_ExtractField"
-#                 filter_label = f"{self.step_id}_{max_date_step}_FilterNone"
-#                 max_label = f"{self.step_id}_{max_date_step}_Max"
-#             else:
-#                 extract_label = f"{self.step_id}_ExtractField"
-#                 filter_label = f"{self.step_id}_FilterNone"
-#                 max_label = f"{self.step_id}_Max"
-            
-#             def extract_with_debug(rec):
-#                 try:
-#                     if rec:
-#                         logger.debug(self.step_id,f"Available fields: {list(rec.keys())}")
-#                         value = rec.get(field_name)
-#                         logger.debug(self.step_id,f"{field_name} value: {value}")
-#                         return value
-#                 except Exception as e:
-#                     logger.error(self.step_id,f"Error extracting field '{field_name}': {e}")
-#                 return None
-
-#             dates = pcoll | extract_label >> beam.Map(extract_with_debug)
-#             dates_filtered = dates | filter_label >> beam.Filter(lambda x: x is not None)
-
-#             def safe_max(vals):
-#                 filtered = [v for v in vals if v is not None]
-#                 result = max(filtered) if filtered else None
-#                 logger.info(self.step_id,f"Max date found: {result}")
-#                 return result
-            
-#             max_date = dates_filtered | max_label >> beam.CombineGlobally(safe_max)
-            
-#             logger.info(self.step_id,f"Max date extraction completed")
-#             return max_date
-            
-#         except Exception as e:
-#             logger.error(self.step_id,f"Failed in GetNewMaxDateStep")
-#             logger.error(self.step_id,f"Error: {str(e)}")
-#             logger.error(self.step_id,f"Stack trace: {traceback.format_exc()}")
-#             raise
-        
-# class SetMaxDateParamStep(BaseStep):
-#     """Set max_date from PCollection to params"""
-    
-#     def execute(self, pipeline: beam.Pipeline) -> beam.PCollection:
-#         input_key = self.spec.get("in")
-#         if not input_key or input_key not in self.state:
-#             raise KeyError(f"Step {self.step_id}: missing input '{input_key}'")
-        
-#         pcoll = self.state[input_key]
-        
-#         # Extract single value and set to params
-#         def set_param(value):
-#             if value:
-#                 self.config.params.max_date = str(value).strip()
-#             return value
-        
-#         return pcoll | f"{self.step_id}_SetParam" >> beam.Map(set_param)
 
 __all__ = [
     "BaseStep",
@@ -616,14 +489,11 @@ __all__ = [
     "WriteParquetStep",
     "WriteToBigQueryStep",
     "WriteGCSStep",
-    # "GetNewMaxDateStep",
     # Streaming steps
     "ProcessWithDLQStep",
     "WindowStep",
     "CreateFixedMappingStep",
     "CreateEmptyStep",
-    # "ReadGCSStep",
-    # "SetMaxDateParamStep",
     # Pub/Sub & BigTable steps
     "ConsumePubSubSubscriptionStep",
     "ExtractIdStep",
@@ -632,11 +502,9 @@ __all__ = [
     "WindowingAuditStep",
     "WindowingOpenHourlyPartitionStep",
     "WriteParquetDynamicStep",
-    # "MapRecordFixedStep",
     # Mid-term streaming steps
     "ConsumeMessagesWithDLQStep",
     "ParseNestedJsonStep",
     "WindowedMappingQueryStep",
     "EnhancedWriteToBigQueryStep",
-
 ]
