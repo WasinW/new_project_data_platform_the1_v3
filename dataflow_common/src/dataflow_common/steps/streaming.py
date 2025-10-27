@@ -4,10 +4,10 @@ import logging
 import apache_beam as beam
 from apache_beam.io.gcp.bigquery import WriteToBigQuery
 from apache_beam.transforms import window
-from ..core import BaseStep
-from ..connectors.pubsub import PubSubConnector
+from dataflow_common.core import BaseStep
+from dataflow_common.connectors.pubsub import PubSubConnector
 from typing import Dict, Any, Optional
-from ..connectors.bigtable import BigTableConnector
+from dataflow_common.connectors.bigtable import BigTableConnector
 import json
 import logging
 

@@ -6,8 +6,8 @@ import json
 import logging
 import apache_beam as beam
 from typing import Dict, Any
-from ..core import BaseStep
-from ..transforms.mapping import extract_by_path
+from dataflow_common.core import BaseStep
+from dataflow_common.transforms.mapping import extract_by_path
 
 LOGGER = logging.getLogger(__name__)
 
@@ -166,7 +166,7 @@ class WriteParquetDynamicStep(BaseStep):
                 self._buffer = []
                 
             def setup(self):
-                from ..transforms.schema import load_schema_from_spec
+                from dataflow_common.transforms.schema import load_schema_from_spec
                 self._schema = load_schema_from_spec(self.schema_spec)
                 
             def process(self, element, window=beam.DoFn.WindowParam):

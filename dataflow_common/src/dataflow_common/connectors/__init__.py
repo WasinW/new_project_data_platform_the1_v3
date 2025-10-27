@@ -19,11 +19,11 @@ import apache_beam as beam
 from apache_beam.io.gcp.bigquery import ReadFromBigQuery, WriteToBigQuery
 from apache_beam.io.parquetio import WriteToParquet
 
-from ..config import PipelineConfig
-from ..transforms.schema import load_schema_from_spec
+from dataflow_common.config import PipelineConfig
+from dataflow_common.transforms.schema import load_schema_from_spec
 
-from .bigtable import BigTableConnector
-from .pubsub import PubSubConnector
+from dataflow_common.connectors.bigtable import BigTableConnector
+from dataflow_common.connectors.pubsub import PubSubConnector
 
 LOGGER = logging.getLogger(__name__)
 

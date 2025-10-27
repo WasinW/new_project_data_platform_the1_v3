@@ -75,8 +75,8 @@ from typing import Any, Dict, Iterable, Optional
 import apache_beam as beam
 from apache_beam.io import ReadFromPubSub, WriteToPubSub
 
-from ..core import BaseStep
-from ..connectors.bigtable import BigTableConnector  # noqa: F401  # retained for type hints
+from dataflow_common.core import BaseStep
+from dataflow_common.connectors.bigtable import BigTableConnector  # noqa: F401  # retained for type hints
 
 LOGGER = logging.getLogger(__name__)
 

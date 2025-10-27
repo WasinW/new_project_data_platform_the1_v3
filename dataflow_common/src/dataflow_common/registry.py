@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from typing import Dict, Type
 
-from .steps import (
+from dataflow_common.steps import (
     ReadBQQueryStep,
     BuildMappingDictStep,
     ParseJsonStep,
@@ -54,7 +54,7 @@ from .steps import (
 
 # Import streaming steps only if available (safe import)
 try:
-    from .steps.streaming import (
+    from dataflow_common.steps.streaming import (
         # ConsumePubSubStep,
         # ExtractKeysStep,
         # ReadBigTableRealtimeStep,

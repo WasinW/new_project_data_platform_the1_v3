@@ -24,7 +24,7 @@ import pyarrow as pa
 
 from apache_beam.io.filesystems import FileSystems
 
-from ..config import SchemaSpec, BigQuerySchemaSpec, FormatSpec
+from dataflow_common.config import SchemaSpec, BigQuerySchemaSpec, FormatSpec
 
 LOGGER = logging.getLogger(__name__)
 

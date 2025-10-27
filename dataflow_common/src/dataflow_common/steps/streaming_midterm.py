@@ -10,9 +10,9 @@ import apache_beam as beam
 from apache_beam.transforms import window
 # from apache_beam.io.gcp.bigquery import WriteToBigQuery
 
-from ..core import BaseStep
-from ..connectors import BigQueryConnector
-from ..transforms.mapping import create_mapping_dict, map_record
+from dataflow_common.core import BaseStep
+from dataflow_common.connectors import BigQueryConnector
+from dataflow_common.transforms.mapping import create_mapping_dict, map_record
 
 LOGGER = logging.getLogger(__name__)
 
@@ -238,7 +238,7 @@ class WindowedMappingQueryStep(BaseStep):
         )
 
 # 4. ใช้ MapRecordStep เดิมได้เลย! แค่เรียกจาก existing
-# from ..steps import MapRecordStep  
+# from dataflow_common.steps import MapRecordStep  
 
 # 5. ใช้ WriteParquetDynamicStep จากที่สร้างไว้ก่อนหน้า
 # Update in streaming_additions.py
@@ -267,7 +267,7 @@ class WindowedMappingQueryStep(BaseStep):
 #                 self._buffer = []
                 
 #             def setup(self):
-#                 from ..transforms.schema import load_schema_from_spec
+#                 from dataflow_common.transforms.schema import load_schema_from_spec
 #                 self._schema = load_schema_from_spec(self.schema_spec)
                 
 #             def start_bundle(self):

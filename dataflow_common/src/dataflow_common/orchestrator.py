@@ -23,8 +23,8 @@ from typing import Any, Dict
 import apache_beam as beam
 from apache_beam.options.pipeline_options import PipelineOptions
 
-from .config import PipelineConfig
-from .registry import STEP_REGISTRY
+from dataflow_common.config import PipelineConfig
+from dataflow_common.registry import STEP_REGISTRY
 
 LOGGER = logging.getLogger(__name__)
 

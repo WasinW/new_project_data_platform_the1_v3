@@ -22,7 +22,7 @@ from typing import Any, Dict
 
 import apache_beam as beam
 
-from .config import PipelineConfig
+from dataflow_common.config import PipelineConfig
 
 
 LOGGER = logging.getLogger(__name__)

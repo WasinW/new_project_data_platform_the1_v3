@@ -7,14 +7,14 @@ intentionally stateless so that they can be easily tested in
 isolation and reused across steps.
 """
 
-from .mapping import (
+from dataflow_common.transforms.mapping import (
     normalize_path,
     extract_by_path,
     create_mapping_dict,
     map_record,
 )
-from .coalesce import coalesce_by_mapping
-from .schema import (
+from dataflow_common.transforms.coalesce import coalesce_by_mapping
+from dataflow_common.transforms.schema import (
     load_schema_from_spec,
     build_pyarrow_schema,
     normalize_row_to_schema,
