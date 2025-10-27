@@ -15,6 +15,12 @@ from airflow.operators.python_operator import PythonOperator
 from airflow.providers.apache.beam.operators.beam import BeamRunPythonPipelineOperator
 from airflow.providers.google.cloud.operators.dataflow import DataflowConfiguration
 from airflow.providers.google.cloud.sensors.dataflow import DataflowJobStatusSensor
+from airflow.providers.google.cloud.operators.bigquery_dts import (
+    BigQueryDataTransferServiceStartTransferRunsOperator
+)
+from airflow.providers.google.cloud.sensors.bigquery_dts import (
+    BigQueryDataTransferServiceTransferRunSensor
+)
 
 # ============================================
 # CONFIGURATION
@@ -89,59 +95,59 @@ pre_check = PythonOperator(
     dag=dag
 )
 
-# # Task 1: Trigger mapping_reconcile transfer from S3 to BigQuery
-# trigger_mapping_transfer = BigQueryDataTransferServiceStartTransferRunsOperator(
-#     task_id="trigger_mapping_reconcile_transfer",
-#     project_id=PROJECT_ID,
-#     location=REGION,
-#     transfer_config_id='{{ var.value.mapping_transfer_config_id }}',
-#     requested_run_time={"seconds": int(time.time())},
-#     gcp_conn_id=GCP_CONN_ID,
-#     deferrable=True,
-#     dag=dag,
-# )
+# Task 1: Trigger mapping_reconcile transfer from S3 to BigQuery
+trigger_mapping_transfer = BigQueryDataTransferServiceStartTransferRunsOperator(
+    task_id="trigger_mapping_reconcile_transfer",
+    project_id=PROJECT_ID,
+    location=REGION,
+    transfer_config_id='{{ var.value.mapping_transfer_config_id }}',
+    requested_run_time={"seconds": int(time.time())},
+    gcp_conn_id=GCP_CONN_ID,
+    deferrable=True,
+    dag=dag,
+)
 
-# # Task 2: Monitor mapping transfer
-# monitor_mapping_transfer = BigQueryDataTransferServiceTransferRunSensor(
-#     task_id="monitor_mapping_transfer",
-#     transfer_config_id='{{ var.value.mapping_transfer_config_id }}',
-#     run_id="{{ ti.xcom_pull(task_ids='trigger_mapping_reconcile_transfer', key='run_id') }}",
-#     expected_statuses={"SUCCEEDED"},
-#     project_id=PROJECT_ID,
-#     location=REGION,
-#     poke_interval=60,
-#     timeout=600,
-#     mode="poke",
-#     gcp_conn_id=GCP_CONN_ID,
-#     dag=dag,
-# )
+# Task 2: Monitor mapping transfer
+monitor_mapping_transfer = BigQueryDataTransferServiceTransferRunSensor(
+    task_id="monitor_mapping_transfer",
+    transfer_config_id='{{ var.value.mapping_transfer_config_id }}',
+    run_id="{{ ti.xcom_pull(task_ids='trigger_mapping_reconcile_transfer', key='run_id') }}",
+    expected_statuses={"SUCCEEDED"},
+    project_id=PROJECT_ID,
+    location=REGION,
+    poke_interval=60,
+    timeout=600,
+    mode="poke",
+    gcp_conn_id=GCP_CONN_ID,
+    dag=dag,
+)
 
-# # Task 3: Trigger MS member transfer
-# trigger_member_transfer = BigQueryDataTransferServiceStartTransferRunsOperator(
-#     task_id="trigger_ms_member_transfer",
-#     project_id=PROJECT_ID,
-#     location=REGION,
-#     transfer_config_id='{{ var.value.member_transfer_config_id }}',
-#     requested_run_time={"seconds": int(time.time())},
-#     gcp_conn_id=GCP_CONN_ID,
-#     deferrable=True,
-#     dag=dag,
-# )
+# Task 3: Trigger MS member transfer
+trigger_member_transfer = BigQueryDataTransferServiceStartTransferRunsOperator(
+    task_id="trigger_ms_member_transfer",
+    project_id=PROJECT_ID,
+    location=REGION,
+    transfer_config_id='{{ var.value.member_transfer_config_id }}',
+    requested_run_time={"seconds": int(time.time())},
+    gcp_conn_id=GCP_CONN_ID,
+    deferrable=True,
+    dag=dag,
+)
 
-# # Task 4: Monitor member transfer completion
-# monitor_member_transfer = BigQueryDataTransferServiceTransferRunSensor(
-#     task_id="monitor_member_transfer",
-#     transfer_config_id='{{ var.value.member_transfer_config_id }}',
-#     run_id="{{ ti.xcom_pull(task_ids='trigger_ms_member_transfer', key='run_id') }}",
-#     expected_statuses={"SUCCEEDED"},
-#     project_id=PROJECT_ID,
-#     location=REGION,
-#     poke_interval=60,
-#     timeout=600,
-#     mode="poke",
-#     gcp_conn_id=GCP_CONN_ID,
-#     dag=dag,
-# )
+# Task 4: Monitor member transfer completion
+monitor_member_transfer = BigQueryDataTransferServiceTransferRunSensor(
+    task_id="monitor_member_transfer",
+    transfer_config_id='{{ var.value.member_transfer_config_id }}',
+    run_id="{{ ti.xcom_pull(task_ids='trigger_ms_member_transfer', key='run_id') }}",
+    expected_statuses={"SUCCEEDED"},
+    project_id=PROJECT_ID,
+    location=REGION,
+    poke_interval=60,
+    timeout=600,
+    mode="poke",
+    gcp_conn_id=GCP_CONN_ID,
+    dag=dag,
+)
 
 
 # BeamRunPythonPipelineOperator task
@@ -209,7 +215,7 @@ dataflow_job = BeamRunPythonPipelineOperator(
         job_name=JOB_NAME,
         project_id=PROJECT_ID,
         location=REGION,
-        wait_until_finished=True,
+        wait_until_finished=False,
         gcp_conn_id=GCP_CONN_ID,
         check_if_running='IgnoreJob',
     ),
@@ -235,9 +241,9 @@ wait_dataflow = DataflowJobStatusSensor(
 # TASK DEPENDENCIES
 # ============================================
 # Parallel transfers
-# trigger_mapping_transfer >> monitor_mapping_transfer
-# trigger_member_transfer >> monitor_member_transfer
+trigger_mapping_transfer >> monitor_mapping_transfer
+trigger_member_transfer >> monitor_member_transfer
 
 # After both transfers complete -> pre-check -> dataflow -> wait
-# [monitor_mapping_transfer, monitor_member_transfer] >> pre_check >> dataflow_job >> wait_dataflow
-pre_check >> dataflow_job >> wait_dataflow
+[monitor_mapping_transfer, monitor_member_transfer] >> pre_check >> dataflow_job >> wait_dataflow
+# pre_check >> dataflow_job >> wait_dataflow
