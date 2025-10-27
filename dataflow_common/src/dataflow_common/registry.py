@@ -24,7 +24,7 @@ from .steps import (
     WriteParquetStep,
     WriteToBigQueryStep,
     WriteGCSStep,
-    GetNewMaxDateStep,
+    # GetNewMaxDateStep,
     # Streaming base steps
 
     # ConsumePubSubStep,
@@ -65,7 +65,7 @@ try:
         CreateEmptyStep,
         # ReadGCSStep,  # ✅ เพิ่ม import
         WriteGCSStep,  # ✅ เพิ่ม import  
-        GetNewMaxDateStep,  # ✅ เพิ่ม import
+        # GetNewMaxDateStep,  # ✅ เพิ่ม import
         # SetMaxDateParamStep,
     )
     STREAMING_AVAILABLE = True

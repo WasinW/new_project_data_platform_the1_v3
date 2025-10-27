@@ -14,9 +14,12 @@ from __future__ import annotations
 import os
 import re
 import yaml
+import logging
+import traceback
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
+LOGGER = logging.getLogger(__name__)
 
 def _expand_env(value: Any) -> Any:
     """Recursively expand environment variables in a config value.
@@ -26,28 +29,36 @@ def _expand_env(value: Any) -> Any:
     undefined it is replaced with an empty string.  For lists and
     dicts the expansion is applied elementwise.
     """
-    if isinstance(value, str):
-        result = ""
-        i = 0
-        while i < len(value):
-            if value[i:i + 2] == "${":
-                j = value.find("}", i + 2)
-                if j != -1:
-                    env = value[i + 2 : j]
-                    result += os.environ.get(env, "")
-                    i = j + 1
+    try:
+        if isinstance(value, str):
+            result = ""
+            i = 0
+            while i < len(value):
+                if value[i:i + 2] == "${":
+                    j = value.find("}", i + 2)
+                    if j != -1:
+                        env = value[i + 2 : j]
+                        env_value = os.environ.get(env, "")
+                        if not env_value:
+                            LOGGER.warning(f"Environment variable ${{{env}}} not found, using empty string")
+                        result += env_value
+                        i = j + 1
+                    else:
+                        result += value[i:]
+                        break
                 else:
-                    result += value[i:]
-                    break
-            else:
-                result += value[i]
-                i += 1
-        return result
-    if isinstance(value, list):
-        return [_expand_env(v) for v in value]
-    if isinstance(value, dict):
-        return {k: _expand_env(v) for k, v in value.items()}
-    return value
+                    result += value[i]
+                    i += 1
+            return result
+        if isinstance(value, list):
+            return [_expand_env(v) for v in value]
+        if isinstance(value, dict):
+            return {k: _expand_env(v) for k, v in value.items()}
+        return value
+    except Exception as e:
+        LOGGER.error(f"Error expanding environment variables: {e}")
+        LOGGER.error(f"Value: {value}")
+        raise
 
 
 def _merge_dicts(a: Dict[str, Any], b: Dict[str, Any]) -> Dict[str, Any]:
@@ -57,13 +68,17 @@ def _merge_dicts(a: Dict[str, Any], b: Dict[str, Any]) -> Dict[str, Any]:
     recursively.  This helper is used to merge a ``defaults_file``
     into a pipeline config.
     """
-    out = dict(a) if a else {}
-    for k, v in (b or {}).items():
-        if isinstance(v, dict) and isinstance(out.get(k), dict):
-            out[k] = _merge_dicts(out[k], v)
-        else:
-            out[k] = v
-    return out
+    try:
+        out = dict(a) if a else {}
+        for k, v in (b or {}).items():
+            if isinstance(v, dict) and isinstance(out.get(k), dict):
+                out[k] = _merge_dicts(out[k], v)
+            else:
+                out[k] = v
+        return out
+    except Exception as e:
+        LOGGER.error(f"Error merging dictionaries: {e}")
+        raise
 
 
 @dataclass
@@ -244,47 +259,79 @@ def load_config(path: str, overrides: Optional[Dict[str, Any]] = None) -> Pipeli
     references of the form ``${VAR_NAME}`` are expanded in both
     documents.
     """
-    if path.startswith("gs://"):
-        # Use Apache Beam's FileSystems to read from GCS
-        from apache_beam.io.filesystems import FileSystems
-        
-        with FileSystems.open(path) as f:
-            content = f.read()
-            # Decode bytes to string if needed
-            if isinstance(content, bytes):
-                content = content.decode('utf-8')
-            data = yaml.safe_load(content) or {}
-    else:
-        # Local file
-        with open(path, "r", encoding="utf-8") as f:
-            data = yaml.safe_load(f) or {}
-    
-    defaults_path = data.get("defaults_file")
-    base_data: Dict[str, Any] = {}
-    if defaults_path:
-        # Resolve relative defaults file
-        if not os.path.isabs(defaults_path) and not defaults_path.startswith("gs://"):
-            # For GCS paths, construct the full path
-            if path.startswith("gs://"):
-                base_dir = "/".join(path.split("/")[:-1])
-                defaults_path = f"{base_dir}/{defaults_path}"
-            else:
-                defaults_path = os.path.join(os.path.dirname(path), defaults_path)
-        
-        # Read defaults file
-        if defaults_path.startswith("gs://"):
-            from apache_beam.io.filesystems import FileSystems
-            with FileSystems.open(defaults_path) as f:
-                content = f.read()
-                if isinstance(content, bytes):
-                    content = content.decode('utf-8')
-                base_data = yaml.safe_load(content) or {}
+    try:
+        LOGGER.info(f"Loading config from: {path}")
+
+        if path.startswith("gs://"):
+            try:
+                # Use Apache Beam's FileSystems to read from GCS
+                from apache_beam.io.filesystems import FileSystems
+                
+                with FileSystems.open(path) as f:
+                    content = f.read()
+                    # Decode bytes to string if needed
+                    if isinstance(content, bytes):
+                        content = content.decode('utf-8')
+                    data = yaml.safe_load(content) or {}
+                    LOGGER.info(f"Successfully loaded config from GCS: {path}")
+            except Exception as e:
+                LOGGER.error(f"Failed to load config from GCS path {path}: {e}")
+                raise ValueError(f"Cannot read GCS file {path}: {str(e)}")
         else:
-            with open(defaults_path, "r", encoding="utf-8") as f:
-                base_data = yaml.safe_load(f) or {}
-    
-    merged = _merge_dicts(base_data, data)
-    if overrides:
-        merged = _merge_dicts(merged, overrides)
-    expanded = _expand_env(merged)
-    return PipelineConfig.from_dict(expanded)
+            try:
+            # Local file
+                with open(path, "r", encoding="utf-8") as f:
+                    data = yaml.safe_load(f) or {}
+                    LOGGER.info(f"Successfully loaded config from local path: {path}")
+            except FileNotFoundError:
+                LOGGER.error(f"Config file not found: {path}")
+                raise
+            except yaml.YAMLError as e:
+                LOGGER.error(f"Invalid YAML in config file {path}: {e}")
+                raise
+        
+        defaults_path = data.get("defaults_file")
+        base_data: Dict[str, Any] = {}
+        if defaults_path:
+            LOGGER.info(f"Loading defaults from: {defaults_path}")
+            # Resolve relative defaults file
+            if not os.path.isabs(defaults_path) and not defaults_path.startswith("gs://"):
+                # For GCS paths, construct the full path
+                if path.startswith("gs://"):
+                    base_dir = "/".join(path.split("/")[:-1])
+                    defaults_path = f"{base_dir}/{defaults_path}"
+                else:
+                    defaults_path = os.path.join(os.path.dirname(path), defaults_path)
+            
+            try:
+                # Read defaults file
+                if defaults_path.startswith("gs://"):
+                    from apache_beam.io.filesystems import FileSystems
+                    with FileSystems.open(defaults_path) as f:
+                        content = f.read()
+                        if isinstance(content, bytes):
+                            content = content.decode('utf-8')
+                        base_data = yaml.safe_load(content) or {}
+                else:
+                    with open(defaults_path, "r", encoding="utf-8") as f:
+                        base_data = yaml.safe_load(f) or {}
+                LOGGER.info(f"Successfully loaded defaults from: {defaults_path}")
+            except Exception as e:
+                LOGGER.error(f"Failed to load defaults file {defaults_path}: {e}")
+                raise
+        
+        merged = _merge_dicts(base_data, data)
+        if overrides:
+            merged = _merge_dicts(merged, overrides)
+            LOGGER.info(f"Applied {len(overrides)} overrides")
+        
+        expanded = _expand_env(merged)
+        config = PipelineConfig.from_dict(expanded)
+        
+        LOGGER.info(f"Config loaded successfully - Pipeline: {config.name}, Mode: {config.mode}")
+        return config
+
+    except Exception as e:
+        LOGGER.error(f"Failed to load config: {e}")
+        LOGGER.error(f"Stack trace: {traceback.format_exc()}")
+        raise

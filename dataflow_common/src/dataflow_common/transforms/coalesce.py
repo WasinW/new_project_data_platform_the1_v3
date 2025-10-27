@@ -11,8 +11,10 @@ it is missing from one side.
 
 from __future__ import annotations
 
+import logging
 from typing import Any, Dict, Iterable, List, Tuple
 
+LOGGER = logging.getLogger(__name__)
 
 def coalesce_by_mapping(
     kv: Tuple[Any, Dict[str, List[Dict[str, Any]]]],
@@ -54,75 +56,69 @@ def coalesce_by_mapping(
         A dictionary containing the coalesced values for each
         destination column and the primary key.
     """
-    key, groups = kv
-    new_rows = groups.get("new") or []
-    old_rows = groups.get("old") or []
-    # new_row: Dict[str, Any] = new_rows[0] if new_rows else {}
-    # ✅ สำคัญ: ถ้าไม่มี new row ให้ SKIP - ไม่ return อะไรเลย!
-    if not new_rows:
-        return None  # หรือ return {} แล้วไป filter ทีหลัง
-    
-    new_row: Dict[str, Any] = new_rows[0]
-    old_row: Dict[str, Any] = old_rows[0] if old_rows else {}
+    try:
+        key, groups = kv
+        new_rows = groups.get("new") or []
+        old_rows = groups.get("old") or []
+        # new_row: Dict[str, Any] = new_rows[0] if new_rows else {}
+        # ✅ สำคัญ: ถ้าไม่มี new row ให้ SKIP - ไม่ return อะไรเลย!
+        if not new_rows:
+            LOGGER.debug(f"No new rows for key {key}, skipping")
+            return None  # หรือ return {} แล้วไป filter ทีหลัง
+        
+        new_row: Dict[str, Any] = new_rows[0]
+        old_row: Dict[str, Any] = old_rows[0] if old_rows else {}
 
-    out: Dict[str, Any] = {}
+        out: Dict[str, Any] = {}
+        column_count = 0
 
-    # Merge columns ตาม mapping
-    for row in columns:
-        if not row:
-            continue
-        tgt = row.get(dest_field)
-        if not tgt:
-            continue
+        # Merge columns ตาม mapping
+        for row in columns:
+            try:
+                if not row:
+                    continue
+                tgt = row.get(dest_field)
+                if not tgt:
+                    continue
+                
+                prefer_new = bool(row.get(flag_field))
+                column_count += 1
+                
+                # Get value from new or old based on flag
+                if prefer_new and tgt in new_row:
+                    # Prefer new if flag is true and new has the column
+                    out[tgt] = new_row[tgt]
+                elif prefer_new and tgt in old_row:
+                    # Fallback to old if new doesn't have it
+                    out[tgt] = old_row[tgt]
+                elif not prefer_new and tgt in old_row:
+                    # Prefer old if flag is false
+                    out[tgt] = old_row[tgt]
+                elif not prefer_new and tgt in new_row:
+                    # Fallback to new if old doesn't have it
+                    out[tgt] = new_row[tgt]
+                # If neither has the column, skip it
+                
+            except Exception as e:
+                LOGGER.warning(f"Error processing column mapping: {e}")
+                continue
+
+        # Add PK only if we have new data
+        # Ensure PK is always present
+        try:
+            if pk_field and new_row.get(pk_field):
+                out[pk_field] = new_row.get(pk_field)
+            elif pk_field and old_row.get(pk_field):
+                out[pk_field] = old_row.get(pk_field)
+        except Exception as e:
+            LOGGER.error(f"Error setting primary key '{pk_field}': {e}")
         
-        prefer_new = bool(row.get(flag_field))
-    #     # preferred = new_row.get(tgt) if prefer_new else old_row.get(tgt)
+        LOGGER.debug(f"Coalesced {column_count} columns for key {key}")
+        return out
         
-    #     # Get value จาก preferred source
-    #     if prefer_new:
-    #         preferred = new_row.get(tgt)
-    #         fallback = old_row.get(tgt)
-    #     else:
-    #         preferred = old_row.get(tgt)
-    #         fallback = new_row.get(tgt)
-        
-    #     # Use fallback ถ้า preferred เป็น None
-    #     if preferred is None:
-    #         # fallback = old_row.get(tgt) if prefer_new else new_row.get(tgt)
-    #         out[tgt] = fallback
-    #     else:
-    #         out[tgt] = preferred
-    #         # out["org_column_name"] = values by old or new 
-    # # # ensure PK always present
-    # # if pk_field in new_row:
-    # #     out.setdefault(pk_field, new_row.get(pk_field))
-    # # if pk_field in old_row:
-    # #     out.setdefault(pk_field, old_row.get(pk_field))
-    # out.setdefault(pk_field, new_row.get(pk_field) or old_row.get(pk_field))
-    # return out
-        
-        # Get value from new or old based on flag
-        if prefer_new and tgt in new_row:
-            # Prefer new if flag is true and new has the column
-            out[tgt] = new_row[tgt]
-        elif prefer_new and tgt in old_row:
-            # Fallback to old if new doesn't have it
-            out[tgt] = old_row[tgt]
-        elif not prefer_new and tgt in old_row:
-            # Prefer old if flag is false
-            out[tgt] = old_row[tgt]
-        elif not prefer_new and tgt in new_row:
-            # Fallback to new if old doesn't have it
-            out[tgt] = new_row[tgt]
-        # If neither has the column, skip it
-    
-    # Add PK only if we have new data
-    # Ensure PK is always present
-    if pk_field and new_row.get(pk_field):
-        out[pk_field] = new_row.get(pk_field)
-    elif pk_field and old_row.get(pk_field):
-        out[pk_field] = old_row.get(pk_field)
-    
-    return out
+    except Exception as e:
+        LOGGER.error(f"Failed to coalesce records: {e}")
+        LOGGER.error(f"Key: {kv[0] if kv else 'Unknown'}")
+        raise
 
 __all__ = ["coalesce_by_mapping"]

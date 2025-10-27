@@ -20,8 +20,11 @@ nested dictionaries.
 
 from __future__ import annotations
 
+import logging
+import json
 from typing import Any, Dict, Iterable, List, Tuple
 
+LOGGER = logging.getLogger(__name__)
 
 def normalize_path(path: str) -> List[str]:
     """Normalise a JSON path string into a list of keys.
@@ -31,44 +34,50 @@ def normalize_path(path: str) -> List[str]:
     ``['profiles']['memberId']`` all return ``['profiles', 'memberId']``.
     Returns an empty list if ``path`` is falsy.
     """
-    if not path:
-        return []
-    # Remove surrounding quotes and brackets
-    # Replace bracket notation with dots
-    s = path
-    # Remove leading/trailing whitespace
-    s = s.strip()
-    # Replace "['key']" patterns with ".key"
-    # Note: this is a simple parser and may not handle all edge cases
-    out: List[str] = []
-    buf = ""
-    in_bracket = False
-    quote_char = ""
-    for c in s:
-        if in_bracket:
-            if c == quote_char:
-                # end of key
-                out.append(buf)
-                buf = ""
-                quote_char = ""
-            elif c == "]":
-                in_bracket = False
-            else:
-                buf += c
-        else:
-            if c in ("'", '"'):
-                in_bracket = True
-                quote_char = c
-            elif c == '.':
-                if buf:
+    try:
+        if not path:
+            return []
+        # Remove surrounding quotes and brackets
+        # Replace bracket notation with dots
+        s = path
+        # Remove leading/trailing whitespace
+        s = s.strip()
+        # Replace "['key']" patterns with ".key"
+        # Note: this is a simple parser and may not handle all edge cases
+        out: List[str] = []
+        buf = ""
+        in_bracket = False
+        quote_char = ""
+        for c in s:
+            if in_bracket:
+                if c == quote_char:
+                    # end of key
                     out.append(buf)
                     buf = ""
+                    quote_char = ""
+                elif c == "]":
+                    in_bracket = False
+                else:
+                    buf += c
             else:
-                buf += c
-    if buf:
-        out.append(buf)
-    return [p for p in out if p]
+                if c in ("'", '"'):
+                    in_bracket = True
+                    quote_char = c
+                elif c == '.':
+                    if buf:
+                        out.append(buf)
+                        buf = ""
+                else:
+                    buf += c
+        if buf:
+            out.append(buf)
+        result = [p for p in out if p]
+        LOGGER.debug(f"Normalized path '{path}' to {result}")
+        return result
 
+    except Exception as e:
+        LOGGER.error(f"Error normalizing path '{path}': {e}")
+        return []
 
 def extract_by_path(record: Dict[str, Any], path: List[str]) -> Any:
     """Extract a nested value from a record given a path list.
@@ -76,25 +85,32 @@ def extract_by_path(record: Dict[str, Any], path: List[str]) -> Any:
     Returns ``None`` if any intermediate key is missing.  If ``path``
     is empty the original record is returned.
     """
-    import json
-    cur: Any = record
-    for i, part in enumerate(path):
-        if cur is None:
-            return None
-            
-        # ถ้า cur เป็น string และยังมี path เหลือ = น่าจะเป็น JSON
-        if isinstance(cur, str) and i < len(path):
-            try:
-                cur = json.loads(cur)
-            except:
+    try:
+        import json
+        cur: Any = record
+        for i, part in enumerate(path):
+            if cur is None:
                 return None
                 
-        if isinstance(cur, dict):
-            cur = cur.get(part)
-        else:
-            return None
-    return cur
-
+            # If cur is string and we have more path, try parsing as JSON
+            if isinstance(cur, str) and i < len(path):
+                try:
+                    cur = json.loads(cur)
+                    LOGGER.debug(f"Parsed JSON string at path element '{part}'")
+                except (json.JSONDecodeError, TypeError):
+                    LOGGER.debug(f"Could not parse as JSON at path element '{part}'")
+                    return None
+                    
+            if isinstance(cur, dict):
+                cur = cur.get(part)
+            else:
+                return None
+        
+        return cur
+        
+    except Exception as e:
+        LOGGER.warning(f"Error extracting path {path} from record: {e}")
+        return None
 
 def create_mapping_dict(
     rows: Iterable[Dict[str, Any]],
@@ -115,21 +131,35 @@ def create_mapping_dict(
     with keys ``src_path``, ``reconcile`` and ``original`` as the
     value.
     """
-    mapping: Dict[str, Dict[str, Any]] = {}
-    for row in rows:
-        if not row:
-            continue
-        tgt = row.get(dest_field)
-        if not tgt:
-            continue
-        src = row.get(src_field)
-        mapping[tgt] = {
-            "src_path": normalize_path(src) if src else [],
-            "reconcile": bool(row.get(retrieved_flag_field)),
-            "original": bool(row.get(confirmed_flag_field)),
-        }
-    return mapping
-
+    try:
+        mapping: Dict[str, Dict[str, Any]] = {}
+        row_count = 0
+        for row in rows:
+            row_count += 1
+            try:
+                if not row:
+                    continue
+                tgt = row.get(dest_field)
+                if not tgt:
+                    LOGGER.debug(f"Row {row_count} missing destination field '{dest_field}'")
+                    continue
+                src = row.get(src_field)
+                mapping[tgt] = {
+                    "src_path": normalize_path(src) if src else [],
+                    "reconcile": bool(row.get(retrieved_flag_field)),
+                    "original": bool(row.get(confirmed_flag_field)),
+                }
+                
+            except Exception as e:
+                LOGGER.warning(f"Error processing mapping row {row_count}: {e}")
+                continue
+        
+        LOGGER.info(f"Created mapping dictionary with {len(mapping)} entries from {row_count} rows")
+        return mapping
+        
+    except Exception as e:
+        LOGGER.error(f"Failed to create mapping dictionary: {e}")
+        raise
 
 def map_record(
     record: Dict[str, Any],
@@ -157,17 +187,30 @@ def map_record(
         columns for which the mode flag was set.  If ``src_path`` in
         the mapping dict is empty the destination column is skipped.
     """
-    out: Dict[str, Any] = {}
-    for dest_col, cfg in mapping_dict.items():
-        if not cfg.get(mode, False):
-            continue
-        src_path = cfg.get("src_path") or []
-        if not src_path:
-            continue
-        val = extract_by_path(record, src_path)
-        out[dest_col] = val
-    return out
+    try:
+        out: Dict[str, Any] = {}
+        mapped_count = 0
+        for dest_col, cfg in mapping_dict.items():
+            try:
+                if not cfg.get(mode, False):
+                    continue
+                src_path = cfg.get("src_path") or []
+                if not src_path:
+                    continue
+                val = extract_by_path(record, src_path)
+                out[dest_col] = val
+                mapped_count += 1
 
+            except Exception as e:
+                LOGGER.warning(f"Error mapping column '{dest_col}': {e}")
+                continue
+        
+        LOGGER.debug(f"Mapped {mapped_count} fields in mode '{mode}'")
+        return out
+        
+    except Exception as e:
+        LOGGER.error(f"Failed to map record: {e}")
+        raise
 
 __all__ = [
     "normalize_path",
