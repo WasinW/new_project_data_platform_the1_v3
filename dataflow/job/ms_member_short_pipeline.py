@@ -14,11 +14,42 @@ from __future__ import annotations
 
 import argparse
 import logging
+import sys
 
 from apache_beam.options.pipeline_options import PipelineOptions, GoogleCloudOptions, SetupOptions
 
 from dataflow_common.config import load_config
 from dataflow_common.orchestrator import Orchestrator
+
+# Setup logging for Dataflow (not Airflow)
+def setup_dataflow_logging(level_str="INFO"):
+    """
+    Setup logging specifically for Dataflow workers
+    - Logs go to Cloud Logging, not Airflow
+    - Dataflow automatically captures Python logging
+    """
+    # Convert string to logging level
+    level = getattr(logging, level_str.upper(), logging.INFO)
+    
+    # Configure root logger
+    logging.basicConfig(
+        level=level,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        # Use stderr to avoid polluting Airflow stdout
+        handlers=[logging.StreamHandler(sys.stderr)]
+    )
+    
+    # Reduce noise from other libraries
+    logging.getLogger('apache_beam').setLevel(logging.WARNING)
+    logging.getLogger('urllib3').setLevel(logging.WARNING)
+    logging.getLogger('google').setLevel(logging.WARNING)
+    
+    # Return logger for this module
+    return logging.getLogger(__name__)
+
+# Initialize logger
+logger = setup_dataflow_logging()
+
 def read_gcs_file(path):
     """Read text file from GCS"""
     from apache_beam.io.filesystems import FileSystems
@@ -30,7 +61,7 @@ def read_gcs_file(path):
                 content = content.decode('utf-8')
             return content.strip()
     except Exception as e:
-        logging.warning(f"Failed to read cache file {path}: {e}")
+        logger.warning(f"Failed to read cache file {path}: {e}")
         return None
 
 
@@ -54,6 +85,13 @@ def parse_args():
         help="Path to max_date cache file",
     )
     # Parse only known arguments, ignore Beam arguments
+    parser.add_argument(
+        "--log_level",
+        default="INFO",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+        help="Logging level for the pipeline",
+    )
+
     known_args, pipeline_args = parser.parse_known_args()
     # return parser.parse_args()
     return known_args, pipeline_args
@@ -65,9 +103,22 @@ def main():
     # args = parse_args()
     # Parse arguments แยกกัน
     args, pipeline_args = parse_args()
+    global logger
+    logger = setup_dataflow_logging(args.log_level)
+    
+    logger.info("=" * 60)
+    logger.info("Starting MS Member Short Pipeline")
+    logger.info(f"Config path: {args.config_path}")
+    logger.info(f"Log level: {args.log_level}")
+    logger.info("=" * 60)
+
+    # Load config from YAML
+    logger.info("Loading pipeline configuration...")
+
 
     # Load config from YAML
     cfg = load_config(args.config_path)
+    logger.info(f"Pipeline: {cfg.name}, Mode: {cfg.mode}, Term: {cfg.term}")
     
     # # Read max_date from cache file (ถ้ามี)
     # cached_max_date = read_gcs_file(args.cache_path)
@@ -84,6 +135,7 @@ def main():
     # Override run_dt if supplied
     if args.run_dt:
         cfg.params.run_dt = args.run_dt
+        logger.info(f"Using provided run_dt: {args.run_dt}")
     elif not cfg.params.run_dt:
         from datetime import datetime, timezone, timedelta
         tz_th  = timezone(timedelta(hours=7))
@@ -95,7 +147,11 @@ def main():
         cfg.params.run_par_month = now_th.strftime('%Y%m')
         cfg.params.run_par_day = now_th.strftime('%d')
         cfg.params.run_par_hour = now_th.strftime('%H')
-    logging.info(f"Pipeline params: run_dt={cfg.params.run_dt}, run_par_month={cfg.params.run_par_month}, run_par_day={cfg.params.run_par_day}, run_par_hour={cfg.params.run_par_hour}")
+        logger.info(f"Generated run_dt: {cfg.params.run_dt}")
+    logger.info(f"Pipeline params: run_dt={cfg.params.run_dt}, "
+                f"par_month={cfg.params.run_par_month}, "
+                f"par_day={cfg.params.run_par_day}, "
+                f"par_hour={cfg.params.run_par_hour}")
 
     # Save main session so that Beam can serialize global context on Dataflow
     # pipeline_options = PipelineOptions()
@@ -108,10 +164,24 @@ def main():
     # Create PipelineOptions จาก pipeline_args ที่เหลือ
     pipeline_options = PipelineOptions(pipeline_args)
     
+    logger.debug(f"Pipeline options: {pipeline_args}")
     # Run pipeline
+    logger.info("Initializing pipeline orchestrator...")
     orchestrator = Orchestrator(cfg)
+    logger.info("Submitting pipeline to runner...")
     orchestrator.run(pipeline_options)
+    logger.info("Pipeline submitted successfully!")
+    logger.info("=" * 60)
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        # Log error but let it propagate
+        if 'logger' in globals():
+            logger.error(f"Pipeline failed: {e}", exc_info=True)
+        else:
+            # Fallback if logger not initialized
+            logging.error(f"Pipeline failed: {e}", exc_info=True)
+        raise

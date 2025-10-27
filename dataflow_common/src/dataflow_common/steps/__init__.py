@@ -22,12 +22,15 @@ from dataflow_common.transforms import (
     normalize_row_to_schema,
     load_schema_from_spec,
 )
-from dataflow_common.utils.logging import logger
+# from dataflow_common.utils.logging import logger
+from dataflow_common.utils import get_dataflow_logger
+# import logging
+logger = get_dataflow_logger(__name__)
 
 # LOGGER = logging.getLogger(__name__)
 
 # Import streaming steps
-from dataflow_common.step.streaming import (
+from dataflow_common.steps.streaming import (
     ProcessWithDLQStep,
     WindowStep,
     WriteToBigQueryStep as StreamingWriteToBigQueryStep,
@@ -36,14 +39,14 @@ from dataflow_common.step.streaming import (
 )
 
 # Import จาก pubsub_bigtable_steps.py
-from dataflow_common.step.pubsub_bigtable_steps import (
+from dataflow_common.steps.pubsub_bigtable_steps import (
     ConsumePubSubSubscriptionStep,
     ExtractIdStep,
     ReadBigTableByIdStep,
 )
 
 # Import จาก streaming_additions.py (ที่ไม่ถูก comment)
-from dataflow_common.step.streaming_additions import (
+from dataflow_common.steps.streaming_additions import (
     WindowingAuditStep,
     WindowingOpenHourlyPartitionStep,
     WriteParquetDynamicStep,  # ต้อง uncomment ใน streaming_additions.py ก่อน
@@ -51,7 +54,7 @@ from dataflow_common.step.streaming_additions import (
 )
 
 # Import จาก streaming_midterm.py  
-from dataflow_common.step.streaming_midterm import (
+from dataflow_common.steps.streaming_midterm import (
     ConsumeMessagesWithDLQStep,
     ParseNestedJsonStep,
     WindowedMappingQueryStep,
@@ -62,6 +65,9 @@ from dataflow_common.step.streaming_midterm import (
 
 class ReadBQQueryStep(BaseStep):
     """Read a BigQuery SQL query into a PCollection of dictionaries."""
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.logger = get_dataflow_logger(f"{__name__}.{self.step_id}")
 
     def execute(self, pipeline: beam.Pipeline) -> beam.PCollection:
         try:
@@ -90,6 +96,9 @@ class ReadBQQueryStep(BaseStep):
 class BuildMappingDictStep(BaseStep):
     """Build a mapping dictionary from mapping rows.
     """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.logger = get_dataflow_logger(f"{__name__}.{self.step_id}")
 
     def execute(self, pipeline: beam.Pipeline) -> beam.PCollection:
         try:
@@ -130,6 +139,10 @@ class BuildMappingDictStep(BaseStep):
             raise
 
 class ParseJsonStep(BaseStep):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.logger = get_dataflow_logger(f"{__name__}.{self.step_id}")
+
     def execute(self, pipeline):
         try:
             input_key = self.spec.get("in")
@@ -166,6 +179,9 @@ class ParseJsonStep(BaseStep):
     
 class MapRecordStep(BaseStep):
     """Apply a mapping dictionary to each record in the input PCollection."""
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.logger = get_dataflow_logger(f"{__name__}.{self.step_id}")
 
     def execute(self, pipeline: beam.Pipeline) -> beam.PCollection:
         try:
@@ -199,6 +215,9 @@ class MapRecordStep(BaseStep):
 class KVPairsStep(BaseStep):
     # map key with id , map value with record
     """Convert records into key/value pairs keyed by the specified field."""
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.logger = get_dataflow_logger(f"{__name__}.{self.step_id}")
 
     def execute(self, pipeline: beam.Pipeline) -> beam.PCollection:
         try:
@@ -235,6 +254,9 @@ class KVPairsStep(BaseStep):
 
 class CoGroupByKeyStep(BaseStep):
     """Group multiple keyed PCollections by key."""
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.logger = get_dataflow_logger(f"{__name__}.{self.step_id}")
 
     def execute(self, pipeline: beam.Pipeline) -> beam.PCollection:
         try:
@@ -264,6 +286,9 @@ class CoGroupByKeyStep(BaseStep):
 
 class CoalesceByMappingStep(BaseStep):
     """Coalesce new and old records using mapping flags."""
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.logger = get_dataflow_logger(f"{__name__}.{self.step_id}")
 
     def execute(self, pipeline: beam.Pipeline) -> beam.PCollection:
         try:
@@ -307,6 +332,9 @@ class CoalesceByMappingStep(BaseStep):
 
 class NormalizeToSchemaStep(BaseStep):
     """Normalise rows to the loaded schema using the configured formats."""
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.logger = get_dataflow_logger(f"{__name__}.{self.step_id}")
 
     _schema_cache: Optional[Any] = None
 
@@ -348,6 +376,9 @@ class NormalizeToSchemaStep(BaseStep):
 
 class WriteParquetStep(BaseStep):
     """Write a PCollection of dictionaries to Parquet files."""
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.logger = get_dataflow_logger(f"{__name__}.{self.step_id}")
 
     def execute(self, pipeline: beam.Pipeline) -> None:
         try:
@@ -393,7 +424,10 @@ class WriteParquetStep(BaseStep):
 
 class WriteToBigQueryStep(BaseStep):
     """Write to BigQuery table"""
-    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.logger = get_dataflow_logger(f"{__name__}.{self.step_id}")
+
     def execute(self, pipeline: beam.Pipeline) -> None:
         try:
             input_key = self.spec.get("in")
@@ -429,6 +463,10 @@ class WriteToBigQueryStep(BaseStep):
             raise
 
 # class ReadGCSStep(BaseStep):
+#    def __init__(self, *args, **kwargs):
+#        super().__init__(*args, **kwargs)
+#        # Logger เฉพาะสำหรับ step นี้
+#        self.logger = get_dataflow_logger(f"{__name__}.{self.step_id}")
 #     def execute(self, pipeline: beam.Pipeline) -> beam.PCollection:
 #         # Determine the path and format from the step specification.
 #         path = self.spec.get("path") or self.spec.get("gcs_path")
@@ -448,6 +486,9 @@ class WriteToBigQueryStep(BaseStep):
 
 
 class WriteGCSStep(BaseStep):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.logger = get_dataflow_logger(f"{__name__}.{self.step_id}")
 
     def execute(self, pipeline: beam.Pipeline) -> None:
         try:

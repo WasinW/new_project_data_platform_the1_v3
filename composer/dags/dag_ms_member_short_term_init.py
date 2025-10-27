@@ -95,59 +95,59 @@ pre_check = PythonOperator(
     dag=dag
 )
 
-# Task 1: Trigger mapping_reconcile transfer from S3 to BigQuery
-trigger_mapping_transfer = BigQueryDataTransferServiceStartTransferRunsOperator(
-    task_id="trigger_mapping_reconcile_transfer",
-    project_id=PROJECT_ID,
-    location=REGION,
-    transfer_config_id='{{ var.value.mapping_transfer_config_id }}',
-    requested_run_time={"seconds": int(time.time())},
-    gcp_conn_id=GCP_CONN_ID,
-    deferrable=True,
-    dag=dag,
-)
+# # Task 1: Trigger mapping_reconcile transfer from S3 to BigQuery
+# trigger_mapping_transfer = BigQueryDataTransferServiceStartTransferRunsOperator(
+#     task_id="trigger_mapping_reconcile_transfer",
+#     project_id=PROJECT_ID,
+#     location=REGION,
+#     transfer_config_id='{{ var.value.mapping_transfer_config_id }}',
+#     requested_run_time={"seconds": int(time.time())},
+#     gcp_conn_id=GCP_CONN_ID,
+#     deferrable=True,
+#     dag=dag,
+# )
 
-# Task 2: Monitor mapping transfer
-monitor_mapping_transfer = BigQueryDataTransferServiceTransferRunSensor(
-    task_id="monitor_mapping_transfer",
-    transfer_config_id='{{ var.value.mapping_transfer_config_id }}',
-    run_id="{{ ti.xcom_pull(task_ids='trigger_mapping_reconcile_transfer', key='run_id') }}",
-    expected_statuses={"SUCCEEDED"},
-    project_id=PROJECT_ID,
-    location=REGION,
-    poke_interval=60,
-    timeout=600,
-    mode="poke",
-    gcp_conn_id=GCP_CONN_ID,
-    dag=dag,
-)
+# # Task 2: Monitor mapping transfer
+# monitor_mapping_transfer = BigQueryDataTransferServiceTransferRunSensor(
+#     task_id="monitor_mapping_transfer",
+#     transfer_config_id='{{ var.value.mapping_transfer_config_id }}',
+#     run_id="{{ ti.xcom_pull(task_ids='trigger_mapping_reconcile_transfer', key='run_id') }}",
+#     expected_statuses={"SUCCEEDED"},
+#     project_id=PROJECT_ID,
+#     location=REGION,
+#     poke_interval=60,
+#     timeout=600,
+#     mode="poke",
+#     gcp_conn_id=GCP_CONN_ID,
+#     dag=dag,
+# )
 
-# Task 3: Trigger MS member transfer
-trigger_member_transfer = BigQueryDataTransferServiceStartTransferRunsOperator(
-    task_id="trigger_ms_member_transfer",
-    project_id=PROJECT_ID,
-    location=REGION,
-    transfer_config_id='{{ var.value.member_transfer_config_id }}',
-    requested_run_time={"seconds": int(time.time())},
-    gcp_conn_id=GCP_CONN_ID,
-    deferrable=True,
-    dag=dag,
-)
+# # Task 3: Trigger MS member transfer
+# trigger_member_transfer = BigQueryDataTransferServiceStartTransferRunsOperator(
+#     task_id="trigger_ms_member_transfer",
+#     project_id=PROJECT_ID,
+#     location=REGION,
+#     transfer_config_id='{{ var.value.member_transfer_config_id }}',
+#     requested_run_time={"seconds": int(time.time())},
+#     gcp_conn_id=GCP_CONN_ID,
+#     deferrable=True,
+#     dag=dag,
+# )
 
-# Task 4: Monitor member transfer completion
-monitor_member_transfer = BigQueryDataTransferServiceTransferRunSensor(
-    task_id="monitor_member_transfer",
-    transfer_config_id='{{ var.value.member_transfer_config_id }}',
-    run_id="{{ ti.xcom_pull(task_ids='trigger_ms_member_transfer', key='run_id') }}",
-    expected_statuses={"SUCCEEDED"},
-    project_id=PROJECT_ID,
-    location=REGION,
-    poke_interval=60,
-    timeout=600,
-    mode="poke",
-    gcp_conn_id=GCP_CONN_ID,
-    dag=dag,
-)
+# # Task 4: Monitor member transfer completion
+# monitor_member_transfer = BigQueryDataTransferServiceTransferRunSensor(
+#     task_id="monitor_member_transfer",
+#     transfer_config_id='{{ var.value.member_transfer_config_id }}',
+#     run_id="{{ ti.xcom_pull(task_ids='trigger_ms_member_transfer', key='run_id') }}",
+#     expected_statuses={"SUCCEEDED"},
+#     project_id=PROJECT_ID,
+#     location=REGION,
+#     poke_interval=60,
+#     timeout=600,
+#     mode="poke",
+#     gcp_conn_id=GCP_CONN_ID,
+#     dag=dag,
+# )
 
 
 # BeamRunPythonPipelineOperator task
@@ -175,8 +175,12 @@ dataflow_job = BeamRunPythonPipelineOperator(
         'worker_machine_type': 'n1-standard-2',
         'max_num_workers': 2,
         'save_main_session': True,
-        'experiments': ['use_runner_v2'],
-        
+        'experiments': ['use_runner_v2','enable_stackdriver_agent_metrics'],
+        'worker_log_level': 'INFO',  # หรือ DEBUG
+        'sdk_log_level': 'INFO',
+        # 'log_level': 'INFO',  # สำหรับ pipeline code ของเรา
+
+
         # Container settings
         'sdk_container_image': '{{ var.value.dataflow_common_image }}',
         'sdk_location': 'container',
@@ -190,6 +194,7 @@ dataflow_job = BeamRunPythonPipelineOperator(
         's3_region_name': 'ap-southeast-1',
         's3_access_key_id': '{{ var.value.AWS_ACCESS_KEY_ID }}',
         's3_secret_access_key': '{{ var.value.AWS_SECRET_ACCESS_KEY }}',
+
     },
     # Python dependencies
     # ----------------------------
@@ -234,9 +239,9 @@ wait_dataflow = DataflowJobStatusSensor(
 # TASK DEPENDENCIES
 # ============================================
 # Parallel transfers
-trigger_mapping_transfer >> monitor_mapping_transfer
-trigger_member_transfer >> monitor_member_transfer
+# trigger_mapping_transfer >> monitor_mapping_transfer
+# trigger_member_transfer >> monitor_member_transfer
 
 # After both transfers complete -> pre-check -> dataflow -> wait
-[monitor_mapping_transfer, monitor_member_transfer] >> pre_check >> dataflow_job >> wait_dataflow
-# pre_check >> dataflow_job >> wait_dataflow
+# [monitor_mapping_transfer, monitor_member_transfer] >> pre_check >> dataflow_job >> wait_dataflow
+pre_check >> dataflow_job >> wait_dataflow
