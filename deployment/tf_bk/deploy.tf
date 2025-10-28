@@ -27,6 +27,59 @@ module "insight_dataflow_common_repo" {
 }
 
 # ============================================
+# BIGQUERY TABLES (สร้างก่อน DTS)
+# ============================================
+
+# Staging table for mapping reconcile
+resource "google_bigquery_table" "stg_mapping_reconcile" {
+  project    = "${var.domain}-${terraform.workspace}"
+  dataset_id = var.bigquery_dataset_id
+  table_id   = "stg_mapping_reconcile"
+  
+  # Time partitioning (optional)
+  time_partitioning {
+    type  = "DAY"
+    field = "UPDATED_DATE"
+  }
+  
+  # Schema definition
+  schema = jsonencode([
+    {
+      name = "RECONCILE_COLUMN_NAME"
+      type = "STRING"
+      mode = "NULLABLE"
+    },
+    {
+      name = "RECONCILE_SRC_COLUMN_NAME"
+      type = "STRING"
+      mode = "NULLABLE"
+    },
+    {
+      name = "RECONCILE_RETRIEVED"
+      type = "BOOLEAN"
+      mode = "NULLABLE"
+    },
+    {
+      name = "RECONCILE_ORIGINAL"
+      type = "BOOLEAN"
+      mode = "NULLABLE"
+    },
+    {
+      name = "UPDATED_DATE"
+      type = "TIMESTAMP"
+      mode = "NULLABLE"
+    },
+    {
+      name = "CREATED_DATE"
+      type = "TIMESTAMP"
+      mode = "NULLABLE"
+    }
+  ])
+  
+  deletion_protection = terraform.workspace == "prod" ? true : false
+}
+
+# ============================================
 # BIGQUERY DATA TRANSFER SERVICE
 # ใช้ existing dataset ผ่าน variable
 # ============================================

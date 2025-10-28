@@ -67,11 +67,11 @@ variable "aws_secret_access_key" {
 variable "s3_mapping_path" {
   description = "S3 path for mapping data"
   type        = string
-  default     = "s3://t1-analytics/refined/insights/mapping_reconcile_${terraform.workspace}/ms_personas/**"
+  default     = "s3://t1-analytics/refined/insights/mapping_reconcile_stg/ms_personas/**"
 }
 
 variable "s3_member_path" {
   description = "S3 path for member data"
   type        = string
-  default     = "s3://t1-analytics/refined/insights/ms_member_${terraform.workspace}/**"
+  default     = "s3://t1-analytics/refined/insights/ms_member_stg/**"
 }

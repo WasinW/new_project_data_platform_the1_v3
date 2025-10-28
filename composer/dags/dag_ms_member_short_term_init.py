@@ -173,9 +173,27 @@ dataflow_job = BeamRunPythonPipelineOperator(
         
         # Worker configuration
         'worker_machine_type': 'n1-standard-2',
-        'max_num_workers': 2,
+        'max_num_workers': 10,
+        'num_workers': 4,
+        'disk_size_gb': 100,
         'save_main_session': True,
-        'experiments': ['use_runner_v2','enable_stackdriver_agent_metrics','worker_log_level_debug'],
+        # ------------------------------------------------------------------------------------
+        # Standard persistent disk (lowest cost but slowest)
+        # 'worker_disk_type': 'pd-standard'
+        # cost: ~$0.04/GB/month ($0.000056/GB/hour)
+        # SSD persistent disk (faster but more expensive) - recommended for heavy shuffling
+        'worker_disk_type': 'pd-ssd',
+        # cost: ~$0.17/GB/month ($0.00024/GB/hour)
+        # ------------------------------------------------------------------------------------
+
+        'experiments': [
+            'use_runner_v2'
+            ,'enable_stackdriver_agent_metrics'
+            ,'worker_log_level_debug'
+            ,'shuffle_mode=service' 
+            #  shuffle_mode : +$0.048/GB shuffled (~1.6 bath/GB)
+            # Reduced disk I/O on worker , Better Scale , Reduced issue disk space exhaustion
+            ],
         # Control log levels
         # 'defaultWorkerLogLevel': 'INFO',    # Worker logs
         # 'sdkHarnessLogLevel': 'WARNING',    # SDK logs
@@ -196,7 +214,7 @@ dataflow_job = BeamRunPythonPipelineOperator(
         's3_region_name': 'ap-southeast-1',
         's3_access_key_id': '{{ var.value.AWS_ACCESS_KEY_ID }}',
         's3_secret_access_key': '{{ var.value.AWS_SECRET_ACCESS_KEY }}',
-
+        'number_of_worker_harness_threads': 4,
     },
     # Python dependencies
     # ----------------------------
@@ -218,32 +236,39 @@ dataflow_job = BeamRunPythonPipelineOperator(
         wait_until_finished=False,
         gcp_conn_id=GCP_CONN_ID,
         check_if_running='IgnoreJob',
+        poll_sleep=10,
     ),
     deferrable=False,
     dag=dag,
 )
 
-
-wait_dataflow = DataflowJobStatusSensor(
-    task_id="wait_for_dataflow_done",
-    project_id=PROJECT_ID,
-    location=REGION,
-    job_id="{{ ti.xcom_pull(task_ids='run_dataflow_pipeline', key='job_id') or "
-           "ti.xcom_pull(task_ids='run_dataflow_pipeline', key='dataflow_job_id') }}",
-    expected_statuses={"JOB_STATE_DONE"},
-    poke_interval=60,
-    timeout=10800,  # 3 hours
-    mode="reschedule",
-    dag=dag,
-)
+# wait_dataflow = DataflowJobStatusSensor(
+#     task_id="wait_for_dataflow_done",
+#     project_id=PROJECT_ID,
+#     location=REGION,
+#     job_id="{{ ti.xcom_pull(task_id='run_dataflow_pipeline', key='job_id') }}",  # ใช้ key เดียว
+#     # job_id="{{ ti.xcom_pull(task_ids='run_dataflow_pipeline', key='job_id') }}",  # ใช้ key เดียว
+#     # run_id="{{ ti.xcom_pull(task_ids='trigger_ms_member_transfer', key='run_id') }}",
+#     # job_id="{{ ti.xcom_pull(task_ids='run_dataflow_pipeline', key='job_id') or "
+#     #        "ti.xcom_pull(task_ids='run_dataflow_pipeline', key='dataflow_job_id') or "
+#     #        "ti.xcom_pull(task_ids='run_dataflow_pipeline') }}",  # ลองหลาย keys
+#     expected_statuses={"JOB_STATE_DONE"},
+#     poke_interval=60,
+#     timeout=10800,  # 3 hours
+#     mode="reschedule",
+#     deferrable=False,
+#     gcp_conn_id=GCP_CONN_ID,
+#     dag=dag,
+# )
 
 # ============================================
 # TASK DEPENDENCIES
 # ============================================
-# Parallel transfers
+# # Parallel transfers
 trigger_mapping_transfer >> monitor_mapping_transfer
 trigger_member_transfer >> monitor_member_transfer
 
 # After both transfers complete -> pre-check -> dataflow -> wait
-[monitor_mapping_transfer, monitor_member_transfer] >> pre_check >> dataflow_job >> wait_dataflow
+# [monitor_mapping_transfer, monitor_member_transfer] >> pre_check >> dataflow_job >> wait_dataflow
+[monitor_mapping_transfer, monitor_member_transfer] >> pre_check >> dataflow_job 
 # pre_check >> dataflow_job >> wait_dataflow
