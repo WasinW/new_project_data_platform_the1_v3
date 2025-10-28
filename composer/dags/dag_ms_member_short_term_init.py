@@ -172,14 +172,16 @@ dataflow_job = BeamRunPythonPipelineOperator(
         'subnetwork': '{{ var.value.dataflow_subnetwork }}',
         
         # Worker configuration
-        'worker_machine_type': 'n1-standard-2',
-        'max_num_workers': 10,
+        # 'worker_machine_type': 'n1-standard-2',
+        'worker_machine_type': 'n1-standard-4',
+        'max_num_workers': 8,
         'num_workers': 4,
         'disk_size_gb': 100,
+        'number_of_worker_harness_threads': 8,
         'save_main_session': True,
         # ------------------------------------------------------------------------------------
         # Standard persistent disk (lowest cost but slowest)
-        # 'worker_disk_type': 'pd-standard'
+        # 'worker_disk_type': 'compute.googleapis.com/projects//zones//diskTypes/pd-standard',
         # cost: ~$0.04/GB/month ($0.000056/GB/hour)
         # SSD persistent disk (faster but more expensive) - recommended for heavy shuffling
         'worker_disk_type': 'compute.googleapis.com/projects//zones//diskTypes/pd-ssd',
@@ -191,6 +193,7 @@ dataflow_job = BeamRunPythonPipelineOperator(
             ,'enable_stackdriver_agent_metrics'
             ,'worker_log_level_debug'
             ,'shuffle_mode=service' 
+            ,'worker_heap_size_mb=20000'  # เพิ่ม heap size
             #  shuffle_mode : +$0.048/GB shuffled (~1.6 bath/GB)
             # Reduced disk I/O on worker , Better Scale , Reduced issue disk space exhaustion
             ],
@@ -214,7 +217,6 @@ dataflow_job = BeamRunPythonPipelineOperator(
         's3_region_name': 'ap-southeast-1',
         's3_access_key_id': '{{ var.value.AWS_ACCESS_KEY_ID }}',
         's3_secret_access_key': '{{ var.value.AWS_SECRET_ACCESS_KEY }}',
-        'number_of_worker_harness_threads': 4,
     },
     # Python dependencies
     # ----------------------------

@@ -21,7 +21,7 @@ io:
     temp_gcs: gs://t1-insight-audit-bucket/audit_log/dataflow/temp
   s3:
     refined_prefix: s3://t1-analytics/refined/insights
-    num_shards: 100
+    num_shards: 400
 
 # Schema definition: load from BigQuery table.  Alternatively set
 # ``gcs_uri`` to a JSON schema file.  This schema will be converted
