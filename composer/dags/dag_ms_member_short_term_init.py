@@ -182,7 +182,7 @@ dataflow_job = BeamRunPythonPipelineOperator(
         # 'worker_disk_type': 'pd-standard'
         # cost: ~$0.04/GB/month ($0.000056/GB/hour)
         # SSD persistent disk (faster but more expensive) - recommended for heavy shuffling
-        'worker_disk_type': 'pd-ssd',
+        'worker_disk_type': 'compute.googleapis.com/projects//zones//diskTypes/pd-ssd',
         # cost: ~$0.17/GB/month ($0.00024/GB/hour)
         # ------------------------------------------------------------------------------------
 
