@@ -6,6 +6,7 @@ import datetime
 import time
 import logging
 import subprocess
+import json
 from datetime import datetime as dt
 
 from airflow import DAG
@@ -60,6 +61,43 @@ def check_dataflow_setup(**context):
     if result.stdout:
         logger.info(f"Recent jobs: {result.stdout[:500]}")
     return True
+# def log_dataflow_cost(**context):
+#     """Log estimated cost after job completion"""
+#     job_id = context['ti'].xcom_pull(task_ids='run_dataflow_pipeline', key='job_id')
+    
+#     # Get job metrics
+#     cmd = f"""
+#     gcloud dataflow jobs describe {job_id} \
+#       --region={REGION} \
+#       --format=json
+#     """
+#     result = subprocess.run(cmd.split(), capture_output=True, text=True)
+#     job_info = json.loads(result.stdout)
+    
+#     # Calculate estimated cost
+#     duration_hours = (job_info['currentStateTime'] - job_info['createTime']) / 3600
+#     worker_count = job_info.get('currentWorkerCount', 4)
+    
+#     # Rough estimates
+#     compute_cost = duration_hours * worker_count * 0.19  # n1-standard-4
+#     disk_cost = duration_hours * worker_count * 100 * 0.00024  # pd-ssd
+    
+#     logger.info(f"""
+#     === COST ESTIMATE ===
+#     Job ID: {job_id}
+#     Duration: {duration_hours:.2f} hours
+#     Workers: {worker_count}
+    
+#     Compute: ${compute_cost:.2f}
+#     Disk: ${disk_cost:.2f}
+#     Shuffle: Check metrics (varies by data)
+    
+#     Estimated Total: ${compute_cost + disk_cost:.2f}
+#     ====================
+#     """)
+    
+#     # Push to XCom for alerting
+#     context['ti'].xcom_push(key='estimated_cost', value=compute_cost + disk_cost)
 
 # ============================================
 # DAG DEFINITION
@@ -193,9 +231,10 @@ dataflow_job = BeamRunPythonPipelineOperator(
             ,'enable_stackdriver_agent_metrics'
             ,'worker_log_level_debug'
             ,'shuffle_mode=service' 
-            ,'worker_heap_size_mb=20000'  # เพิ่ม heap size
             #  shuffle_mode : +$0.048/GB shuffled (~1.6 bath/GB)
             # Reduced disk I/O on worker , Better Scale , Reduced issue disk space exhaustion
+            ,'worker_heap_size_mb=20000' 
+            # 'min_cpu_platform=Intel Skylake'  # ← ใส่ตรงนี้ถ้าอยากใช้
             ],
         # Control log levels
         # 'defaultWorkerLogLevel': 'INFO',    # Worker logs
@@ -217,6 +256,15 @@ dataflow_job = BeamRunPythonPipelineOperator(
         's3_region_name': 'ap-southeast-1',
         's3_access_key_id': '{{ var.value.AWS_ACCESS_KEY_ID }}',
         's3_secret_access_key': '{{ var.value.AWS_SECRET_ACCESS_KEY }}',
+
+        'labels': {
+            'environment': 'dev',  # หรือ dev/staging
+            'pipeline': 'ms-member-short-init',
+            'team': 'data-team',
+            'cost-center': 'data-engineering',
+            'run-type': 'initial'
+        },
+
     },
     # Python dependencies
     # ----------------------------
@@ -243,6 +291,13 @@ dataflow_job = BeamRunPythonPipelineOperator(
     deferrable=False,
     dag=dag,
 )
+
+# check_cost = PythonOperator(
+#     task_id='check_dataflow_cost',
+#     python_callable=log_dataflow_cost,
+#     trigger_rule='all_success',
+#     dag=dag
+# )
 
 # wait_dataflow = DataflowJobStatusSensor(
 #     task_id="wait_for_dataflow_done",
@@ -272,5 +327,6 @@ trigger_member_transfer >> monitor_member_transfer
 
 # After both transfers complete -> pre-check -> dataflow -> wait
 # [monitor_mapping_transfer, monitor_member_transfer] >> pre_check >> dataflow_job >> wait_dataflow
-[monitor_mapping_transfer, monitor_member_transfer] >> pre_check >> dataflow_job 
+# [monitor_mapping_transfer, monitor_member_transfer] >> pre_check >> dataflow_job >> check_cost
+[monitor_mapping_transfer, monitor_member_transfer] >> pre_check >> dataflow_job
 # pre_check >> dataflow_job >> wait_dataflow
