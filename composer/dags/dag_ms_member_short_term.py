@@ -171,8 +171,17 @@ dataflow_job = BeamRunPythonPipelineOperator(
         # Worker configuration
         'worker_machine_type': 'n1-standard-2',
         'max_num_workers': 2,
+        
         'save_main_session': True,
-        'experiments': ['use_runner_v2'],
+        'experiments': [
+            'use_runner_v2'
+            ,'enable_stackdriver_agent_metrics'
+            ,'worker_log_level_debug'
+            ,'shuffle_mode=service' 
+            ,'worker_heap_size_mb=20000'  # เพิ่ม heap size
+            #  shuffle_mode : +$0.048/GB shuffled (~1.6 bath/GB)
+            # Reduced disk I/O on worker , Better Scale , Reduced issue disk space exhaustion
+            ],
         
         # Container settings
         'sdk_container_image': '{{ var.value.dataflow_common_image }}',
