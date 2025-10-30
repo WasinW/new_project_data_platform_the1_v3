@@ -8,6 +8,7 @@ import logging
 import subprocess
 import json
 from datetime import datetime as dt
+from google.cloud import secretmanager
 
 from airflow import DAG
 from airflow.models import Variable
@@ -22,19 +23,8 @@ from airflow.providers.google.cloud.operators.bigquery_dts import (
 from airflow.providers.google.cloud.sensors.bigquery_dts import (
     BigQueryDataTransferServiceTransferRunSensor
 )
+from airflow.providers.google.cloud.sensors.dataflow import DataflowJobStatusSensor
 
-# ============================================
-# CONFIGURATION
-# ============================================
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-# Load variables once
-PROJECT_ID = Variable.get("project_id")
-GCP_CONN_ID = "google_cloud_default"
-REGION = "asia-southeast1"
-JOB_NAME = 'ms-member-short-init'
 # ============================================
 # HELPER FUNCTIONS
 # ============================================
@@ -61,43 +51,36 @@ def check_dataflow_setup(**context):
     if result.stdout:
         logger.info(f"Recent jobs: {result.stdout[:500]}")
     return True
-# def log_dataflow_cost(**context):
-#     """Log estimated cost after job completion"""
-#     job_id = context['ti'].xcom_pull(task_ids='run_dataflow_pipeline', key='job_id')
-    
-#     # Get job metrics
-#     cmd = f"""
-#     gcloud dataflow jobs describe {job_id} \
-#       --region={REGION} \
-#       --format=json
-#     """
-#     result = subprocess.run(cmd.split(), capture_output=True, text=True)
-#     job_info = json.loads(result.stdout)
-    
-#     # Calculate estimated cost
-#     duration_hours = (job_info['currentStateTime'] - job_info['createTime']) / 3600
-#     worker_count = job_info.get('currentWorkerCount', 4)
-    
-#     # Rough estimates
-#     compute_cost = duration_hours * worker_count * 0.19  # n1-standard-4
-#     disk_cost = duration_hours * worker_count * 100 * 0.00024  # pd-ssd
-    
-#     logger.info(f"""
-#     === COST ESTIMATE ===
-#     Job ID: {job_id}
-#     Duration: {duration_hours:.2f} hours
-#     Workers: {worker_count}
-    
-#     Compute: ${compute_cost:.2f}
-#     Disk: ${disk_cost:.2f}
-#     Shuffle: Check metrics (varies by data)
-    
-#     Estimated Total: ${compute_cost + disk_cost:.2f}
-#     ====================
-#     """)
-    
-#     # Push to XCom for alerting
-#     context['ti'].xcom_push(key='estimated_cost', value=compute_cost + disk_cost)
+
+def get_secret_value(secret_id, project_id):
+    """Get secret value from Secret Manager"""
+    client = secretmanager.SecretManagerServiceClient()
+    name = f"projects/{project_id}/secrets/{secret_id}/versions/latest"
+    try:
+        response = client.access_secret_version(request={"name": name})
+        return response.payload.data.decode("UTF-8")
+    except Exception as e:
+        logger.error(f"Failed to get secret {secret_id}: {e}")
+        raise
+
+# ============================================
+# CONFIGURATION
+# ============================================
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Load variables once
+PROJECT_ID = Variable.get("project_id")
+GCP_CONN_ID = "google_cloud_default"
+REGION = "asia-southeast1"
+JOB_NAME = 'ms-member-short-init'
+AWS_KEY_SECRET_ID = Variable.get("aws_access_key")
+AWS_SECRET_SECRET_ID = Variable.get("aws_secret_key")
+
+# Get actual secret values
+AWS_ACCESS_KEY = get_secret_value(AWS_KEY_SECRET_ID, PROJECT_ID)
+AWS_SECRET_KEY = get_secret_value(AWS_SECRET_SECRET_ID, PROJECT_ID)
 
 # ============================================
 # DAG DEFINITION
@@ -254,8 +237,19 @@ dataflow_job = BeamRunPythonPipelineOperator(
         
         # AWS S3 credentials
         's3_region_name': 'ap-southeast-1',
-        's3_access_key_id': '{{ var.value.AWS_ACCESS_KEY_ID }}',
-        's3_secret_access_key': '{{ var.value.AWS_SECRET_ACCESS_KEY }}',
+        # 's3_access_key_id': '{{ var.value.AWS_ACCESS_KEY_ID }}',
+        # 's3_secret_access_key': '{{ var.value.AWS_SECRET_ACCESS_KEY }}',
+        # 's3_access_key_id': get_secret_value(
+        #     Variable.get("data_pipeline_aws_access_key_secret_name"), 
+        #     PROJECT_ID
+        # ),
+        # 's3_secret_access_key': get_secret_value(
+        #     Variable.get("data_pipeline_aws_secret_key_secret_name"),
+        #     PROJECT_ID
+        # ),
+        's3_access_key_id': AWS_ACCESS_KEY,
+        's3_secret_access_key': AWS_SECRET_KEY,
+
 
         'labels': {
             'environment': 'dev',  # หรือ dev/staging

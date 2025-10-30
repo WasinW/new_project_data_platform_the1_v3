@@ -399,6 +399,8 @@ ms-personas:setup-composer-variables:nonprod:
   - export COMPOSER_BUCKET=$(terraform output -raw composer_bucket)
   - export DATAFLOW_BUCKET=$(terraform output -raw dataflow_bucket)
   - export ARTIFACT_REGISTRY_URL=$(terraform output -raw artifact_registry_url)
+  - export AWS_ACCESS_KEY=$(terraform output -raw aws_access_key)
+  - export AWS_SECRET_KEY=$(terraform output -raw aws_secret_key)
 
   - cd $CI_PROJECT_DIR
 
@@ -441,6 +443,10 @@ ms-personas:setup-composer-variables:nonprod:
     set_var "dataflow_subnetwork" "https://www.googleapis.com/compute/v1/projects/the1-network-stg/regions/asia-southeast1/subnetworks/the1-subnet-dataflow-stg"
     set_var "dataflow_common_image" "$ARTIFACT_REGISTRY_URL/dataflow-common:latest"
 
+
+    # Set Composer variables with secret IDs
+    set_var "AWS_ACCESS_KEY_ID" "$AWS_ACCESS_KEY"
+    set_var "AWS_SECRET_ACCESS_KEY" "$AWS_SECRET_KEY"
     echo "Composer variables setup completed!"
 
   after_script:

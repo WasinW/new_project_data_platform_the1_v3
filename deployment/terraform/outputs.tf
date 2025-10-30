@@ -45,3 +45,14 @@ output "bigquery_tables" {
   }
   description = "Created BigQuery tables"
 }
+
+# Output secret names for Composer variables
+output "aws_access_key" {
+  value       = "data-pipeline-aws-access-key"
+  description = "Secret Manager ID for AWS Access Key"
+}
+
+output "aws_secret_key" {
+  value       = "data-pipeline-aws-secret-key"
+  description = "Secret Manager ID for AWS Secret Key"
+}
