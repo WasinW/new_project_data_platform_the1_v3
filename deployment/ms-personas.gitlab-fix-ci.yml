@@ -94,22 +94,22 @@ ms-personas:terraform:plan:nonprod:
   - rm -f $GOOGLE_APPLICATION_CREDENTIALS_PATH
   <<: *terraform_rules
 
-ms-personas:terraform:apply:nonprod:
-  stage: deploy-stg
-  tags:
-  - $RUNNER_TAG_NONPROD
-  variables:
-    WORKSPACE_ENV: stg
-    GOOGLE_APPLICATION_CREDENTIALS_PATH: $T1_PIPELINE_NP_SA
-  script:
-  - !reference [ .ms-personas-gcp-prepare, script ]
-  - !reference [ .ms-personas-terraform-apply, script ]
-  after_script:
-  - rm -f $GOOGLE_APPLICATION_CREDENTIALS_PATH
-  needs:
-  - ms-personas:terraform:plan:nonprod
-  when: manual
-  <<: *terraform_rules
+# ms-personas:terraform:apply:nonprod:
+#   stage: deploy-stg
+#   tags:
+#   - $RUNNER_TAG_NONPROD
+#   variables:
+#     WORKSPACE_ENV: stg
+#     GOOGLE_APPLICATION_CREDENTIALS_PATH: $T1_PIPELINE_NP_SA
+#   script:
+#   - !reference [ .ms-personas-gcp-prepare, script ]
+#   - !reference [ .ms-personas-terraform-apply, script ]
+#   after_script:
+#   - rm -f $GOOGLE_APPLICATION_CREDENTIALS_PATH
+#   needs:
+#   - ms-personas:terraform:plan:nonprod
+#   when: manual
+#   <<: *terraform_rules
 
 ms-personas:terraform:plan:prod:
   stage: deploy-prod
@@ -125,22 +125,22 @@ ms-personas:terraform:plan:prod:
   - rm -f $GOOGLE_APPLICATION_CREDENTIALS_PATH
   <<: *terraform_rules
 
-ms-personas:terraform:apply:prod:
-  stage: deploy-prod
-  tags:
-  - $RUNNER_TAG_PROD
-  variables:
-    WORKSPACE_ENV: prod
-    GOOGLE_APPLICATION_CREDENTIALS_PATH: 'google-application-credentials.json'
-  script:
-  - !reference [ .ms-personas-gcp-prepare, script ]
-  - !reference [ .ms-personas-terraform-apply, script ]
-  after_script:
-  - rm -f $GOOGLE_APPLICATION_CREDENTIALS_PATH
-  needs:
-  - ms-personas:terraform:plan:prod
-  when: manual
-  <<: *terraform_rules
+# ms-personas:terraform:apply:prod:
+#   stage: deploy-prod
+#   tags:
+#   - $RUNNER_TAG_PROD
+#   variables:
+#     WORKSPACE_ENV: prod
+#     GOOGLE_APPLICATION_CREDENTIALS_PATH: 'google-application-credentials.json'
+#   script:
+#   - !reference [ .ms-personas-gcp-prepare, script ]
+#   - !reference [ .ms-personas-terraform-apply, script ]
+#   after_script:
+#   - rm -f $GOOGLE_APPLICATION_CREDENTIALS_PATH
+#   needs:
+#   - ms-personas:terraform:plan:prod
+#   when: manual
+#   <<: *terraform_rules
 
 # ============================================
 # PART 2A: DATAFLOW_COMMON CHANGES (Build & Deploy)

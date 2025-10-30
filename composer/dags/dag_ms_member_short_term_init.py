@@ -86,12 +86,6 @@ PROJECT_ID = Variable.get("project_id")
 GCP_CONN_ID = "google_cloud_default"
 REGION = "asia-southeast1"
 JOB_NAME = 'ms-member-short-init'
-# AWS_KEY_SECRET_ID = Variable.get("aws_access_key")
-# AWS_SECRET_SECRET_ID = Variable.get("aws_secret_key")
-
-# Get actual secret values
-# AWS_ACCESS_KEY = get_secret_value('data-pipeline-aws-access-key', PROJECT_ID)
-# AWS_SECRET_KEY = get_secret_value('data-pipeline-aws-secret-key', PROJECT_ID)
 
 # ============================================
 # DAG DEFINITION
@@ -255,20 +249,6 @@ dataflow_job = BeamRunPythonPipelineOperator(
         
         # AWS S3 credentials
         's3_region_name': 'ap-southeast-1',
-        # 's3_access_key_id': '{{ var.value.AWS_ACCESS_KEY_ID }}',
-        # 's3_secret_access_key': '{{ var.value.AWS_SECRET_ACCESS_KEY }}',
-        # 's3_access_key_id': get_secret_value(
-        #     Variable.get("data_pipeline_aws_access_key_secret_name"), 
-        #     PROJECT_ID
-        # ),
-        # 's3_secret_access_key': get_secret_value(
-        #     Variable.get("data_pipeline_aws_secret_key_secret_name"),
-        #     PROJECT_ID
-        # ),
-        # 's3_access_key_id': AWS_ACCESS_KEY,
-        # 's3_secret_access_key': AWS_SECRET_KEY,
-
-        # ใช้ XCom แทน
         's3_access_key_id': "{{ ti.xcom_pull(task_ids='get_aws_credentials', key='aws_access_key') }}",
         's3_secret_access_key': "{{ ti.xcom_pull(task_ids='get_aws_credentials', key='aws_secret_key') }}",
 
@@ -306,13 +286,6 @@ dataflow_job = BeamRunPythonPipelineOperator(
     deferrable=False,
     dag=dag,
 )
-
-# check_cost = PythonOperator(
-#     task_id='check_dataflow_cost',
-#     python_callable=log_dataflow_cost,
-#     trigger_rule='all_success',
-#     dag=dag
-# )
 
 # wait_dataflow = DataflowJobStatusSensor(
 #     task_id="wait_for_dataflow_done",

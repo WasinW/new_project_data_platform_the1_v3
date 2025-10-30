@@ -62,6 +62,17 @@ def get_secret_value(secret_id, project_id):
         logger.error(f"Failed to get secret {secret_id}: {e}")
         raise
 
+def get_aws_credentials(**context):
+    """Get AWS credentials and push to XCom"""
+    access_key = get_secret_value('data-pipeline-aws-access-key', PROJECT_ID)
+    secret_key = get_secret_value('data-pipeline-aws-secret-key', PROJECT_ID)
+    
+    # Push to XCom for next tasks
+    context['ti'].xcom_push(key='aws_access_key', value=access_key)
+    context['ti'].xcom_push(key='aws_secret_key', value=secret_key)
+    
+    return {'status': 'credentials retrieved'}
+
 # ============================================
 # CONFIGURATION
 # ============================================
@@ -74,12 +85,6 @@ PROJECT_ID = Variable.get("project_id")
 GCP_CONN_ID = "google_cloud_default"
 REGION = "asia-southeast1"
 JOB_NAME = 'ms-member-short-init'
-AWS_KEY_SECRET_ID = Variable.get("aws_access_key")
-AWS_SECRET_SECRET_ID = Variable.get("aws_secret_key")
-
-# Get actual secret values
-AWS_ACCESS_KEY = get_secret_value(AWS_KEY_SECRET_ID, PROJECT_ID)
-AWS_SECRET_KEY = get_secret_value(AWS_SECRET_SECRET_ID, PROJECT_ID)
 
 # ============================================
 # DAG DEFINITION
@@ -169,6 +174,13 @@ monitor_member_transfer = BigQueryDataTransferServiceTransferRunSensor(
     dag=dag,
 )
 
+# Add task to get credentials
+get_credentials = PythonOperator(
+    task_id='get_aws_credentials',
+    python_callable=get_aws_credentials,
+    dag=dag
+)
+
 
 # BeamRunPythonPipelineOperator task
 dataflow_job = BeamRunPythonPipelineOperator(
@@ -217,11 +229,16 @@ dataflow_job = BeamRunPythonPipelineOperator(
         
         # AWS S3 credentials
         's3_region_name': 'ap-southeast-1',
-        # 's3_access_key_id': '{{ var.value.AWS_ACCESS_KEY_ID }}',
-        # 's3_secret_access_key': '{{ var.value.AWS_SECRET_ACCESS_KEY }}',
-        's3_access_key_id': AWS_ACCESS_KEY,
-        's3_secret_access_key': AWS_SECRET_KEY,
+        's3_access_key_id': "{{ ti.xcom_pull(task_ids='get_aws_credentials', key='aws_access_key') }}",
+        's3_secret_access_key': "{{ ti.xcom_pull(task_ids='get_aws_credentials', key='aws_secret_key') }}",
 
+        'labels': {
+            'environment': 'dev',  # หรือ dev/staging
+            'pipeline': 'ms-member-short-term',
+            'team': 'data-team',
+            'cost-center': 'data-engineering',
+            'run-type': 'scheduled',
+        },
     },
     # ----------------------------
     # 1) ฝั่ง Composer (driver)
@@ -273,4 +290,5 @@ trigger_mapping_transfer >> monitor_mapping_transfer
 trigger_member_transfer >> monitor_member_transfer
 
 # After both transfers complete -> pre-check -> dataflow -> wait
-[monitor_mapping_transfer, monitor_member_transfer] >> pre_check >> dataflow_job >> wait_dataflow
+[monitor_mapping_transfer, monitor_member_transfer] >> pre_check >> get_credentials >> dataflow_job >> wait_dataflow
+# [monitor_mapping_transfer, monitor_member_transfer] >> pre_check >> get_credentials >> dataflow_job 
