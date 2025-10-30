@@ -1,7 +1,20 @@
+
 # ============================================
 # BIGQUERY DATA TRANSFER SERVICE
 # Must run AFTER tables are created
 # ============================================
+# GET SECRET VERSIONS FROM SECRET MAANAGER
+data "google_secret_manager_secret_version" "aws_access_key" {
+  project = "${var.domain}-${terraform.workspace}"
+  secret  = google_secret_manager_secret.aws_access_key.secret_id
+  version = "latest"
+}
+
+data "google_secret_manager_secret_version" "aws_secret_key" {
+  project = "${var.domain}-${terraform.workspace}"
+  secret  = google_secret_manager_secret.aws_secret_key.secret_id
+  version = "latest"
+}
 
 resource "google_bigquery_data_transfer_config" "mapping_transfer" {
   project                = "${var.domain}-${terraform.workspace}"
@@ -12,13 +25,13 @@ resource "google_bigquery_data_transfer_config" "mapping_transfer" {
   
   params = {
     destination_table_name_template = google_bigquery_table.stg_mapping_reconcile.table_id
-    data_path                      = var.s3_mapping_path
-    access_key_id                  = "projects/${var.domain}-${terraform.workspace}/secrets/data-pipeline-aws-access-key/versions/latest"
-    secret_access_key              = "projects/${var.domain}-${terraform.workspace}/secrets/data-pipeline-aws-secret-key/versions/latest"
-    file_format                    = "PARQUET"
-    max_bad_records               = "0"
-    skip_leading_rows             = "1"
-    write_disposition             = "WRITE_TRUNCATE"
+    data_path                 = var.s3_mapping_path
+    access_key_id             = data.google_secret_manager_secret_version.aws_access_key.secret_data
+    secret_access_key         = data.google_secret_manager_secret_version.aws_secret_key.secret_data
+    file_format               = "PARQUET"
+    max_bad_records           = "0"
+    skip_leading_rows         = "1"
+    write_disposition         = "WRITE_TRUNCATE"
   }
   
   schedule = "every day 06:00"
@@ -40,13 +53,13 @@ resource "google_bigquery_data_transfer_config" "member_transfer" {
   
   params = {
     destination_table_name_template = google_bigquery_table.stg_ms_member.table_id
-    data_path                      = var.s3_member_path
-    access_key_id                  = "projects/${var.domain}-${terraform.workspace}/secrets/data-pipeline-aws-access-key/versions/latest"
-    secret_access_key              = "projects/${var.domain}-${terraform.workspace}/secrets/data-pipeline-aws-secret-key/versions/latest"
-    file_format                    = "PARQUET"
-    max_bad_records               = "0"
-    skip_leading_rows             = "1"
-    write_disposition             = "WRITE_TRUNCATE"  # Overwrite data
+    data_path             = var.s3_member_path
+    access_key_id         = data.google_secret_manager_secret_version.aws_access_key.secret_data
+    secret_access_key     = data.google_secret_manager_secret_version.aws_secret_key.secret_data
+    file_format           = "PARQUET"
+    max_bad_records       = "0"
+    skip_leading_rows     = "1"
+    write_disposition     = "WRITE_TRUNCATE"  # Overwrite data
   }
   
   schedule = "every day 06:00"
