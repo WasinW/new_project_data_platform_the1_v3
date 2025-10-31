@@ -654,6 +654,7 @@ def run_streaming_pipeline():
                 method=WriteToBigQuery.Method.STORAGE_WRITE_API
             )
         )
+        # -------------------   Write to BigQuery :: CDC EXTERNAL TABLE  ---------------------------------
 
         # ----------------------------------------------------------------------------------------------
         # Step 5.2: Write to S3 with batching

@@ -4,8 +4,8 @@ variables:
   RUNNER_TAG_NONPROD: 'nonprod-docker-cicd-x86'
   RUNNER_TAG_PROD: 'prod-docker-cicd-x86'
   DATA_PIPELINE_SERVICE_NAME: 'insight-data-pipeline'
-  DATA_PIPELINE_RUN_PATH: 'dataflow_common'
-  INFRASTRUCTURE_DATA_PIPELINE_RUN_PATH: 'infrastructure/common/data-pipeline'
+  DATA_PIPELINE_RUN_PATH: 'infrastructure/personas/ms-personas/scripts/dataflow_common'
+  INFRASTRUCTURE_DATA_PIPELINE_RUN_PATH: 'pipeline/ms-personas/terraform'
   DATA_PIPELINE_GAR_REPOSITORY_NAME: 'dataflow-images'
   GCP_STG_PROJECT_ID: 'the1-insight-stg'
   GCP_PRD_PROJECT_ID: 'the1-insight-prod'
@@ -22,26 +22,30 @@ variables:
   rules:
   - !reference [ .execute-pipeline-template, rules ]
   - changes:
-    - infrastructure/common/data-pipeline/**/*.tf
-    - infrastructure/common/data-pipeline/terraform.tfvars
+    - infrastructure/ms-personas/secrets.tf
+    when: never
+  - changes:
+    - pipeline/ms-personas/terraform/*.tf
+    - pipeline/ms-personas/terraform/terraform.tfvars
+    when: on_success
+  - when: never
 
 # Rule for dataflow_common changes (needs rebuild)
 .dataflow_common_rules: &dataflow_common_rules
   rules:
   - !reference [ .execute-pipeline-template, rules ]
   - changes:
-    - dataflow_common/**/*
-    - pipeline/data-pipeline.gitlab-ci.yml
-
-# Rule for scripts/configs changes only (no rebuild needed)
+    - infrastructure/personas/ms-personas/scripts/dataflow_common/**/*
+    # - pipeline/data-pipeline.gitlab-ci.yml
+    when: on_success
+  - when: never
+    # Rule for scripts/configs changes only (no rebuild needed)
 .scripts_config_rules: &scripts_config_rules
   rules:
   - !reference [ .execute-pipeline-template, rules ]
   - changes:
-    - dags/**/*
-    - configs/**/*
-    - dataflow_jobs/**/*
-    - scripts/**/*
+    - infrastructure/personas/ms-personas/scripts/dags/**/*
+    - infrastructure/personas/ms-personas/scripts/configs/**/*
     when: on_success
   - when: never
 
