@@ -1,0 +1,27 @@
+[
+  {
+    "name": "RECONCILE_COLUMN_NAME",
+    "type": "STRING",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "RECONCILE_SRC_COLUMN_NAME",
+    "type": "STRING",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "RECONCILE_RETRIEVED",
+    "type": "BOOLEAN",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "RECONCILE_ORIGINAL",
+    "type": "BOOLEAN",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "UPDATED_DATE",
+    "type": "TIMESTAMP",
+    "mode": "NULLABLE"
+  }
+]

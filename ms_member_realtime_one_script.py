@@ -15,7 +15,7 @@ import apache_beam as beam
 from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.transforms import window, trigger
 from apache_beam.io import ReadFromPubSub, WriteToPubSub
-from apache_beam.io.gcp.bigquery import ReadFromBigQuery, WriteToBigQuery
+from apache_beam.io.gcp.bigquery import ReadFromBigQuery, WriteToBigQuery , BigQueryDisposition
 from apache_beam.transforms.periodicsequence import PeriodicSequence
 import pyarrow as pa
 import pyarrow.parquet as pq
@@ -610,7 +610,52 @@ def run_streaming_pipeline():
                 insert_retry_strategy='RETRY_ON_TRANSIENT_ERROR'
             )
         )
-        
+        # ----------------------------------------------------------------------------------------------
+        # -------------------------------------- BQ WRITE TYPE -----------------------------------------
+        # ----------------------------------------------------------------------------------------------
+        # -------------------   Write to BigQuery :: CDC NATIVE TABLE  ---------------------------------
+        # CREATE TABLE `proj.dataset.ms_personas_ntv_cdc` (
+        #   member_id STRING,
+        #   ...,
+        #   PRIMARY KEY (member_id) NOT ENFORCED
+        # );
+
+        result_bq_ntv_cdc = (
+            mapped_records  # PCollection[dict] ที่ใส่ _CHANGE_TYPE = 'UPSERT'/'DELETE' แล้ว
+            | "Write CDC to BQ" >> WriteToBigQuery(
+                table= f"{PROJECT_ID}.{DATASET}.ms_personas_ntv_cdc",
+                # schema=bq_schema,  # ระบุ schema ให้ตรง
+                schema='SCHEMA_AUTODETECT',
+                create_disposition=BigQueryDisposition.CREATE_IF_NEEDED,
+                write_disposition=BigQueryDisposition.WRITE_APPEND,
+                method=WriteToBigQuery.Method.STORAGE_WRITE_API,
+                use_cdc_writes=True,                 # เปิด CDC mode
+                primary_key=["member_number"],           # ดึงจากคอนฟิกของคุณ
+                # expansion_service: ใช้ default GCP expansion service ได้
+            )
+        )
+        bq_ntv_cdc_dlq_rows = result_bq_ntv_cdc.failed_rows()                 # เอาไปลง Pub/Sub / GCS DLQ
+        bq_ntv_cdc_dlq_rows_with_errors = result_bq_ntv_cdc.failed_rows_with_errors()
+
+        # -------------------   Write to BigQuery :: APPEND EXTERNAL TABLE  ---------------------------------
+        # CREATE TABLE `proj.ds.ms_personas_ext_apd` (
+        #   member_id STRING, ...
+        # )
+        # WITH CONNECTION `proj.region.conn_id`
+        # OPTIONS (file_format='PARQUET', table_format='ICEBERG', storage_uri='gs://bucket/prefix');
+
+        result_bq_ext_apd = (
+            mapped_records
+            | "Write Append to BigLake Iceberg" >> WriteToBigQuery(
+                table= f"{PROJECT_ID}.{DATASET}.ms_personas_ext_apd",
+                schema=bq_schema,
+                create_disposition=BigQueryDisposition.CREATE_IF_NEEDED,
+                write_disposition=BigQueryDisposition.WRITE_APPEND,
+                method=WriteToBigQuery.Method.STORAGE_WRITE_API
+            )
+        )
+
+        # ----------------------------------------------------------------------------------------------
         # Step 5.2: Write to S3 with batching
         s3_write = (
             mapped_records

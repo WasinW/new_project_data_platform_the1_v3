@@ -390,3 +390,10 @@ python dataflow/FW/unified_dataflow_pipeline_bigtable.py \
 
     --network=https://www.googleapis.com/compute/v1/projects/the1-network-stg/global/networks/the1-vpc-net-share-stg \
     --subnetwork=https://www.googleapis.com/compute/v1/projects/the1-network-stg/regions/asia-southeast1/subnetworks/the1-subnet-dataflow-stg \
+
+อยากปรึกษาหน่อย  ตอนนี้ผมได้เคยขอให้ genai ช่วย รวม step streaming จากโรเจ้๕นี้รวมมาเป็น scripts เดียวกกันก่อน ตาม ms_member_realtime_one_script.py
+อันนี้ คืออยากจะมาลองทำเป็นอันเดียวก่อน แลวค่อย refactor แยก ส่วนพวกนี้เอาไปไว้ใน dataflow common อีกที
+แต่ตอนนี้ ขอแบบนี้ก่อน 
+คำถามคือ ตอนนี้ ใน ms_member_realtime_one_script อันนี้ 
+จะมี step Step 5.2: Write to S3 with batching อันนี้ 
+ผมอยาก
