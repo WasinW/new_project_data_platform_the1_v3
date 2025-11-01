@@ -104,7 +104,7 @@ class TestConfigModule(unittest.TestCase):
         
         print(f"   ✅ Merged successfully: {len(result)} keys")
     
-    @patch('dataflow_common.config.FileSystems')
+    @patch('apache_beam.io.filesystems.FileSystems')
     def test_load_config_from_gcs(self, mock_fs):
         """Test loading config from GCS"""
         print("\n🔬 Test: Load config from GCS")

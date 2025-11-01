@@ -4,7 +4,7 @@ google-cloud-secret-manager==2.16.3
 google-cloud-bigquery==3.11.4
 google-cloud-bigtable==2.19.0
 google-cloud-pubsub==2.18.1
-google-cloud-storage==2.10.0
+google-cloud-storage>=2.18.2,<3.0.0
 google-cloud-datacatalog-lineage==0.2.2
 
 # Dataflow dependencies

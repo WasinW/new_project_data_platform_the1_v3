@@ -15,7 +15,11 @@ from dataflow_common.config import PipelineConfig
 
 class TestConnectorsModule(unittest.TestCase):
     """Test connector classes"""
-    
+
+    class _PassThrough(beam.PTransform):
+        def expand(self, pcoll):
+            return pcoll
+
     def setUp(self):
         """Set up test config"""
         self.config_dict = {
@@ -48,7 +52,7 @@ class TestConnectorsModule(unittest.TestCase):
             query = "SELECT * FROM table"
             
             # Mock return value
-            mock_read_bq.return_value = beam.Create([{"id": 1}, {"id": 2}])
+            mock_read_bq.return_value = self._PassThrough()
             
             result = BigQueryConnector.read_query(
                 pipeline, query, self.config, "TestRead"
@@ -71,7 +75,9 @@ class TestConnectorsModule(unittest.TestCase):
         
         with TestPipeline() as p:
             data = p | beam.Create([{"id": 1}, {"id": 2}])
-            
+
+            mock_write_bq.return_value = self._PassThrough()
+
             BigQueryConnector.write(
                 data,
                 "output_table",
@@ -98,7 +104,9 @@ class TestConnectorsModule(unittest.TestCase):
         
         with TestPipeline() as p:
             data = p | beam.Create([{"id": 1, "name": "test"}])
-            
+
+            mock_write_parquet.return_value = self._PassThrough()
+
             ParquetConnector.write(
                 data,
                 "gs://bucket/output",
@@ -109,14 +117,16 @@ class TestConnectorsModule(unittest.TestCase):
             mock_write_parquet.assert_called_once()
             print(f"   ✅ Parquet write configured with schema")
     
-    @patch('beam.io.WriteToText')
+    @patch('apache_beam.io.WriteToText')
     def test_gcs_write_text(self, mock_write_text):
         """Test GCS text file write"""
         print("\n🔬 Test: GCS text write")
         
         with TestPipeline() as p:
             data = p | beam.Create(["line1", "line2"])
-            
+
+            mock_write_text.return_value = self._PassThrough()
+
             GCSFilesStorage.write_text(
                 data,
                 "gs://bucket/output.txt",
@@ -126,7 +136,7 @@ class TestConnectorsModule(unittest.TestCase):
             self.assertTrue(mock_write_text.called)
             print(f"   ✅ GCS text write configured")
     
-    @patch('beam.io.ReadFromText')
+    @patch('apache_beam.io.ReadFromText')
     def test_gcs_read_text(self, mock_read_text):
         """Test GCS text file read"""
         print("\n🔬 Test: GCS text read")
