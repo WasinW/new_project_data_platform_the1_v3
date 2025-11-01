@@ -504,6 +504,36 @@ class BatchedS3ParquetWriter(beam.DoFn):
             except Exception as e:
                 logger.error(f"Failed to create partition: {e}")
 
+def write_sink(pcoll, mode, opts):
+    if mode == "native_cdc":
+        return pcoll | "BQ_CDC" >> WriteToBigQuery(
+            table=opts["bq_table_ms_personas"],
+            schema=opts["schema"],
+            create_disposition=BigQueryDisposition.CREATE_IF_NEEDED,
+            write_disposition=BigQueryDisposition.WRITE_APPEND,
+            method=WriteToBigQuery.Method.STORAGE_WRITE_API,
+            use_cdc_writes=True,
+            primary_key=opts["primary_key"],
+        )
+    elif mode == "biglake_append":
+        return pcoll | "BQ_BigLake_Append" >> WriteToBigQuery(
+            table=opts["bq_table_ms_personas_ext_apd"],
+            schema=opts["schema"],
+            create_disposition=BigQueryDisposition.CREATE_IF_NEEDED,
+            write_disposition=BigQueryDisposition.WRITE_APPEND,
+            method=WriteToBigQuery.Method.STORAGE_WRITE_API,
+        )
+    elif mode == "iceberg_external_append":
+        # PSEUDOCODE: Managed I/O ICEBERG write
+        rows = pcoll | beam.Map(lambda d: beam.Row(**d))
+        return rows | "Iceberg_Append" >> beam.io.managed.WriteToIceberg(opts["iceberg_cfg"])
+    # elif mode == "iceberg_external_cdc":
+    #     # ทางชัวร์: SCD2 (append) ด้วย Managed I/O
+    #     # หรือ True CDC: ให้ Flink pipeline ทำ equality deletes
+    #     ...
+    else:
+        raise ValueError(f"Unknown sink mode: {mode}")
+
 # ============================================
 # MAIN PIPELINE
 # ============================================

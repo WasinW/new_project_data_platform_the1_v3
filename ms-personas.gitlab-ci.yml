@@ -1,0 +1,74 @@
+.ms-personas-gcp-prepare:
+  script:
+  - |
+    if [ "$WORKSPACE_ENV" = "prod" ]; then
+      cat $T1_PIPELINE_SA | base64 -d > $GOOGLE_APPLICATION_CREDENTIALS_PATH
+    fi
+  - export GOOGLE_APPLICATION_CREDENTIALS=$GOOGLE_APPLICATION_CREDENTIALS_PATH
+  - gcloud auth activate-service-account --key-file=$GOOGLE_APPLICATION_CREDENTIALS
+  after_script:
+  - rm $GOOGLE_APPLICATION_CREDENTIALS_PATH
+
+.ms-personas-terraform-plan:
+  script:
+  - echo "terraform plan starting"
+  - terraform init
+  - terraform workspace select -or-create $WORKSPACE_ENV
+  - terraform plan
+
+# .ms-personas-terraform-apply:
+#   script:
+#     - echo "terraform apply starting"
+#     - terraform init
+#     - terraform workspace select -or-create $WORKSPACE_ENV
+#     - terraform apply -auto-approve
+
+ms-personas:terraform:plan:nonprod:
+  stage: deploy-stg
+  tags:
+  - nonprod-docker-cicd-x86
+  variables:
+    WORKSPACE_ENV: stg
+    GOOGLE_APPLICATION_CREDENTIALS_PATH: $T1_PIPELINE_NP_SA
+  script:
+  - !reference [ .ms-personas-gcp-prepare, script ]
+  - !reference [ .ms-personas-terraform-plan, script ]
+  after_script:
+  - rm $GOOGLE_APPLICATION_CREDENTIALS_PATH
+  rules:
+  - !reference [ .execute-pipeline-template, rules ]
+  - changes:
+    - infrastructure/personas/ms-personas/*.tf
+  - when: never
+
+ms-personas:terraform:plan:prod:
+  stage: deploy-prod
+  tags:
+  - prod-docker-cicd-x86
+  variables:
+    WORKSPACE_ENV: prod
+    GOOGLE_APPLICATION_CREDENTIALS_PATH: 'google-application-credentials.json'
+  script:
+  - !reference [ .ms-personas-gcp-prepare, script ]
+  - !reference [ .ms-personas-terraform-plan, script ]
+  after_script:
+  - rm $GOOGLE_APPLICATION_CREDENTIALS_PATH
+  rules:
+  - !reference [ .execute-pipeline-template, rules ]
+  - changes:
+    - infrastructure/personas/ms-personas/*.tf
+
+ms-personas:dataflow:nonprod:
+  stage: deploy-stg
+  tags:
+  - nonprod-docker-cicd-x86
+  script:
+  - !reference [ .ms-personas-gcp-prepare, script ]
+  - echo 'copy to gcs'
+  after_script:
+  - rm $GOOGLE_APPLICATION_CREDENTIALS_PATH
+  rules:
+  - !reference [ .execute-pipeline-template, rules ]
+  - changes:
+    - infrastructure/personas/ms-personas/scripts/*.py
+  - when: never
