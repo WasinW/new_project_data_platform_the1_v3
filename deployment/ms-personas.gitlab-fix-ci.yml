@@ -158,6 +158,18 @@ sec:scan-secret:dataflow-common:
     SERVICE_NAME: $DATA_PIPELINE_SERVICE_NAME
   <<: *dataflow_common_rules
 
+dataflow-common:unit-tests:
+  stage: build
+  tags:
+  - $RUNNER_TAG_NONPROD
+  image: $PYTHON_IMAGE
+  script:
+  - pip install --upgrade pip
+  - pip install -r requirements.txt
+  - pip install -e pack_deploy/ms_personas/scripts/dataflow_common
+  - pytest -q tests tests_bk test/test_local.py
+  <<: *dataflow_common_rules
+
 # Build wheel
 dataflow-common:build-wheel:
   stage: build
@@ -178,6 +190,7 @@ dataflow-common:build-wheel:
     - $DATA_PIPELINE_RUN_PATH/dist/*.whl
   needs:
   - sec:scan-secret:dataflow-common
+  - dataflow-common:unit-tests
   <<: *dataflow_common_rules
 
 # Build Docker image (like triggers pattern)
