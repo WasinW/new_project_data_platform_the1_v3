@@ -72,6 +72,9 @@ def normalize_path(path: str) -> List[str]:
         if buf:
             out.append(buf)
         result = [p for p in out if p]
+        # tokens = re.findall(r"[A-Za-z0-9_]+", path)
+        # result = [token for token in tokens if token]
+        
         LOGGER.debug(f"Normalized path '{path}' to {result}")
         return result
 

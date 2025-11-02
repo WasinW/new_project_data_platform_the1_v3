@@ -22,7 +22,10 @@ gsutil cp composer/config/ms_member/streaming/streaming_realtime.yaml gs://t1-ai
 
 # 
 git add --all && git commit -a -m 'fix' && git push origin HEAD 
-
+  - pip install --upgrade pip
+  - pip install -r requirements.txt
+  - pip install -e pack_deploy/ms_personas/scripts/dataflow_common
+  - pytest -q tests test/test_local.py
 
 gsutil cp composer/dags/dag_short_term_hourly.py gs://t1-airflow-composer-bucket/dags/composer/dags/
 gsutil cp dataflow/FW/unified_dataflow_pipeline_bigtable.py gs://t1-dataflow-framework-bucket/framework/
@@ -70,9 +73,9 @@ gcloud builds submit \
 cd dataflow_common
 python setup.py bdist_wheel
 gsutil cp dist/dataflow_common-1.0.0-py3-none-any.whl gs://t1-airflow-composer-bucket/dags/packages/
-docker build -t dataflow-test:v1.33 .
-docker tag dataflow-test:v1.33 asia-southeast1-docker.pkg.dev/the1-insight-dev/dataflow-images/dataflow-common:v1.33
-docker push asia-southeast1-docker.pkg.dev/the1-insight-dev/dataflow-images/dataflow-common:v1.33
+docker build -t dataflow-test:v1.35 .
+docker tag dataflow-test:v1.35 asia-southeast1-docker.pkg.dev/the1-insight-dev/dataflow-images/dataflow-common:v1.35
+docker push asia-southeast1-docker.pkg.dev/the1-insight-dev/dataflow-images/dataflow-common:v1.35
 
 gsutil cp dataflow/job/ms_member_short_pipeline.py gs://t1-dataflow-framework-bucket/jobs/
 gsutil cp composer/dags/dag_ms_member_short_term_init.py gs://t1-airflow-composer-bucket/dags/composer/dags/

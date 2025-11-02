@@ -4,26 +4,28 @@ repo : new_project_data_platform_the1_v3
 branch : feature/enhance_realtime
 
 focus ที่ path 
-1.DATAFLOW COMMON  : dataflow_common/
+1.DATAFLOW COMMON  : pack_deploy/ms_personas/scripts/dataflow_common/
 
 2. INIT SHORT TERM DAG :
-    - composer/dags/dag_ms_member_short_term_init.py
-    - composer/config/ms_member/batch/ms_member_short_init.yaml
-    - dataflow/job/ms_member_short_pipeline.py
+    - pack_deploy/ms_personas/scripts/composer/dags/dag_ms_member_short_term_init.py
+    - pack_deploy/ms_personas/scripts/composer/config/ms_member/batch/ms_member_short_init.yaml
+    - pack_deploy/ms_personas/scripts/dataflow/job/ms_member_short_pipeline.py
 
 3. SHORT TERM DAG : 
-    - composer/dags/dag_ms_member_short_term.py
-    - composer/config/ms_member/batch/ms_member_short.yaml
+    - pack_deploy/ms_personas/scripts/composer/dags/dag_ms_member_short_term.py
+    - pack_deploy/ms_personas/scripts/composer/config/ms_member/batch/ms_member_short.yaml
 
 4. STREAMING DAG :
-    - composer/dags/dag_ms_member_realtime.py
-    - composer/config/ms_member/streaming/ms_member_midterm.yaml
+    - pack_deploy/ms_personas/scripts/composer/dags/dag_ms_member_realtime.py
+    - pack_deploy/ms_personas/scripts/composer/config/ms_member/streaming/ms_member_midterm.yaml
 
 5. DATAFLOW :
-    - dataflow/job/ms_member_short_pipeline.py
-    - dataflow/job/ms_member_streaming_pipeline.py
+    - pack_deploy/ms_personas/scripts/dataflow/job/ms_member_short_pipeline.py
+    - pack_deploy/ms_personas/scripts/dataflow/job/ms_member_streaming_pipeline.py
 
-6. DEPLOYMENT : deployment/
+6. DEPLOYMENT : pack_deploy/ms_personas/*tf , pack_deploy/ms_personas/ms-personas.gitlab-fix-ci.yml
+
+7. TEST : tests/
 
 
 หลักการทำงานคือ 

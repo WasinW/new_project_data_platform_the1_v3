@@ -37,44 +37,66 @@ def normalize_path(path: str) -> List[str]:
     try:
         if not path:
             return []
-        # Remove surrounding quotes and brackets
-        # Replace bracket notation with dots
-        s = path
-        # Remove leading/trailing whitespace
-        s = s.strip()
-        # Replace "['key']" patterns with ".key"
-        # Note: this is a simple parser and may not handle all edge cases
-        out: List[str] = []
-        buf = ""
-        in_bracket = False
-        quote_char = ""
-        for c in s:
-            if in_bracket:
-                if c == quote_char:
-                    # end of key
-                    out.append(buf)
-                    buf = ""
-                    quote_char = ""
-                elif c == "]":
-                    in_bracket = False
-                else:
-                    buf += c
-            else:
-                if c in ("'", '"'):
-                    in_bracket = True
-                    quote_char = c
-                elif c == '.':
-                    if buf:
-                        out.append(buf)
-                        buf = ""
-                else:
-                    buf += c
-        if buf:
-            out.append(buf)
-        result = [p for p in out if p]
-        LOGGER.debug(f"Normalized path '{path}' to {result}")
-        return result
-
+        # # Remove surrounding quotes and brackets
+        # # Replace bracket notation with dots
+        # s = path
+        # # Remove leading/trailing whitespace
+        # s = s.strip()
+        # # Replace "['key']" patterns with ".key"
+        # # Note: this is a simple parser and may not handle all edge cases
+        # out: List[str] = []
+        # buf = ""
+        # in_bracket = False
+        # quote_char = ""
+        # for c in s:
+        #     if in_bracket:
+        #         if c == quote_char:
+        #             # end of key
+        #             out.append(buf)
+        #             buf = ""
+        #             quote_char = ""
+        #         elif c == "]":
+        #             in_bracket = False
+        #         else:
+        #             buf += c
+        #     else:
+        #         if c in ("'", '"'):
+        #             in_bracket = True
+        #             quote_char = c
+        #         elif c == '.':
+        #             if buf:
+        #                 out.append(buf)
+        #                 buf = ""
+        #         else:
+        #             buf += c
+        # if buf:
+        #     out.append(buf)
+        # result = [p for p in out if p]
+        
+        # Handle bracket notation: profiles['memberId'] or ['profiles']['memberId']
+        # Replace ['key'] or [key] with .key
+        import re
+        
+        # First, remove leading/trailing brackets if they exist
+        cleaned = path.strip()
+        
+        # Replace ['key'] with .key
+        cleaned = re.sub(r"\['([^']+)'\]", r".\1", cleaned)
+        # Replace ["key"] with .key  
+        cleaned = re.sub(r'\["([^"]+)"\]', r".\1", cleaned)
+        # Replace [key] with .key (for unquoted keys)
+        cleaned = re.sub(r"\[([^\]]+)\]", r".\1", cleaned)
+        
+        # Remove leading dot if exists
+        if cleaned.startswith('.'):
+            cleaned = cleaned[1:]
+        
+        # Split by dots and filter out empty strings
+        parts = [p.strip() for p in cleaned.split('.') if p.strip()]
+        
+        LOGGER.debug(f"Normalized path '{path}' to {parts}")
+        return parts
+        
     except Exception as e:
         LOGGER.error(f"Error normalizing path '{path}': {e}")
         return []
