@@ -4,11 +4,11 @@ module "secret-manager" {
   project_id = var.project_id
   secrets = [
     {
-      name = "data-pipeline-aws-access-key"
+      name = "insight-data-pipeline-aws-access-key"
       # ไม่ใส่ secret_data - จะ add manual ทีหลัง
     },
     {
-      name = "data-pipeline-aws-secret-key"
+      name = "insight-data-pipeline-aws-secret-key"
       # ไม่ใส่ secret_data - จะ add manual ทีหลัง
     }
   ]
