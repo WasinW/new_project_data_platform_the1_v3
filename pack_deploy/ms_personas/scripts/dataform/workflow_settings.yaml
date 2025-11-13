@@ -1,0 +1,21 @@
+dataform/
+  workflow_settings.yaml        # ตั้งค่า defaultProject/location/dataset/vars
+  definitions/
+    includes/                   # JS helper และ macro (ref/format/where เงื่อนไข)
+    sources/
+      ms_member/
+        pg_orders.sqlx          # declaration ไปยัง raw/ext/iceberg
+        pg_customers.sqlx
+        ...
+    intermediate/               # = structure zone (views / temp tables)
+      ms_member/
+        stg_orders.sqlx
+        stg_customers.sqlx
+    output/                     # = refined zone (native BQ tables / incremental)
+      ms_member/
+        dim_member.sqlx
+        fct_member_activity.sqlx
+    semantic/                   # = analytics/semantic (views/metrics)
+      ms_member/
+        sem_member_profile.sqlx
+    assertions/                 # manual assertions เพิ่มเติม (ถ้าต้องการ)

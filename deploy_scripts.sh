@@ -73,9 +73,9 @@ gcloud builds submit \
 cd dataflow_common
 python setup.py bdist_wheel
 gsutil cp dist/dataflow_common-1.0.0-py3-none-any.whl gs://t1-airflow-composer-bucket/dags/packages/
-docker build -t dataflow-test:v1.35 .
-docker tag dataflow-test:v1.35 asia-southeast1-docker.pkg.dev/the1-insight-dev/dataflow-images/dataflow-common:v1.35
-docker push asia-southeast1-docker.pkg.dev/the1-insight-dev/dataflow-images/dataflow-common:v1.35
+docker build -t dataflow-test:v1.36 .
+docker tag dataflow-test:v1.36 asia-southeast1-docker.pkg.dev/the1-insight-dev/dataflow-images/dataflow-common:v1.36
+docker push asia-southeast1-docker.pkg.dev/the1-insight-dev/dataflow-images/dataflow-common:v1.36
 
 gsutil cp dataflow/job/ms_member_short_pipeline.py gs://t1-dataflow-framework-bucket/jobs/
 gsutil cp composer/dags/dag_ms_member_short_term_init.py gs://t1-airflow-composer-bucket/dags/composer/dags/
@@ -84,6 +84,8 @@ gsutil cp composer/dags/dag_ms_member_short_term.py gs://t1-airflow-composer-buc
 gsutil cp composer/config/ms_member/batch/ms_member_short_init.yaml gs://t1-airflow-composer-bucket/dags/composer/config/ms_member/batch/
 gsutil cp composer/config/ms_member/batch/ms_member_short.yaml gs://t1-airflow-composer-bucket/dags/composer/config/ms_member/batch/
 
+gsutil cp ms_member_realtime_one_script_v20250911.py gs://t1-dataflow-framework-bucket/jobs/
+gsutil cp composer/dags/dag_ms_member_realtime_test.py gs://t1-airflow-composer-bucket/dags/composer/dags/
 # -------------------------------------------------------------------------------------------------------------------
 gsutil cp composer/dags/test_run_bigquery_pipeline2.py gs://t1-airflow-composer-bucket/dags/composer/dags/test_run_bigquery_pipeline.py
 gsutil cp composer/dags/dag_ms_member_short_term.py gs://t1-airflow-composer-bucket/dags/composer/dags/

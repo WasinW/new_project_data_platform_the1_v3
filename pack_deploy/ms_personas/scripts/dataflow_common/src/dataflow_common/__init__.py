@@ -28,6 +28,28 @@ configuration plan.
 The package version is stored in :data:`__version__`.  See
 ``README.md`` for an overview of the design.
 """
+# ============= เพิ่มส่วนนี้ =============
+# import logging
+# import sys
+# import os
+
+# def _setup_dataflow_logging():
+#     """Setup logging for Dataflow workers (internal use)"""
+#     # Only setup if running on Dataflow (check environment)
+#     if os.environ.get('DATAFLOW_WORKER_JAR'):
+#         # Running on Dataflow worker
+#         root = logging.getLogger()
+#         if not root.handlers:
+#             handler = logging.StreamHandler(sys.stdout)
+#             handler.setFormatter(
+#                 logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+#             )
+#             root.addHandler(handler)
+#             root.setLevel(logging.INFO)
+
+# # Setup logging when module loads (only on Dataflow workers)
+# _setup_dataflow_logging()
+# ============= จบส่วนที่เพิ่ม =============
 
 __all__ = [
     "config",

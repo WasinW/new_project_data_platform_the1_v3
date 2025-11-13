@@ -1,29 +1,34 @@
-# dataflow_common/src/dataflow_common/utils/logger.py
+"""
+Simple logging for Dataflow workers
+"""
 import logging
-import sys
+import os
 
-def get_dataflow_logger(name):
+def get_worker_logger(name):
     """
-    Get a logger configured for Dataflow (not Airflow)
+    Get logger for Dataflow workers
+    Logs จะไปที่ Cloud Logging Explorer โดยอัตโนมัติ
+    
+    Args:
+        name: Logger name (จะเป็น prefix ใน Cloud Logging)
     
     Returns:
-        logging.Logger: Logger that outputs to Cloud Logging
+        Logger instance
     """
     logger = logging.getLogger(name)
     
-    # Check if already configured
-    if not logger.handlers:
-        handler = logging.StreamHandler(sys.stderr)
-        formatter = logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-        )
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
-        logger.setLevel(logging.INFO)
-        
+    # Set level from env or default
+    level = os.environ.get('DATAFLOW_LOG_LEVEL', 'INFO')
+    logger.setLevel(getattr(logging, level.upper(), logging.INFO))
+    
+    # ไม่ต้อง add handler! Dataflow จัดการให้แล้ว
+    # Handlers จะทำให้ log ซ้ำ
+    
     return logger
 
-# Convenience function for step classes
-def get_step_logger(step_class):
-    """Get logger for a step class"""
-    return get_dataflow_logger(f"dataflow_common.steps.{step_class.__class__.__name__}")
+# Helper function
+def log_worker_info(logger, message, **kwargs):
+    """Helper to add worker info to logs"""
+    import socket
+    worker_id = socket.gethostname()
+    logger.info(f"[{worker_id}] {message}", **kwargs)

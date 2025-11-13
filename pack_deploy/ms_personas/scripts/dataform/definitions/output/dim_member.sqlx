@@ -1,0 +1,27 @@
+config {
+  type: "incremental",
+  schema: "refined_${dataform.projectConfig.vars.env}",
+  name: "dim_member",
+  tags: ["zone:refined","domain:ms_member"],
+  uniqueKey: ["member_id"],
+  bigquery: {
+    partitionBy: "DATE(updated_at)",
+    clusterBy: ["member_id"]
+  },
+  assertions: {
+    nonNull: ["member_id"],
+    uniqueKey: ["member_id"]
+  }
+}
+
+select
+  m.member_id,
+  any_value(m.full_name) as full_name,
+  max(m.updated_at) as updated_at
+from ${ref("stg_customers")} m
+group by 1
+
+{% if dataform.incremental() %}
+-- จำกัดขอบเขตตอนรัน incremental (เช่น backfill ล่าสุด 72 ชม.)
+qualify updated_at >= timestamp_sub(current_timestamp(), interval ${dataform.projectConfig.vars.lookback_hours} hour)
+{% endif %}

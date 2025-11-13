@@ -1,0 +1,7 @@
+config {
+  type: "declaration",
+  database: "${dataform.projectConfig.vars.raw_project}",
+  schema: "raw_${dataform.projectConfig.vars.env}",
+  name: "pg_orders_ext",
+  description: "Postgres orders ingested by Dataproc to raw zone"
+}

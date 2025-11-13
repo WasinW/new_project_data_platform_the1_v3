@@ -52,28 +52,6 @@ def check_dataflow_setup(**context):
         logger.info(f"Recent jobs: {result.stdout[:500]}")
     return True
 
-def get_secret_value(secret_id, project_id):
-    """Get secret value from Secret Manager"""
-    client = secretmanager.SecretManagerServiceClient()
-    name = f"projects/{project_id}/secrets/{secret_id}/versions/latest"
-    try:
-        response = client.access_secret_version(request={"name": name})
-        return response.payload.data.decode("UTF-8")
-    except Exception as e:
-        logger.error(f"Failed to get secret {secret_id}: {e}")
-        raise
-
-def get_aws_credentials(**context):
-    """Get AWS credentials and push to XCom"""
-    access_key = get_secret_value('insight-data-pipeline', PROJECT_ID)['aws_access_key']
-    secret_key = get_secret_value('insight-data-pipeline', PROJECT_ID)['aws_secret_key']
-    
-    # Push to XCom for next tasks
-    context['ti'].xcom_push(key='aws_access_key', value=access_key)
-    context['ti'].xcom_push(key='aws_secret_key', value=secret_key)
-    
-    return {'status': 'credentials retrieved'}
-
 # ============================================
 # CONFIGURATION
 # ============================================
@@ -102,7 +80,7 @@ default_args = {
 
 # DAG definition
 dag = DAG(
-    'ms_member_short_term_init',
+    'ms_member_realtime_test',
     default_args=default_args,
     description='MS Member Pipeline - Initial/Manual Run',
     schedule_interval=None,  # Manual trigger only
@@ -121,73 +99,12 @@ pre_check = PythonOperator(
     dag=dag
 )
 
-# Task 1: Trigger mapping_reconcile transfer from S3 to BigQuery
-trigger_mapping_transfer = BigQueryDataTransferServiceStartTransferRunsOperator(
-    task_id="trigger_mapping_reconcile_transfer",
-    project_id=PROJECT_ID,
-    location=REGION,
-    transfer_config_id='{{ var.value.mapping_transfer_config_id }}',
-    requested_run_time={"seconds": int(time.time())},
-    gcp_conn_id=GCP_CONN_ID,
-    deferrable=True,
-    dag=dag,
-)
-
-# Task 2: Monitor mapping transfer
-monitor_mapping_transfer = BigQueryDataTransferServiceTransferRunSensor(
-    task_id="monitor_mapping_transfer",
-    transfer_config_id='{{ var.value.mapping_transfer_config_id }}',
-    run_id="{{ ti.xcom_pull(task_ids='trigger_mapping_reconcile_transfer', key='run_id') }}",
-    expected_statuses={"SUCCEEDED"},
-    project_id=PROJECT_ID,
-    location=REGION,
-    poke_interval=60,
-    timeout=600,
-    mode="poke",
-    gcp_conn_id=GCP_CONN_ID,
-    dag=dag,
-)
-
-# Task 3: Trigger MS member transfer
-trigger_member_transfer = BigQueryDataTransferServiceStartTransferRunsOperator(
-    task_id="trigger_ms_member_transfer",
-    project_id=PROJECT_ID,
-    location=REGION,
-    transfer_config_id='{{ var.value.member_transfer_config_id }}',
-    requested_run_time={"seconds": int(time.time())},
-    gcp_conn_id=GCP_CONN_ID,
-    deferrable=True,
-    dag=dag,
-)
-
-# Task 4: Monitor member transfer completion
-monitor_member_transfer = BigQueryDataTransferServiceTransferRunSensor(
-    task_id="monitor_member_transfer",
-    transfer_config_id='{{ var.value.member_transfer_config_id }}',
-    run_id="{{ ti.xcom_pull(task_ids='trigger_ms_member_transfer', key='run_id') }}",
-    expected_statuses={"SUCCEEDED"},
-    project_id=PROJECT_ID,
-    location=REGION,
-    poke_interval=60,
-    timeout=600,
-    mode="poke",
-    gcp_conn_id=GCP_CONN_ID,
-    dag=dag,
-)
-
-# Add task to get credentials
-get_credentials = PythonOperator(
-    task_id='get_aws_credentials',
-    python_callable=get_aws_credentials,
-    dag=dag
-)
-
 
 # BeamRunPythonPipelineOperator task
 dataflow_job = BeamRunPythonPipelineOperator(
     task_id='run_dataflow_pipeline',
     runner='DataflowRunner',
-    py_file='{{ var.value.bucket_dataflow }}/jobs/ms_member_short_pipeline.py',
+    py_file='{{ var.value.bucket_dataflow }}/jobs/ms_member_realtime_one_script_v20250911.py',
 
     # Dataflow pipeline options
     # ----------------------------
@@ -220,7 +137,7 @@ dataflow_job = BeamRunPythonPipelineOperator(
         'worker_disk_type': 'compute.googleapis.com/projects//zones//diskTypes/pd-ssd',
         # cost: ~$0.17/GB/month ($0.00024/GB/hour)
         # ------------------------------------------------------------------------------------
-        'worker_log_level': 'INFO',
+
         'experiments': [
             'use_runner_v2'
             ,'enable_stackdriver_agent_metrics'
@@ -232,7 +149,7 @@ dataflow_job = BeamRunPythonPipelineOperator(
             # 'min_cpu_platform=Intel Skylake'  # ← ใส่ตรงนี้ถ้าอยากใช้
             ],
         # Control log levels
-        'defaultWorkerLogLevel': 'INFO',    # Worker logs
+        # 'defaultWorkerLogLevel': 'INFO',    # Worker logs
         # 'sdkHarnessLogLevel': 'WARNING',    # SDK logs
         # 'worker_log_level': 'INFO',         # Your code
         # 'log_level': 'INFO',  # สำหรับ pipeline code ของเรา
@@ -247,11 +164,6 @@ dataflow_job = BeamRunPythonPipelineOperator(
         'mode': 'batch',
         'config_path': '{{ var.value.bucket_config }}/dags/composer/config/ms_member/batch/ms_member_short_init.yaml',
         
-        # AWS S3 credentials
-        's3_region_name': 'ap-southeast-1',
-        's3_access_key_id': "{{ ti.xcom_pull(task_ids='get_aws_credentials', key='aws_access_key') }}",
-        's3_secret_access_key': "{{ ti.xcom_pull(task_ids='get_aws_credentials', key='aws_secret_key') }}",
-
         'labels': {
             'environment': 'dev',  # หรือ dev/staging
             'pipeline': 'ms-member-short-init',
@@ -287,35 +199,4 @@ dataflow_job = BeamRunPythonPipelineOperator(
     dag=dag,
 )
 
-# wait_dataflow = DataflowJobStatusSensor(
-#     task_id="wait_for_dataflow_done",
-#     project_id=PROJECT_ID,
-#     location=REGION,
-#     job_id="{{ ti.xcom_pull(task_id='run_dataflow_pipeline', key='job_id') }}",  # ใช้ key เดียว
-#     # job_id="{{ ti.xcom_pull(task_ids='run_dataflow_pipeline', key='job_id') }}",  # ใช้ key เดียว
-#     # run_id="{{ ti.xcom_pull(task_ids='trigger_ms_member_transfer', key='run_id') }}",
-#     # job_id="{{ ti.xcom_pull(task_ids='run_dataflow_pipeline', key='job_id') or "
-#     #        "ti.xcom_pull(task_ids='run_dataflow_pipeline', key='dataflow_job_id') or "
-#     #        "ti.xcom_pull(task_ids='run_dataflow_pipeline') }}",  # ลองหลาย keys
-#     expected_statuses={"JOB_STATE_DONE"},
-#     poke_interval=60,
-#     timeout=10800,  # 3 hours
-#     mode="reschedule",
-#     deferrable=False,
-#     gcp_conn_id=GCP_CONN_ID,
-#     dag=dag,
-# )
-
-# ============================================
-# TASK DEPENDENCIES
-# ============================================
-# # Parallel transfers
-trigger_mapping_transfer >> monitor_mapping_transfer
-trigger_member_transfer >> monitor_member_transfer
-
-# After both transfers complete -> pre-check -> dataflow -> wait
-# [monitor_mapping_transfer, monitor_member_transfer] >> pre_check >> dataflow_job >> wait_dataflow
-# [monitor_mapping_transfer, monitor_member_transfer] >> pre_check >> dataflow_job >> check_cost
-# [monitor_mapping_transfer, monitor_member_transfer] >> pre_check >> dataflow_job
-[monitor_mapping_transfer, monitor_member_transfer] >> pre_check >> get_credentials >> dataflow_job
-# pre_check >> dataflow_job >> wait_dataflow
+pre_check >> dataflow_job

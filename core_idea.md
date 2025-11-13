@@ -25,7 +25,7 @@ focus ที่ path
 
 6. DEPLOYMENT : pack_deploy/ms_personas/*tf , pack_deploy/ms_personas/ms-personas.gitlab-fix-ci.yml
 
-7. TEST : tests/
+7. TEST : pack_deploy/ms_personas/scripts/unittest
 
 
 หลักการทำงานคือ 

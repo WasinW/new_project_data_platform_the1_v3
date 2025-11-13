@@ -1,0 +1,12 @@
+config {
+  type: "view",
+  schema: "stg_${dataform.projectConfig.vars.env}",
+  tags: ["zone:structure","domain:ms_member"]
+}
+select
+  order_id,
+  member_id,
+  order_ts,
+  cast(amount as numeric) as amount
+from ${ref("pg_orders_ext")}
+where order_ts is not null

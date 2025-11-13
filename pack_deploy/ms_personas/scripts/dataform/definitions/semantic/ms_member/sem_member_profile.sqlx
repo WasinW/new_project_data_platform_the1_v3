@@ -1,0 +1,10 @@
+config {
+  type: "view",
+  schema: "sem_${dataform.projectConfig.vars.env}",
+  tags: ["zone:semantic","domain:ms_member"]
+}
+select
+  d.member_id,
+  d.full_name,
+  date(d.updated_at) as as_of_date
+from ${ref("dim_member")} d

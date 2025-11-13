@@ -22,7 +22,7 @@ from dataflow_common.transforms import (
     load_schema_from_spec,
 )
 
-# ✅ แก้ไข: ใช้ standard Python logging
+# # ✅ แก้ไข: ใช้ standard Python logging
 LOGGER = logging.getLogger(__name__)
 
 # Import streaming steps
@@ -56,8 +56,15 @@ from dataflow_common.steps.streaming_midterm import (
     EnhancedWriteToBigQueryStep,
 )
 
+
 class ReadBQQueryStep(BaseStep):
     """Read a BigQuery SQL query into a PCollection of dictionaries."""
+    # def setup(self):
+    #     # Setup logger สำหรับ worker
+    #     # Log นี้จะไปที่ Cloud Logging
+    #     self.logger = logging.getLogger("dataflow.ReadBQQueryStep")
+    #     self.logger.setLevel(logging.INFO)
+    #     self.counter = 0
     
     def execute(self, pipeline: beam.Pipeline) -> beam.PCollection:
         try:
@@ -83,6 +90,12 @@ class ReadBQQueryStep(BaseStep):
 
 class BuildMappingDictStep(BaseStep):
     """Build a mapping dictionary from mapping rows."""
+    # def setup(self):
+    #     # Setup logger สำหรับ worker
+    #     # Log นี้จะไปที่ Cloud Logging
+    #     self.logger = logging.getLogger("dataflow.BuildMappingDictStep")
+    #     self.logger.setLevel(logging.INFO)
+    #     self.counter = 0
     
     def execute(self, pipeline: beam.Pipeline) -> beam.PCollection:
         try:
@@ -122,6 +135,13 @@ class BuildMappingDictStep(BaseStep):
             raise
 
 class ParseJsonStep(BaseStep):
+    """"""
+    # def setup(self):
+    #     # Setup logger สำหรับ worker
+    #     # Log นี้จะไปที่ Cloud Logging
+    #     self.logger = logging.getLogger("dataflow.ParseJsonStep")
+    #     self.logger.setLevel(logging.INFO)
+    #     self.counter = 0
     
     def execute(self, pipeline):
         try:
@@ -159,6 +179,12 @@ class ParseJsonStep(BaseStep):
     
 class MapRecordStep(BaseStep):
     """Apply a mapping dictionary to each record in the input PCollection."""
+    # def setup(self):
+    #     # Setup logger สำหรับ worker
+    #     # Log นี้จะไปที่ Cloud Logging
+    #     self.logger = logging.getLogger("dataflow.MapRecordStep")
+    #     self.logger.setLevel(logging.INFO)
+    #     self.counter = 0
     
     def execute(self, pipeline: beam.Pipeline) -> beam.PCollection:
         try:
@@ -190,6 +216,12 @@ class MapRecordStep(BaseStep):
 
 class KVPairsStep(BaseStep):
     """Convert records into key/value pairs keyed by the specified field."""
+    # def setup(self):
+    #     # Setup logger สำหรับ worker
+    #     # Log นี้จะไปที่ Cloud Logging
+    #     self.logger = logging.getLogger("dataflow.KVPairsStep")
+    #     self.logger.setLevel(logging.INFO)
+    #     self.counter = 0
     
     def execute(self, pipeline: beam.Pipeline) -> beam.PCollection:
         try:
@@ -225,6 +257,12 @@ class KVPairsStep(BaseStep):
 
 class CoGroupByKeyStep(BaseStep):
     """Group multiple keyed PCollections by key."""
+    # def setup(self):
+    #     # Setup logger สำหรับ worker
+    #     # Log นี้จะไปที่ Cloud Logging
+    #     self.logger = logging.getLogger("dataflow.CoGroupByKeyStep")
+    #     self.logger.setLevel(logging.INFO)
+    #     self.counter = 0
     
     def execute(self, pipeline: beam.Pipeline) -> beam.PCollection:
         try:
@@ -253,6 +291,12 @@ class CoGroupByKeyStep(BaseStep):
 
 class CoalesceByMappingStep(BaseStep):
     """Coalesce new and old records using mapping flags."""
+    # def setup(self):
+    #     # Setup logger สำหรับ worker
+    #     # Log นี้จะไปที่ Cloud Logging
+    #     self.logger = logging.getLogger("dataflow.CoalesceByMappingStep")
+    #     self.logger.setLevel(logging.INFO)
+    #     self.counter = 0
     
     def execute(self, pipeline: beam.Pipeline) -> beam.PCollection:
         try:
@@ -295,6 +339,12 @@ class CoalesceByMappingStep(BaseStep):
 
 class NormalizeToSchemaStep(BaseStep):
     """Normalise rows to the loaded schema using the configured formats."""
+    # def setup(self):
+    #     # Setup logger สำหรับ worker
+    #     # Log นี้จะไปที่ Cloud Logging
+    #     self.logger = logging.getLogger("dataflow.NormalizeToSchemaStep")
+    #     self.logger.setLevel(logging.INFO)
+    #     self.counter = 0
 
     _schema_cache: Optional[Any] = None
 
@@ -335,6 +385,12 @@ class NormalizeToSchemaStep(BaseStep):
 
 class WriteParquetStep(BaseStep):
     """Write a PCollection of dictionaries to Parquet files."""
+    # def setup(self):
+    #     # Setup logger สำหรับ worker
+    #     # Log นี้จะไปที่ Cloud Logging
+    #     self.logger = logging.getLogger("dataflow.WriteParquetStep")
+    #     self.logger.setLevel(logging.INFO)
+    #     self.counter = 0
     
     def execute(self, pipeline: beam.Pipeline) -> None:
         try:
@@ -379,6 +435,12 @@ class WriteParquetStep(BaseStep):
 
 class WriteToBigQueryStep(BaseStep):
     """Write to BigQuery table"""
+    # def setup(self):
+    #     # Setup logger สำหรับ worker
+    #     # Log นี้จะไปที่ Cloud Logging
+    #     self.logger = logging.getLogger("dataflow.WriteToBigQueryStep")
+    #     self.logger.setLevel(logging.INFO)
+    #     self.counter = 0
     
     def execute(self, pipeline: beam.Pipeline) -> None:
         try:
@@ -413,31 +475,16 @@ class WriteToBigQueryStep(BaseStep):
             LOGGER.debug(f"[{self.step_id}] Stack trace: {traceback.format_exc()}")
             raise
 
-# class ReadGCSStep(BaseStep):
-#    def __init__(self, *args, **kwargs):
-#        super().__init__(*args, **kwargs)
-#        # Logger เฉพาะสำหรับ step นี้
-#        self.logger = get_dataflow_logger(f"{__name__}.{self.step_id}")
-#     def execute(self, pipeline: beam.Pipeline) -> beam.PCollection:
-#         # Determine the path and format from the step specification.
-#         path = self.spec.get("path") or self.spec.get("gcs_path")
-#         if not path:
-#             raise ValueError(f"ReadGCS step '{self.step_id}' requires a 'path' parameter")
-#         fmt = (self.spec.get("format") or "text").lower()
-#         if fmt not in {"text", "json"}:
-#             raise ValueError(f"Unsupported format '{fmt}' in ReadGCS step '{self.step_id}'")
-
-#         # Read the file as text lines.
-#         pcoll = pipeline | self.step_id >> beam.io.ReadFromText(path)
-
-#         # Optionally parse JSON lines.
-#         if fmt == "json":
-#             pcoll = pcoll | f"{self.step_id}_ParseJson" >> beam.Map(json.loads)
-#         return pcoll
-
 
 class WriteGCSStep(BaseStep):
-    
+    """Write to GCS files"""
+    # def setup(self):
+    #     # Setup logger สำหรับ worker
+    #     # Log นี้จะไปที่ Cloud Logging
+    #     self.logger = logging.getLogger("dataflow.WriteGCSStep")
+    #     self.logger.setLevel(logging.INFO)
+    #     self.counter = 0
+
     def execute(self, pipeline: beam.Pipeline) -> None:
         try:
             input_key: Optional[str] = self.spec.get("in") or self.spec.get("id")

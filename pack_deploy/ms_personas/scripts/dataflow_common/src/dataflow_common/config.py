@@ -172,7 +172,17 @@ class IOConfig:
 
     s3: Dict[str, Any] = field(default_factory=dict)
     bq: Dict[str, Any] = field(default_factory=dict)
-
+    def __init__(self, s3: Dict[str, Any] = None, bq: Dict[str, Any] = None, **kwargs):
+        """Initialize with s3, bq and any additional fields"""
+        self.s3 = s3 or {}
+        self.bq = bq or {}
+        # Store any additional fields as attributes
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+    
+    def get(self, key: str, default: Any = None) -> Any:
+        """Get config value with default"""
+        return getattr(self, key, default)
 @dataclass
 class StreamingConfig:
     """Configuration specific to streaming pipelines"""
